@@ -1,0 +1,40 @@
+suffixes for number types, e.g.
+	34
+	34u
+	34u8
+	34f32
+	etc.
+
+explicit type casting
+	34u as int //unsigned to signed
+	10.4343f64 as i8 //becomes 10i
+
+Owning (unique) pointer
+	For a type `T` there is a type `~T` which is owning pointer to a T
+	create an owned pointer with `box`
+		let x = box 75; //type has type ~int
+		println!("x points to {}", *x); //* to dereference
+		let mut y = box 33; //mutable pointer
+		*y = 43; //works
+	Can return owning pointers from a function and they continue to live
+	Pointers are owned by variables (multiple variables can't point to the same thing)
+		let x = box 75;
+		let y = x;
+		//let z = *x; //error
+	Rust generally has move syntax, sometimes has copy syntax (e.g. primitive types)
+
+Borrowed references
+	Mutability of references
+		let x= &3; // type: &int, immutable
+		let mut x = 5;
+		let xr = &x; // type: &int, immutable
+		let xr_mut = &mutx; // type: &mut int, mutable!
+	Can take a mutable reference as a parameter
+		fn foo(x: &mut int) { ... }
+	When mutable value is borrowed, it becomes immutable for the duration of the borrow
+	Data in Rust can only ever be modified through one variable or pointer (in general)
+	Pointer types are converted to reference when passed to another function
+	Immutable variables are guaranteed to never change
+	Mutible variables are unique, guaranteed to never change unless you change it
+	Can never take a reference that has a longer lifetime than what it's referencing
+	

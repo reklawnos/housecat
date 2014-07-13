@@ -1,0 +1,9 @@
+[package]
+
+name = "housecat"
+version = "0.1.0"
+authors = [ "whenderson" ]
+
+[[bin]]
+
+name = "housecat"
