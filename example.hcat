@@ -1,12 +1,9 @@
-import "path/to/file.hcat" //.hcat is appended
+import "path/to/file.hcat" # .hcat is appended
 
-/*
-	block comments!
-	/* also checks for nested block comments */
-*/
-var doPrint = func(name) {
-	var greeting = "hello" //strings are mutable
-	print(greeting + " " + name) //string concatenation
+# Single line comments using pound signs
+var doPrint: func(name) {
+	var greeting: "hello" # strings are mutable
+	print(greeting + " " + name) # string concatenation
 }
 
 doPrint()
