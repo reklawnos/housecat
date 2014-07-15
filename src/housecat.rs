@@ -1,6 +1,8 @@
+#![feature(phase)]
 extern crate regex;
-use regex::Regex;
-use std::io;
+#[phase(plugin)] extern crate regex_macros;
+
+//use std::io;
 use std::io::BufferedReader;
 use std::io::File;
 use std::os;
@@ -33,81 +35,69 @@ enum Token {
 	Div,                // '/'
 }
 
+enum ParseTypes {
+	PtName, //ident or keyword
+	PtFloat,
+	PtInt,
+	PtSkip,
+	PtComment,
+	PtBinOp
+}
+
 fn do_file_parse(path: &Path) {
 	let token_specs = [
-		("Name", r"[A-z]\w*"),
-		("Float", r"-?[0-9]*\.?[0-9]+(?:e[-+]?[0-9]+)?"),
-		("Int", r"-?[0-9]+"),
-		("Skip", r"\s"),
+		(PtName, regex!(r"^[A-z]\w*")),
+		(PtFloat, regex!(r"^-?[0-9]*\.?[0-9]+(?:e[-+]?[0-9]+)?")),
+		(PtInt, regex!(r"^-?[0-9]+")),
+		(PtSkip, regex!(r"^\s")),
+		(PtComment, regex!(r"^#"))
 	];
 
-	let mut re_string = "".to_string();
-
-	//Assemble a regex from our token specs
-	for spec in token_specs.iter() {
-		match spec {
-			&(name, re) => {
-				re_string.push_str(format!("(?P<{}>{})|", name, re).as_slice());
-			}
-		}
-	}
-
-	//Get rid of the last '|'
-	re_string.pop_char();
-
-	//Generate a new regex
-	let re = match Regex::new(re_string.as_slice()) {
-		Ok(re) => re,
-		Err(err) => fail!("{}", err),
-	};
-
 	let mut file = BufferedReader::new(File::open(path));
-	let mut result : Vec<Token> = Vec::new();
+	let mut _result : Vec<Token> = Vec::new();
 
 	for (line_index, l) in file.lines().enumerate() {
 		println!("------------lexing line {}", line_index);
 		let mut line = l.unwrap();
-		let mut next_line = line.clone();
 		let mut col = 0u;
-		let mut line_offset = 0u;
-		while next_line.len() > 0 {
-			//TODO: figure out this Rust pointer mumbo jumbo
-			line = next_line.clone();
-			let line_clone = line.as_slice().clone();
-			let caps = re.captures(line_clone).unwrap();
+		while line.len() > 0 {
 			let mut found_token = false;
-			//Both of these iterators are ahead of the specs by 1, due to the 0th general capture
-			let mut caps_iter = caps.iter();
-			caps_iter.next();
-			let mut pos_iter = caps.iter_pos();
-			pos_iter.next();
-			let mut it = token_specs.iter().zip(caps_iter.zip(pos_iter));
-			//Iterate through token types and check for matches
+			let mut found_comment = false;
 			println!("----------this is one go through")
-			for (&(name, _), (res, pos)) in it {
-				println!("The result with name '{}' at position {} is: '{}'", name, pos, res);
-				if res != "" {
-					println!("something was matched! :D");
-					let (start,end) = pos.unwrap();
-					println!("(start, end): {} {}", start, end);
-
-					//The very first character should be the start of a valid token
-					if start != 0 {
-						fail!("Lexing failure: unrecognized symbol at line {}, column {}: {}",
-							line_index + 1,
-							col + 1,
-							line.as_slice().char_at(col));
-					}
-					//Push the column index to the end of what we just read
-					col += end;
-					next_line = line.as_slice().slice_from(end).to_string();
-					found_token = true;
-					break;
+			for &(parse_type, ref re) in token_specs.iter() {
+				let pos = match re.find(line.as_slice()) {
+					Some(range) => range,
+					None => continue
+				};
+				match parse_type {
+					PtComment => {
+						found_comment = true;
+						break;
+					},
+					_ => {}
 				}
-			}
-			if !found_token {
-				println!("no token found :(");
+				let (start,end) = pos;
+				let cl = line.clone();
+				let res = cl.as_slice().slice(start, end);
+				println!("The result at position {} is: '{}'", pos, res);
+				//Push the column index to the end of what we just read
+				col += end;
+				line = line.as_slice().slice_from(end).to_string();
+				found_token = true;
 				break;
+			}
+
+			if found_comment {
+				break;
+			}
+			//No token was found, which means that something was invalid
+			if !found_token {
+				//println!("line is {}", line);
+				println!("Lexing failure: unrecognized symbol at line {}, column {}: '{}'",
+					line_index,
+					col + 1,
+					line.as_slice().char_at(0));
+				return;
 			}
 		}
 	}
