@@ -1,5 +1,9 @@
-something something 3423.4321 #this is a comment
-test test 123
-fdsajfkdlsajfkdsja
-#a full line comment
-more stuff
+import "path/to/file.hcat" # .hcat is appended
+
+# Single line comments using pound signs
+var doPrint: func(name) {
+	var greeting: "hello" # strings are mutable
+	print(greeting + " " + name) # string concatenation
+}
+
+doPrint()
