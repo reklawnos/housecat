@@ -2,8 +2,8 @@ import "path/to/file.hcat" # .hcat is appended
 
 # Single line comments using pound signs
 var doPrint: func(name) {
-	var greeting: "hello" # strings are mutable
-	print(greeting + " " + name) # string concatenation
+  var greeting: "hello" # strings are mutable
+  print(greeting + " " + name) # string concatenation
 }
 
 doPrint()
