@@ -1,9 +1,15 @@
-import "path/to/file.hcat" # .hcat is appended
-
-# Single line comments using pound signs
-var doPrint: func(name) {
-  var greeting: "hello" # strings are mutable
-  print(greeting + " " + name) # string concatenation
+def person: {
+    def name: "Jensen"
+    def speak: {
+        print(name)
+    }
+    speak()
+    name: "Bagelman"
+    speak()
+    name: "Joe"
 }
-
-doPrint()
+print(person.name)    # prints "Joe"
+person()              # prints "Jensen", then "Bagelman", then "Joe"
+person.name: "Alfred" # changes def of name
+print(person.name)    # prints "Joe"
+person()              # prints "Alfred", then "Bagelman", then "Joe"

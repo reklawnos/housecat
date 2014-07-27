@@ -10,11 +10,13 @@ use std::os;
 fn main() {
 	let args = os::args();
 	let token_specs = vec!(
+		(PtBool, regex!(r"^(?:true|false)")),
 		(PtName, regex!(r"^[A-z]\w*")),
 		(PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
 		(PtInt, regex!(r"^-?[0-9]+")),
 		(PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
 		(PtColon, regex!(r"^:")),
+		(PtDot, regex!(r"^\.")),
 		(PtOpenBrac, regex!(r"^\{")),
 		(PtCloseBrac, regex!(r"^\}")),
 		(PtOpenParen, regex!(r"^\(")),
@@ -41,19 +43,20 @@ fn main() {
 
 enum Token {
 	// Keywords
-	Func,               // 'func'
-	Var,                // 'var'
+	Def,                // 'def'
 	// Symbols
 	Eof,                // End of file
 	Colon,              // :
+	Dot,                // .
 	OpenBrac,           // {
 	CloseBrac,          // }
 	OpenParen,          // (
 	CloseParen,         // )
 	// User values
-	Ident(Box<String>), // ex. foo, bar
-	Int(int),           // ex. 1324, -43
+	Bool(bool),         // 'true' or 'false'
+	Int(i64),           // ex. 1324, -43
 	Float(f64),         // ex. 1.3, -34.432e-4
+	Ident(Box<String>), // ex. foo, bar
 	String(Box<String>),
 	// Binary ops
 	Add,                // '+'
@@ -62,16 +65,48 @@ enum Token {
 	Div,                // '/'
 }
 
+mod Ast {
+	enum Literal {
+		LitBool(bool), // `true` or `false`
+		LitInt(i64),   // integers
+		LitFloat(f64), // floats
+		LitString(Box<String>), // string literals
+		LitNil, // `nil`
+	}
+	//
+	//Expressions
+	enum Exp {
+		ExpMonoOp(MonoOp, Box<Exp>), // MonoOp Exp
+		ExpBinaryOp(BinaryOp, Box<Exp>, Box<Exp>), // Exp BinaryOp Exp
+		ExpLiteral(Literal), // Literal
+		//ExpClosure(Dec), // { Dec }
+		ExpIf(Box<Exp>, Box<Exp>, Box<Exp>) // `if` Exp Exp <`else` Exp> 
+	}
+
+	enum MonoOp {
+		MonNeg, // `-` (number negation)
+	}
+
+	enum BinaryOp {
+		BinAdd, // `+`
+		BinSub, // `-`
+		BinMul, // `*`
+		BinDiv,  // `/`
+	}
+}
+
+
 impl Token {
 	fn to_string(&self) -> String {
 		match self {
-			&Func => format!("Func"),
-			&Var => format!("Var"),
+			&Def => format!("Def"),
 			&Ident(ref s) => format!("Ident({})", s),
+			&Bool(b) => format!("Bool({})", b),
 			&Float(f) => format!("Float({})", f),
 			&Int(i) => format!("Int({})", i),
 			&String(ref s) => format!("String({})", s),
 			&Colon => format!("Colon"),
+			&Dot => format!("Dot"),
 			&OpenBrac => format!("OpenBrac"),
 			&CloseBrac => format!("CloseBrac"),
 			&OpenParen => format!("OpenParen"),
@@ -87,11 +122,13 @@ impl Token {
 
 enum ParseType {
 	PtName, //ident or keyword
+	PtBool,
 	PtFloat,
 	PtInt,
 	PtString,
 	PtSkip,
 	PtColon,
+	PtDot,
 	PtOpenBrac,
 	PtCloseBrac,
 	PtOpenParen,
@@ -104,13 +141,13 @@ fn decide_token(parse_type: ParseType, section: &str) -> Token {
 	match parse_type {
 		PtName => {
 			match section {
-				"func" => Func,
-				"var" => Var,
+				"def" => Def,
 				s => {
 					Ident(box s.to_string())
 				}
 			}
 		}
+		PtBool => Bool(from_str(section).unwrap()),
 		PtFloat => Float(from_str(section).unwrap()),
 		PtInt => Int(from_str(section).unwrap()),
 		//TODO: add support for escape characters
@@ -122,6 +159,7 @@ fn decide_token(parse_type: ParseType, section: &str) -> Token {
 			String(box ns)
 		},
 		PtColon => Colon,
+		PtDot => Dot,
 		PtOpenBrac => OpenBrac,
 		PtCloseBrac => CloseBrac,
 		PtOpenParen => OpenParen,
