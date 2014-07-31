@@ -7,3 +7,4 @@ authors = [ "whenderson" ]
 [[bin]]
 
 name = "housecat"
+path = "src/housecat.rs"
