@@ -28,7 +28,7 @@ fn main() {
 	if args.len() <= 1 {
 		//do_repl();
 	} else {
-		let path = Path::new(args.get(1).as_slice());
+		let path = Path::new(args[1].as_slice());
 		let result = do_file_parse(&path, &token_specs);
 		for r in result.unwrap().iter() {
 			match r {
@@ -39,6 +39,11 @@ fn main() {
 			}
 		}
 	}
+	let test_toks = &[OpenParen, Ident(box "a".to_string()), Add, Ident(box "b".to_string()), Mul, Ident(box "c".to_string()), Sub, Ident(box "d".to_string())];
+	match parse_expr(test_toks) {
+		(exp, _) => print_expr(&(box exp), 0)
+	}
+	
 }
 
 enum Token {
@@ -66,35 +71,201 @@ enum Token {
 }
 
 mod Ast {
-	enum Literal {
-		LitBool(bool), // `true` or `false`
+	pub enum Literal {
+		LitBool(bool), // 'true' or 'false'
 		LitInt(i64),   // integers
 		LitFloat(f64), // floats
 		LitString(Box<String>), // string literals
-		LitNil, // `nil`
+		LitNil, // 'nil'
 	}
-	//
+
 	//Expressions
-	enum Exp {
-		ExpMonoOp(MonoOp, Box<Exp>), // MonoOp Exp
-		ExpBinaryOp(BinaryOp, Box<Exp>, Box<Exp>), // Exp BinaryOp Exp
+	pub enum Exp {
+		ExpMonoOp(MonoOp, Box<Exp>), // <MonoOp> <Exp>
+		ExpBinaryOp(BinaryOp, Box<Exp>, Box<Exp>), // <Exp> <BinaryOp> <Exp>
 		ExpLiteral(Literal), // Literal
-		//ExpClosure(Dec), // { Dec }
-		ExpIf(Box<Exp>, Box<Exp>, Box<Exp>) // `if` Exp Exp <`else` Exp> 
+		ExpIdent(Box<String>), // Ident
+		ExpIf(Box<Exp>, Box<Exp>, Box<Exp>) // if <Exp> <Exp> <`else` Exp> 
 	}
 
-	enum MonoOp {
-		MonNeg, // `-` (number negation)
+	//Statements
+	pub enum Statement {
+		StAssignment(Box<String>, Exp) // 
 	}
 
-	enum BinaryOp {
-		BinAdd, // `+`
-		BinSub, // `-`
-		BinMul, // `*`
-		BinDiv,  // `/`
+	pub enum MonoOp {
+		MonNeg, // '-'' (number negation)
+		MonNot, // '!' (boolean not)
+	}
+
+	pub enum BinaryOp {
+		BinAdd, // '+'
+		BinSub, // '-'
+		BinMul, // '*'
+		BinDiv,  // '/'
 	}
 }
 
+mod test_ast {
+	pub enum expr {
+		TermAsExpr(Box<term>),
+		PlusExpr(Box<term>, Box<expr>),
+		MinusExpr(Box<term>, Box<expr>),
+	}
+
+	pub enum term {
+		FactorAsTerm(Box<factor>),
+		MultTerm(Box<factor>, Box<term>),
+		DivTerm(Box<factor>, Box<term>),
+	}
+
+	pub enum factor {
+		Id(Box<String>),
+		ParenthesizedExpr(Box<expr>)
+	}
+}
+
+fn parse_expr(tokens: &[Token]) -> (test_ast::expr, &[Token]) {
+	match parse_term(tokens) {
+		(parsed_term, tokens_after_term) => {
+			match tokens_after_term {
+				// ... + <expr>
+				[Add, ..tokens_after_plus] => {
+					match parse_expr(tokens_after_plus) {
+						(parsed_expr, tokens_after_expr) =>
+							(test_ast::PlusExpr(box parsed_term, box parsed_expr), tokens_after_expr),
+					}
+				},
+				// ... - <expr>
+				[Sub, ..tokens_after_minus] => {
+					match parse_expr(tokens_after_minus) {
+						(parsed_expr, tokens_after_expr) =>
+							(test_ast::MinusExpr(box parsed_term, box parsed_expr), tokens_after_expr),
+					}
+				},
+				// <term>
+				_ => (test_ast::TermAsExpr(box parsed_term), tokens_after_term),
+			}
+		}
+	}
+}
+
+fn parse_term(tokens: &[Token]) -> (test_ast::term, &[Token]) {
+	match parse_factor(tokens) {
+		(parsed_factor, tokens_after_factor) => {
+			match tokens_after_factor {
+				// ... * <term>
+				[Mul, ..tokens_after_mul] => {
+					match parse_term(tokens_after_mul) {
+						(parsed_term, tokens_after_term) =>
+							(test_ast::MultTerm(box parsed_factor, box parsed_term), tokens_after_term),
+					}
+				},
+				// ... / <term>
+				[Div, ..tokens_after_div] => {
+					match parse_term(tokens_after_div) {
+						(parsed_term, tokens_after_term) => {
+							(test_ast::DivTerm(box parsed_factor, box parsed_term), tokens_after_term)
+						},
+					}
+				},
+				// <factor>
+				_ => (test_ast::FactorAsTerm(box parsed_factor), tokens_after_factor),
+			}
+		}
+	}
+}
+
+fn parse_factor(tokens: &[Token]) -> (test_ast::factor, &[Token]) {
+	match tokens {
+		// <ident>
+		[Ident(ref id), ..tokens_after_ident] => {
+			(test_ast::Id(id.clone()), tokens_after_ident)
+		},
+		// ... ( ...
+		[OpenParen, ..tokens_after_openparen] => {
+			match parse_expr(tokens_after_openparen) {
+				(parsed_expr, tokens_after_expr) => {
+					match tokens_after_expr {
+						// ... )
+						[CloseParen, ..tokens_after_closeparen] => {
+							(test_ast::ParenthesizedExpr(box parsed_expr), tokens_after_closeparen)
+						},
+						_ => fail!("no matching paren")
+					}
+				}
+			}
+		},
+		_ => fail!("unrecognized symbol or something")
+	}
+}
+
+fn print_expr(e: &Box<test_ast::expr>, ind: uint) {
+	let mut indent = String::from_str("");
+	indent.grow(ind, ' ');
+	match **e {
+		test_ast::TermAsExpr(ref term) => {
+			print!("{}TermAsExpr(\n", indent);
+			print_term(term, ind + 4);
+			print!("{})\n", indent);
+		},
+		test_ast::PlusExpr(ref term, ref expr) => {
+			print!("{}PlusExpr(\n", indent);
+			print_term(&*term, ind + 4);
+			println!("    {}+", indent);
+			print_expr(&*expr, ind + 4);
+			print!("{})\n", indent);
+		},
+		test_ast::MinusExpr(ref term, ref expr) => {
+			print!("{}MinusExpr(\n", indent);
+			print_term(&*term, ind + 4);
+			println!("    {}-", indent);
+			print_expr(&*expr, ind + 4);
+			print!("{})\n", indent);
+		}
+	}
+}
+
+fn print_term(e: &Box<test_ast::term>, ind: uint) {
+	let mut indent = String::from_str("");
+	indent.grow(ind, ' ');
+	match **e {
+		test_ast::FactorAsTerm(ref factor) => {
+			print!("{}FactorAsTerm(\n", indent);
+			print_factor(factor, ind + 4);
+			print!("{})\n", indent);
+		},
+		test_ast::MultTerm(ref factor, ref term) => {
+			print!("{}MultTerm(\n", indent);
+			print_factor(factor, ind + 4);
+			println!("    {}*", indent);
+			print_term(term, ind + 4);
+			print!("{})\n", indent);
+		},
+		test_ast::DivTerm(ref factor, ref term) => {
+			print!("{}DivTerm(\n", indent);
+			print_factor(&*factor, ind + 4);
+			println!("    {}/", indent);
+			print_term(&*term, ind + 4);
+			print!("{})\n", indent);
+		}
+	}
+}
+
+fn print_factor(e: &Box<test_ast::factor>, ind: uint) {
+	let mut indent = String::from_str("");
+	indent.grow(ind, ' ');
+	match **e {
+		test_ast::Id(ref s) => {
+			print!("{}Id({})\n", indent, s);
+		},
+		test_ast::ParenthesizedExpr(ref expr) => {
+			print!("{}ParenthesizedExpr(\n", indent);
+			print_expr(expr, ind + 4);
+			print!("{})\n", indent);
+		}
+	}
+}
 
 impl Token {
 	fn to_string(&self) -> String {

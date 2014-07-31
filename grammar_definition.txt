@@ -1,0 +1,33 @@
+// <EPS> ::= epsilon
+// <bool>, <int>, <float>, <string>, and <ident> are all represented by strings of terminals
+
+<primary-expr> ::=
+    | <bool>
+    | <int>
+    | <float>
+    | <string>
+    | <ident>
+    | (<expr>)
+
+<postfix-expr> ::=
+    | <primary-expr>
+    | <primary-expr>(<args>)
+    | <primary-expr><postfix-expr>(<args>)
+    | <primary-expr>[<expr>]
+    | <primary-expr><postfix-expr>[<expr>]
+    | 
+
+<args> ::=
+    | <args-list>
+    | <EPS>
+
+<args-list> ::=
+    | <expr>
+    | <expr>, <args-list>
+
+<unary-expr> ::=
+    | <postfix-expr>
+    | - <unary-expr>
+    | ! <unary-expr>
+
+<
