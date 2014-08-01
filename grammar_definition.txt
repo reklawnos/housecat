@@ -1,5 +1,10 @@
-// <EPS> ::= epsilon
-// <bool>, <int>, <float>, <string>, and <ident> are all represented by strings of terminals
+An LL(1) Grammar for Parsing Housecat
+
+Walker Henderson, 2014
+
+EPS is 'epsilon,' the empty string.
+<bool>, <int>, <float>, <string>, and <ident> are all represented by strings of terminals.
+
 
 <primary-expr> ::=
     | <bool>
@@ -7,19 +12,21 @@
     | <float>
     | <string>
     | <ident>
-    | (<expr>)
+    | { <statements> }
+    | ( <expr> )
 
 <postfix-expr> ::=
-    | <primary-expr>
-    | <primary-expr>(<args>)
-    | <primary-expr><postfix-expr>(<args>)
-    | <primary-expr>[<expr>]
-    | <primary-expr><postfix-expr>[<expr>]
-    | 
+    | <primary-expr> <postfix-continuation>
+
+<postfix-continuation> ::=
+    | ( <args> ) <postfix-continuation>
+    | . <ident> <postfix-continuation>
+    | [ <expr> ] <postfix-continuation>
+    | EPS
 
 <args> ::=
     | <args-list>
-    | <EPS>
+    | EPS
 
 <args-list> ::=
     | <expr>
@@ -30,4 +37,40 @@
     | - <unary-expr>
     | ! <unary-expr>
 
-<
+<exponential-expr> ::=
+    | <unary-expr>
+    | <unary-expr> ^ <exponential-expr>
+
+<multiplicative-expr> ::=
+    | <exponential-expr>
+    | <exponential-expr> * <multiplicative-expr>
+    | <exponential-expr> / <multiplicative-expr>
+    | <exponential-expr> % <multiplicative-expr>
+
+<additive-expr> ::=
+    | <multiplicative-expr>
+    | <multiplicative-expr> + <additive-expr>
+    | <multiplicative-expr> - <additive-expr>
+
+<relational-expr> ::=
+    | <additive-expr>
+    | <additive-expr> < <relational-expr>
+    | <additive-expr> <= <relational-expr>
+    | <additive-expr> > <relational-expr>
+    | <additive-expr> >= <relational-expr>
+
+<equality-expr> ::=
+    | <relational-expr>
+    | <relational-expr> = <equality-expr>
+    | <relational-expr> != <equality-expr>
+
+<and-expr> ::=
+    | <equality-expr>
+    | <equality-expr> && <and-expr>
+
+<or-expr> ::=
+    | <and-expr>
+    | <and-expr> || <and-expr>
+
+<expr> ::=
+    | <or-expr>
