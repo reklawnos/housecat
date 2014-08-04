@@ -54,3 +54,18 @@ pub mod test_ast {
         ParenthesizedExpr(Box<Expr>)
     }
 }
+
+pub mod new_test_ast {
+    pub enum Expr {
+        BinOpExpr(BinaryOp, Box<Expr>, Box<Expr>)
+        IdExpr(Box<String>)
+    }
+
+    pub enum BinaryOp {
+        BinAdd, // '+'
+        BinSub, // '-'
+        BinMul, // '*'
+        BinDiv,  // '/'
+    }
+}
+

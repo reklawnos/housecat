@@ -35,7 +35,7 @@ static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (PtComment, regex!(r"^#"))
 ];
 
-pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Token, uint, uint)>) -> Result<(), uint> {
+pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<token::Tok>) -> Result<(), uint> {
     let mut line = line.as_slice();
     let mut col = 0u;
     while line.len() > 0 {
@@ -61,7 +61,7 @@ pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Tok
                 PtSkip => {},
                 _ => {
                     let new_token = decide_token(parse_type, res);
-                    token_vec.push((new_token, line_no, col));
+                    token_vec.push(token::Tok{token: new_token, line: line_no, col: col});
                 }
             }
             //Push the column index to the end of what we just read

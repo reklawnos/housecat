@@ -45,3 +45,9 @@ impl Token {
         }
     }
 }
+
+pub struct Tok {
+    pub token: Token,
+    pub line: uint,
+    pub col: uint
+}

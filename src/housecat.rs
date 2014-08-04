@@ -23,39 +23,23 @@ fn main() {
     } else {
         let path = Path::new(args[1].as_slice());
         let result = do_file_parse(&path);
-        match result {
-            Err(s) => println!("{}", s),
-            Ok(toks) => {
-                for t in toks.iter() {
-                    match t {
-                        &(ref token, line_no, col_no) => {
-                            let tok_string = token.to_string();
-                            println!("{}, {}:{}", tok_string, line_no + 1, col_no + 1);
-                        }
-                    }
-                }
-            }
+        let toks = match result {
+            Err(s) => fail!("{}", s),
+            Ok(toks) => toks
+        };
+        for t in toks.iter() {
+            let tok_string = t.token.to_string();
+            println!("{}, {}:{}", tok_string, t.line + 1, t.col + 1);
+        }
+        match parser::parse_expr(toks.as_slice()) {
+            (exp, _) => parser::print_expr(&(box exp), 0)
         }
     }
-    let test_toks = &[
-        token::OpenParen,
-        token::Ident(box "a".to_string()),
-        token::Add,
-        token::Ident(box "b".to_string()),
-        token::CloseParen,
-        token::Mul,
-        token::Ident(box "c".to_string()),
-        token::Sub,
-        token::Ident(box "d".to_string())
-    ];
-    match parser::parse_expr(test_toks) {
-        (exp, _) => parser::print_expr(&(box exp), 0)
-    }    
 }
 
-fn do_file_parse(path: &Path) -> Result<Vec<(token::Token, uint, uint)>, String> {
+fn do_file_parse(path: &Path) -> Result<Vec<token::Tok>, String> {
     let mut file = BufferedReader::new(File::open(path));
-    let mut result: Vec<(token::Token, uint, uint)> = Vec::new();
+    let mut result: Vec<token::Tok> = Vec::new();
     for (line_index, l) in file.lines().enumerate() {
         let unwrapped_line = &l.unwrap();
         let res = lexer::parse_line(unwrapped_line, line_index, & mut result);

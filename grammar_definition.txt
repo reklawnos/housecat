@@ -1,6 +1,6 @@
 An LL(1) Grammar for Parsing Housecat
 
-Walker Henderson, 2014
+© Walker Henderson, 2014
 
 EPS is 'epsilon,' the empty string.
 <bool>, <int>, <float>, <string>, and <ident> are all represented by strings of terminals.
