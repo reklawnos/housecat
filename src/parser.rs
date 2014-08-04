@@ -9,24 +9,24 @@ pub fn parse_expr(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
                 [token::Tok{token: token::Add, line: _, col: _}, ..tokens_after_plus] => {
                     match parse_expr(tokens_after_plus) {
                         (parsed_expr, tokens_after_expr) =>
-                            (test_ast::PlusExpr(box parsed_term, box parsed_expr), tokens_after_expr),
+                            (test_ast::BinOpExpr(test_ast::BinAdd, box parsed_term, box parsed_expr), tokens_after_expr),
                     }
                 },
                 // ... - <Expr>
                 [token::Tok{token: token::Sub, line: _, col: _}, ..tokens_after_minus] => {
                     match parse_expr(tokens_after_minus) {
                         (parsed_expr, tokens_after_expr) =>
-                            (test_ast::MinusExpr(box parsed_term, box parsed_expr), tokens_after_expr),
+                            (test_ast::BinOpExpr(test_ast::BinSub, box parsed_term, box parsed_expr), tokens_after_expr),
                     }
                 },
                 // <Term>
-                _ => (test_ast::TermAsExpr(box parsed_term), tokens_after_term),
+                _ => (parsed_term, tokens_after_term),
             }
         }
     }
 }
 
-fn parse_term(tokens: &[token::Tok]) -> (test_ast::Term, &[token::Tok]) {
+fn parse_term(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
     match parse_factor(tokens) {
         (parsed_factor, tokens_after_factor) => {
             match tokens_after_factor {
@@ -34,29 +34,29 @@ fn parse_term(tokens: &[token::Tok]) -> (test_ast::Term, &[token::Tok]) {
                 [token::Tok{token: token::Mul, line: _, col: _}, ..tokens_after_mul] => {
                     match parse_term(tokens_after_mul) {
                         (parsed_term, tokens_after_term) =>
-                            (test_ast::MultTerm(box parsed_factor, box parsed_term), tokens_after_term),
+                            (test_ast::BinOpExpr(test_ast::BinMul, box parsed_factor, box parsed_term), tokens_after_term),
                     }
                 },
                 // ... / <Term>
                 [token::Tok{token: token::Div, line: _, col: _}, ..tokens_after_div] => {
                     match parse_term(tokens_after_div) {
                         (parsed_term, tokens_after_term) => {
-                            (test_ast::DivTerm(box parsed_factor, box parsed_term), tokens_after_term)
+                            (test_ast::BinOpExpr(test_ast::BinDiv, box parsed_factor, box parsed_term), tokens_after_term)
                         },
                     }
                 },
                 // <Factor>
-                _ => (test_ast::FactorAsTerm(box parsed_factor), tokens_after_factor),
+                _ => (parsed_factor, tokens_after_factor),
             }
         }
     }
 }
 
-fn parse_factor(tokens: &[token::Tok]) -> (test_ast::Factor, &[token::Tok]) {
+fn parse_factor(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
     match tokens {
         // <ident>
         [token::Tok{token: token::Ident(ref id), line: _, col: _}, ..tokens_after_ident] => {
-            (test_ast::Id(id.clone()), tokens_after_ident)
+            (test_ast::IdExpr(id.clone()), tokens_after_ident)
         },
         // ... ( ...
         [token::Tok{token: token::OpenParen, line: _, col: _}, ..tokens_after_openparen] => {
@@ -65,7 +65,7 @@ fn parse_factor(tokens: &[token::Tok]) -> (test_ast::Factor, &[token::Tok]) {
                     match tokens_after_expr {
                         // ... )
                         [token::Tok{token: token::CloseParen, line: _, col: _}, ..tokens_after_closeparen] => {
-                            (test_ast::ParenthesizedExpr(box parsed_expr), tokens_after_closeparen)
+                            (parsed_expr, tokens_after_closeparen)
                         },
                         _ => fail!("no matching paren")
                     }
@@ -80,65 +80,21 @@ pub fn print_expr(e: &Box<test_ast::Expr>, ind: uint) {
     let mut indent = String::from_str("");
     indent.grow(ind, ' ');
     match **e {
-        test_ast::TermAsExpr(ref term) => {
-            print!("{}TermAsExpr(\n", indent);
-            print_term(term, ind + 4);
+        test_ast::BinOpExpr(op, ref lhs, ref rhs) => {
+            let opstring = match op {
+                test_ast::BinAdd => "+",
+                test_ast::BinSub => "-",
+                test_ast::BinMul => "*",
+                test_ast::BinDiv => "/"
+            };
+            print!("{}BinOpExpr(\n", indent);
+            print_expr(&*lhs, ind + 4);
+            println!("    {}{}", indent, opstring);
+            print_expr(&*rhs, ind + 4);
             print!("{})\n", indent);
         },
-        test_ast::PlusExpr(ref term, ref expr) => {
-            print!("{}PlusExpr(\n", indent);
-            print_term(&*term, ind + 4);
-            println!("    {}+", indent);
-            print_expr(&*expr, ind + 4);
-            print!("{})\n", indent);
-        },
-        test_ast::MinusExpr(ref term, ref expr) => {
-            print!("{}MinusExpr(\n", indent);
-            print_term(&*term, ind + 4);
-            println!("    {}-", indent);
-            print_expr(&*expr, ind + 4);
-            print!("{})\n", indent);
-        }
-    }
-}
-
-fn print_term(e: &Box<test_ast::Term>, ind: uint) {
-    let mut indent = String::from_str("");
-    indent.grow(ind, ' ');
-    match **e {
-        test_ast::FactorAsTerm(ref factor) => {
-            print!("{}FactorAsTerm(\n", indent);
-            print_factor(factor, ind + 4);
-            print!("{})\n", indent);
-        },
-        test_ast::MultTerm(ref factor, ref term) => {
-            print!("{}MultTerm(\n", indent);
-            print_factor(factor, ind + 4);
-            println!("    {}*", indent);
-            print_term(term, ind + 4);
-            print!("{})\n", indent);
-        },
-        test_ast::DivTerm(ref factor, ref term) => {
-            print!("{}DivTerm(\n", indent);
-            print_factor(&*factor, ind + 4);
-            println!("    {}/", indent);
-            print_term(&*term, ind + 4);
-            print!("{})\n", indent);
-        }
-    }
-}
-
-fn print_factor(e: &Box<test_ast::Factor>, ind: uint) {
-    let mut indent = String::from_str("");
-    indent.grow(ind, ' ');
-    match **e {
-        test_ast::Id(ref s) => {
-            print!("{}Id({})\n", indent, s);
-        },
-        test_ast::ParenthesizedExpr(ref expr) => {
-            print!("{}ParenthesizedExpr(\n", indent);
-            print_expr(expr, ind + 4);
-            print!("{})\n", indent);
+        test_ast::IdExpr(ref s) => {
+            print!("{}IdExpr({})\n", indent, s);
         }
     }
 }

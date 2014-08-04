@@ -36,28 +36,37 @@ pub mod Ast {
 }
 */
 
+/*
+Basic grammar:
+<Expr> ::=
+    | <IdExpr>
+    | <BinOpExpr>
+    | ( <Expr> )
+
+<BinOpExpr> ::=
+    | <Expr> + <Expr>
+    | <Expr> - <Expr>
+    | <Expr> * <Expr>
+    | <Expr> / <Expr>
+
+Unambiguous LL(1) grammar:
+<Expr> ::=
+    | <Term>
+    | <Term> + <Expr>
+    | <Term> - <Expr>
+
+<Term> ::=
+    | <Factor>
+    | <Factor> * <Term>
+    | <Factor> / <Term>
+
+<Factor> ::=
+    | <Id>
+    | ( <Expr> )
+*/
 pub mod test_ast {
     pub enum Expr {
-        TermAsExpr(Box<Term>),
-        PlusExpr(Box<Term>, Box<Expr>),
-        MinusExpr(Box<Term>, Box<Expr>),
-    }
-
-    pub enum Term {
-        FactorAsTerm(Box<Factor>),
-        MultTerm(Box<Factor>, Box<Term>),
-        DivTerm(Box<Factor>, Box<Term>),
-    }
-
-    pub enum Factor {
-        Id(Box<String>),
-        ParenthesizedExpr(Box<Expr>)
-    }
-}
-
-pub mod new_test_ast {
-    pub enum Expr {
-        BinOpExpr(BinaryOp, Box<Expr>, Box<Expr>)
+        BinOpExpr(BinaryOp, Box<Expr>, Box<Expr>),
         IdExpr(Box<String>)
     }
 
