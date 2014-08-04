@@ -1,4 +1,5 @@
 use token;
+use regex;
 
 pub enum ParseType {
     PtName, //ident or keyword
@@ -14,38 +15,34 @@ pub enum ParseType {
     PtOpenParen,
     PtCloseParen,
     PtComment,
-    PtBinOp
+    PtOperator
 }
 
-pub enum LineResult {
-    Ok,
-    Err(uint)
-}
+static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
+    (PtBool, regex!(r"^(?:true|false)")),
+    (PtName, regex!(r"^[A-z]\w*")),
+    (PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
+    (PtInt, regex!(r"^-?[0-9]+")),
+    (PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
+    (PtColon, regex!(r"^:")),
+    (PtDot, regex!(r"^\.")),
+    (PtOpenBrac, regex!(r"^\{")),
+    (PtCloseBrac, regex!(r"^\}")),
+    (PtOpenParen, regex!(r"^\(")),
+    (PtCloseParen, regex!(r"^\)")),
+    (PtOperator, regex!(r"^[+*/-]")),
+    (PtSkip, regex!(r"^\s")),
+    (PtComment, regex!(r"^#"))
+];
 
-pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Token, uint, uint)>) -> LineResult {
-    let token_specs = vec!(
-        (PtBool, regex!(r"^(?:true|false)")),
-        (PtName, regex!(r"^[A-z]\w*")),
-        (PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
-        (PtInt, regex!(r"^-?[0-9]+")),
-        (PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
-        (PtColon, regex!(r"^:")),
-        (PtDot, regex!(r"^\.")),
-        (PtOpenBrac, regex!(r"^\{")),
-        (PtCloseBrac, regex!(r"^\}")),
-        (PtOpenParen, regex!(r"^\(")),
-        (PtCloseParen, regex!(r"^\)")),
-        (PtBinOp, regex!(r"^[+*/-]")),
-        (PtSkip, regex!(r"^\s")),
-        (PtComment, regex!(r"^#"))
-    );
-    let mut line = line.clone();
+pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Token, uint, uint)>) -> Result<(), uint> {
+    let mut line = line.as_slice();
     let mut col = 0u;
     while line.len() > 0 {
         let mut found_token = false;
         let mut found_comment = false;
-        for &(parse_type, ref re) in token_specs.iter() {
-            let pos = match re.find(line.as_slice()) {
+        for &(parse_type, ref re) in TOKEN_SPECS.iter() {
+            let pos = match re.find(line) {
                 Some(range) => range,
                 None => continue
             };
@@ -58,8 +55,7 @@ pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Tok
                 _ => {}
             }
             let (start,end) = pos;
-            let cl = line.clone();
-            let res = cl.as_slice().slice(start, end);
+            let res = line.slice(start, end);
             //Skip over whitespace
             match parse_type {
                 PtSkip => {},
@@ -70,7 +66,7 @@ pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Tok
             }
             //Push the column index to the end of what we just read
             col += end;
-            line = line.as_slice().slice_from(end).to_string();
+            line = line.slice_from(end);
             found_token = true;
             break;
         }
@@ -83,11 +79,12 @@ pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<(token::Tok
             return Err(col);
         }
     }
-    Ok
+    Ok(())
 }
 
 fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
     match parse_type {
+        //Capture keywords and idents
         PtName => {
             match section {
                 "def" => token::Def,
@@ -99,13 +96,11 @@ fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
         PtBool => token::Bool(from_str(section).unwrap()),
         PtFloat => token::Float(from_str(section).unwrap()),
         PtInt => token::Int(from_str(section).unwrap()),
-        //TODO: add support for escape characters
+        //TODO: add support for escape characters (should have error when there's an invalid char)
         PtString => {
-            let mut ns = section.to_string().clone();
-            //remove start and end character
-            ns.pop_char();
-            ns.shift_char();
-            token::String(box ns)
+            let trimmed_slice = section.slice_chars(1, section.char_len() - 1);
+            let escaped = trimmed_slice.replace("\\\"", "\"").replace("\\\\", "\\");
+            token::String(box escaped)
         },
         PtColon => token::Colon,
         PtDot => token::Dot,
@@ -113,7 +108,7 @@ fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
         PtCloseBrac => token::CloseBrac,
         PtOpenParen => token::OpenParen,
         PtCloseParen => token::CloseParen,
-        PtBinOp => {
+        PtOperator => {
             match section {
                 "+" => token::Add,
                 "-" => token::Sub,

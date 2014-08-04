@@ -1,7 +1,10 @@
 #![feature(phase)]
 #![feature(globs)]
+
 extern crate regex;
-#[phase(plugin)] extern crate regex_macros;
+
+#[phase(plugin)]
+extern crate regex_macros;
 
 use std::io::BufferedReader;
 use std::io::File;
@@ -20,11 +23,16 @@ fn main() {
     } else {
         let path = Path::new(args[1].as_slice());
         let result = do_file_parse(&path);
-        for r in result.unwrap().iter() {
-            match r {
-                &(ref token, line_no, col_no) => {
-                    let tok_string = token.to_string();
-                    println!("{}, {}:{}", tok_string, line_no + 1, col_no + 1);
+        match result {
+            Err(s) => println!("{}", s),
+            Ok(toks) => {
+                for t in toks.iter() {
+                    match t {
+                        &(ref token, line_no, col_no) => {
+                            let tok_string = token.to_string();
+                            println!("{}, {}:{}", tok_string, line_no + 1, col_no + 1);
+                        }
+                    }
                 }
             }
         }
@@ -45,22 +53,25 @@ fn main() {
     }    
 }
 
-fn do_file_parse(path: &Path) -> Option<Vec<(token::Token, uint, uint)>> {
+fn do_file_parse(path: &Path) -> Result<Vec<(token::Token, uint, uint)>, String> {
     let mut file = BufferedReader::new(File::open(path));
     let mut result: Vec<(token::Token, uint, uint)> = Vec::new();
     for (line_index, l) in file.lines().enumerate() {
         let unwrapped_line = &l.unwrap();
         let res = lexer::parse_line(unwrapped_line, line_index, & mut result);
         match res {
-            lexer::Ok => {},
-            lexer::Err(col) => {
-                println!("Lexing failure: unrecognized symbol at line {}, column {}: '{}'",
-                    line_index,
-                    col + 1,
-                    unwrapped_line.as_slice().char_at(0));
-                return None;
+            Ok(()) => {},
+            Err(col) => {
+                return Err(
+                    format!(
+                        "Lexing failure: unrecognized symbol at line {}, column {}: '{}'",
+                        line_index + 1,
+                        col + 1,
+                        unwrapped_line.as_slice().char_at(0)
+                    )
+                );
             }
         }
     }
-    Some(result)
+    Ok(result)
 }

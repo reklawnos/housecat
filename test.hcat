@@ -1,4 +1,4 @@
-import("path/to/file.hcat") # .hcat is appended
+import("path/\"to\"/file.hcat") # .hcat is appended
 
 # Single line comments using pound signs
 var doPrint: func(name) {
