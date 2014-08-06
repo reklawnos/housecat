@@ -12,6 +12,7 @@ EPS is 'epsilon,' the empty string.
     | <float>
     | <string>
     | <ident>
+    | nil
     | { <statements> }
     | ( <expr> )
 
@@ -63,6 +64,8 @@ EPS is 'epsilon,' the empty string.
     | <relational-expr>
     | <relational-expr> = <equality-expr>
     | <relational-expr> != <equality-expr>
+    | <relational-expr> == <equality-expr>
+    | <relational-expr> !== <equality-expr>
 
 <and-expr> ::=
     | <equality-expr>

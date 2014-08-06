@@ -18,8 +18,9 @@ mod lexer;
 
 fn main() {
     let args = os::args();
+    //TODO: do_repl();
     if args.len() <= 1 {
-        //TODO: do_repl();
+        println!("No .hcat file provided!");
     } else {
         let path = Path::new(args[1].as_slice());
         let result = do_file_parse(&path);
@@ -28,10 +29,10 @@ fn main() {
             Ok(toks) => toks
         };
         for t in toks.iter() {
-            println!("{}: {},{}", t.tokeng, t.line + 1, t.col + 1);
+            println!("{}: {},{}", t.token, t.line + 1, t.col + 1);
         }
         match parser::parse_expr(toks.as_slice()) {
-            (exp, _) => parser::print_expr(&(box exp), 0)
+            (exp, _) => println!("{}", exp)
         }
     }
 }

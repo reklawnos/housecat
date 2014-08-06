@@ -1,80 +1,51 @@
-/*
 pub mod Ast {
+    //Literals
+    #[deriving(Show)]
     pub enum Literal {
-        LitBool(bool), // 'true' or 'false'
-        LitInt(i64),   // integers
-        LitFloat(f64), // floats
-        LitString(Box<String>), // string literals
-        LitNil, // 'nil'
+        LitBool(bool),          // <bool>
+        LitInt(i64),            // <int>
+        LitFloat(f64),          // <float>
+        LitString(Box<String>), // <string>
+        LitNil,                 // 'nil'
     }
 
     //Expressions
-    pub enum Exp {
-        ExpMonoOp(MonoOp, Box<Exp>), // <MonoOp> <Exp>
-        ExpBinaryOp(BinaryOp, Box<Exp>, Box<Exp>), // <Exp> <BinaryOp> <Exp>
-        ExpLiteral(Literal), // Literal
-        ExpIdent(Box<String>), // Ident
-        ExpIf(Box<Exp>, Box<Exp>, Box<Exp>) // if <Exp> <Exp> <`else` Exp> 
+    #[deriving(Show)]
+    pub enum Expr {
+        ExprUnOp(UnOp, Box<Expr>),              // <UnOp> <Expr>
+        ExprBinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
+        ExprLiteral(Literal),                   // <literal>
+        ExprIdent(Box<String>),                 // <Ident>
     }
 
     //Statements
+    #[deriving(Show)]
     pub enum Statement {
-        StAssignment(Box<String>, Exp) // 
+        StAssignment(Box<String>, Expr) // 
     }
 
-    pub enum MonoOp {
-        MonNeg, // '-'' (number negation)
-        MonNot, // '!' (boolean not)
+    //Unary Operators
+    #[deriving(Show)]
+    pub enum UnOp {
+        UnNeg, // '-' (number negation)
+        UnNot, // '!' (boolean not)
     }
 
-    pub enum BinaryOp {
-        BinAdd, // '+'
-        BinSub, // '-'
-        BinMul, // '*'
-        BinDiv,  // '/'
-    }
-}
-*/
-
-/*
-Basic grammar:
-<Expr> ::=
-    | <IdExpr>
-    | <BinOpExpr>
-    | ( <Expr> )
-
-<BinOpExpr> ::=
-    | <Expr> + <Expr>
-    | <Expr> - <Expr>
-    | <Expr> * <Expr>
-    | <Expr> / <Expr>
-
-Unambiguous LL(1) grammar:
-<Expr> ::=
-    | <Term>
-    | <Term> + <Expr>
-    | <Term> - <Expr>
-
-<Term> ::=
-    | <Factor>
-    | <Factor> * <Term>
-    | <Factor> / <Term>
-
-<Factor> ::=
-    | <Id>
-    | ( <Expr> )
-*/
-pub mod test_ast {
-    pub enum Expr {
-        BinOpExpr(BinaryOp, Box<Expr>, Box<Expr>),
-        IdExpr(Box<String>)
-    }
-
-    pub enum BinaryOp {
-        BinAdd, // '+'
-        BinSub, // '-'
-        BinMul, // '*'
-        BinDiv,  // '/'
+    //Binary Operators
+    #[deriving(Show)]
+    pub enum BinOp {
+        BinAdd,   // '+'
+        BinSub,   // '-'
+        BinMul,   // '*'
+        BinDiv,   // '/'
+        BinExp,   // '^'
+        BinLt,    // '<'
+        BinLte,   // '<='
+        BinGt,    // '>'
+        BinGte,   // '>='
+        BinEq,    // '='
+        BinNeq,   // '!='
+        BinSame,  // '=='
+        BinNsame, // '!=='
     }
 }
-

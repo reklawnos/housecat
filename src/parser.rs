@@ -1,92 +1,13 @@
 use token;
-use ast::test_ast;
+use ast::Ast;
 
 
-pub fn parse_expr(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
-    // <Term> ...
-    let (parsed_term, tokens_after_term) = parse_term(tokens);
-    match tokens_after_term {
-        [ref next_tok, ..rest] => {
-            match next_tok.token {
-                // ... + <Expr>
-                token::Add => {
-                    let (parsed_expr, tokens_after_expr) = parse_expr(rest);
-                    (
-                        test_ast::BinOpExpr(
-                            test_ast::BinAdd,
-                            box parsed_term,
-                            box parsed_expr
-                        ),
-                        tokens_after_expr
-                    )
-                },
-                // ... - <Expr>
-                token::Sub => {
-                    let (parsed_expr, tokens_after_expr) = parse_expr(rest);
-                    (
-                        test_ast::BinOpExpr(
-                            test_ast::BinSub,
-                            box parsed_term,
-                            box parsed_expr
-                        ),
-                        tokens_after_expr
-                    )
-                },
-                // <Term>
-                _ => (parsed_term, tokens_after_term),
-            }
-        }
-        // <Term>
-        _ => (parsed_term, tokens_after_term),
-    }
-}
-
-
-fn parse_term(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
-    // <Factor> ...
-    let (parsed_factor, tokens_after_factor) = parse_factor(tokens);
-    match tokens_after_factor {
-        [ref next_tok, ..rest] => {
-            match next_tok.token {
-                // ... * <Term>
-                token::Mul => {
-                    let (parsed_term, tokens_after_term) = parse_term(rest);
-                    (
-                        test_ast::BinOpExpr(
-                            test_ast::BinMul,
-                            box parsed_factor,
-                            box parsed_term
-                        ),
-                        tokens_after_term
-                    )
-                },
-                // ... / <Term>
-                token::Div => {
-                    let (parsed_term, tokens_after_term) = parse_term(rest);
-                    (
-                        test_ast::BinOpExpr(
-                            test_ast::BinDiv,
-                            box parsed_factor,
-                            box parsed_term
-                        ),
-                        tokens_after_term
-                    )
-                },
-                // <Factor>
-                _ => (parsed_factor, tokens_after_factor),
-            }
-        }
-        // <Factor>
-        _ => (parsed_factor, tokens_after_factor),
-    }
-}
-
-fn parse_factor(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
+fn parse_primary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     match tokens {
         [ref first_tok, ..rest] => {
             match first_tok.token {
                 // <Id>
-                token::Ident(ref id) => (test_ast::IdExpr(id.clone()), rest),
+                token::Ident(ref id) => (Ast::ExprIdent(id.clone()), rest),
                 // ( <Expr> ...
                 token::OpenParen => {
                     let (parsed_expr, tokens_after_expr) = parse_expr(rest);
@@ -124,26 +45,96 @@ fn parse_factor(tokens: &[token::Tok]) -> (test_ast::Expr, &[token::Tok]) {
     }
 }
 
+fn parse_postfix_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add postfix expression parsing
+    parse_primary_expr(tokens)
+}
 
-pub fn print_expr(e: &Box<test_ast::Expr>, ind: uint) {
-    let mut indent = String::from_str("");
-    indent.grow(ind, ' ');
-    match **e {
-        test_ast::BinOpExpr(op, ref lhs, ref rhs) => {
-            let opstring = match op {
-                test_ast::BinAdd => "+",
-                test_ast::BinSub => "-",
-                test_ast::BinMul => "*",
-                test_ast::BinDiv => "/"
-            };
-            print!("{}BinOpExpr(\n", indent);
-            print_expr(&*lhs, ind + 4);
-            println!("    {}{}", indent, opstring);
-            print_expr(&*rhs, ind + 4);
-            print!("{})\n", indent);
-        },
-        test_ast::IdExpr(ref s) => {
-            print!("{}IdExpr({})\n", indent, s);
+fn parse_unary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add unary expression parsing
+    parse_postfix_expr(tokens)
+}
+
+fn parse_exponential_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add exponential expression parsing
+    parse_unary_expr(tokens)
+}
+
+fn parse_multiplicative_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    // <Factor> ...
+    let (parsed_factor, tokens_after_factor) = parse_exponential_expr(tokens);
+    match tokens_after_factor {
+        [ref next_tok, ..rest] => {
+            match next_tok.token {
+                // ... * <Term>
+                token::Mul => {
+                    let (parsed_term, tokens_after_term) = parse_multiplicative_expr(rest);
+                    (build_bin_op(Ast::BinMul, parsed_factor, parsed_term), tokens_after_term)
+                },
+                // ... / <Term>
+                token::Div => {
+                    let (parsed_term, tokens_after_term) = parse_multiplicative_expr(rest);
+                    (build_bin_op(Ast::BinDiv, parsed_factor, parsed_term), tokens_after_term)
+                },
+                // <Factor>
+                _ => (parsed_factor, tokens_after_factor),
+            }
         }
+        // <Factor>
+        _ => (parsed_factor, tokens_after_factor),
     }
+}
+
+fn parse_additive_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    // <Term> ...
+    let (parsed_term, tokens_after_term) = parse_multiplicative_expr(tokens);
+    match tokens_after_term {
+        [ref next_tok, ..rest] => {
+            match next_tok.token {
+                // ... + <Expr>
+                token::Add => {
+                    let (parsed_expr, tokens_after_expr) = parse_additive_expr(rest);
+                    (build_bin_op(Ast::BinAdd, parsed_term, parsed_expr), tokens_after_expr)
+                },
+                // ... - <Expr>
+                token::Sub => {
+                    let (parsed_expr, tokens_after_expr) = parse_additive_expr(rest);
+                    (build_bin_op(Ast::BinSub, parsed_term, parsed_expr), tokens_after_expr)
+                },
+                // <Term>
+                _ => (parsed_term, tokens_after_term),
+            }
+        }
+        // <Term>
+        _ => (parsed_term, tokens_after_term),
+    }
+}
+
+fn parse_relational_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add relational expression parsing
+    parse_additive_expr(tokens)
+}
+
+fn parse_equality_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add equality expression parsing
+    parse_relational_expr(tokens)
+}
+
+fn parse_and_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add 'and' expression parsing
+    parse_equality_expr(tokens)
+}
+
+fn parse_or_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add 'or' expression parsing
+    parse_and_expr(tokens)
+}
+
+pub fn parse_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+    //TODO: add steps before additivex
+    parse_or_expr(tokens)
+}
+
+fn build_bin_op(op: Ast::BinOp, lhs: Ast::Expr, rhs: Ast::Expr) -> Ast::Expr {
+    Ast::ExprBinOp(op, box lhs, box rhs)
 }

@@ -16,11 +16,25 @@ pub enum Token {
     Float(f64),         // ex. 1.3, -34.432e-4
     Ident(Box<String>), // ex. foo, bar
     String(Box<String>),
-    // Binary ops
-    Add,                // '+'
-    Sub,                // '-'
+    // Operators
+    Not,                // '!'
+    Exp,                // '^'
     Mul,                // '*'
     Div,                // '/'
+    Mod,                // '%'
+    Add,                // '+'
+    Sub,                // '-'
+    Lt,                 // '<'
+    Lte,                // '<='
+    Gt,                 // '>'
+    Gte,                // '>='
+    Eq,                 // '='
+    Neq,                // '!='
+    Same,               // '=='
+    Nsame,              // '!=='
+    And,                // '&&'
+    Or,                 // '||'     
+
 }
 
 pub struct Tok {

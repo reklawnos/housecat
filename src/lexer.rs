@@ -30,7 +30,7 @@ static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (PtCloseBrac, regex!(r"^\}")),
     (PtOpenParen, regex!(r"^\(")),
     (PtCloseParen, regex!(r"^\)")),
-    (PtOperator, regex!(r"^[+*/-]")),
+    (PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/])")),
     (PtSkip, regex!(r"^\s")),
     (PtComment, regex!(r"^#"))
 ];
@@ -109,11 +109,25 @@ fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
         PtOpenParen => token::OpenParen,
         PtCloseParen => token::CloseParen,
         PtOperator => {
+            println!("Operator: {}", section);
             match section {
-                "+" => token::Add,
-                "-" => token::Sub,
+                "!" => token::Not,
+                "^" => token::Exp,
                 "*" => token::Mul,
                 "/" => token::Div,
+                "%" => token::Mod,
+                "+" => token::Add,
+                "-" => token::Sub,
+                "<" => token::Lt,
+                "<=" => token::Lte,
+                ">" => token::Gt,
+                ">=" => token::Gte,
+                "=" => token::Eq,
+                "!=" => token::Neq,
+                "==" => token::Same,
+                "!==" => token::Nsame,
+                "&&" => token::And,
+                "||" => token::Or,
                 _ => fail!("Unknown binary op")
             }
         }
