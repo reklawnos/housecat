@@ -1,3 +1,4 @@
+#[deriving(Show)]
 pub enum Token {
     // Keywords
     Def,                // 'def'
@@ -20,30 +21,6 @@ pub enum Token {
     Sub,                // '-'
     Mul,                // '*'
     Div,                // '/'
-}
-
-impl Token {
-    pub fn to_string(&self) -> String {
-        match self {
-            &Def => format!("Def"),
-            &Ident(ref s) => format!("Ident({})", s),
-            &Bool(b) => format!("Bool({})", b),
-            &Float(f) => format!("Float({})", f),
-            &Int(i) => format!("Int({})", i),
-            &String(ref s) => format!("String({})", s),
-            &Colon => format!("Colon"),
-            &Dot => format!("Dot"),
-            &OpenBrac => format!("OpenBrac"),
-            &CloseBrac => format!("CloseBrac"),
-            &OpenParen => format!("OpenParen"),
-            &CloseParen => format!("CloseParen"),
-            &Add => format!("Add"),
-            &Sub => format!("Sub"),
-            &Div => format!("Div"),
-            &Mul => format!("Mul"),
-            _ => fail!("not implemented")
-        }
-    }
 }
 
 pub struct Tok {
