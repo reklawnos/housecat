@@ -13,12 +13,10 @@ macro_rules! parse_expr_binary_op(
                         $tok => {
                             let (parsed_rhs, tokens_after_term) = $parse_rhs(rest);
                             (
-                                Some(
-                                    Ast::ExprBinOp(
-                                        $op,
-                                        box parsed_lhs.unwrap(),
-                                        box parsed_rhs.unwrap()
-                                    )
+                                Ast::ExprBinOp(
+                                    $op,
+                                    box parsed_lhs,
+                                    box parsed_rhs
                                 ),
                                 tokens_after_term
                             )
@@ -35,12 +33,12 @@ macro_rules! parse_expr_binary_op(
 )
 
 // <primary-expr>
-fn parse_primary_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_primary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     match tokens {
         [ref first_tok, ..rest] => {
             match first_tok.token {
                 // <ident>
-                token::Ident(ref id) => (Some(Ast::ExprIdent(id.clone())), rest),
+                token::Ident(ref id) => (Ast::ExprIdent(id.clone()), rest),
                 // ( <expr> ...
                 token::OpenParen => {
                     let (parsed_expr, tokens_after_expr) = parse_expr(rest);
@@ -67,15 +65,15 @@ fn parse_primary_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok
                     }
                 },
                 // <bool>
-                token::Bool(b) => (Some(Ast::ExprLiteral(Ast::LitBool(b))), rest),
+                token::Bool(b) => (Ast::ExprLiteral(Ast::LitBool(b)), rest),
                 // <int>
-                token::Int(i) => (Some(Ast::ExprLiteral(Ast::LitInt(i))), rest),
+                token::Int(i) => (Ast::ExprLiteral(Ast::LitInt(i)), rest),
                 // <float>
-                token::Float(f) => (Some(Ast::ExprLiteral(Ast::LitFloat(f))), rest),
+                token::Float(f) => (Ast::ExprLiteral(Ast::LitFloat(f)), rest),
                 // <string>
-                token::String(ref s) => (Some(Ast::ExprLiteral(Ast::LitString(s.clone()))), rest),
+                token::String(ref s) => (Ast::ExprLiteral(Ast::LitString(s.clone())), rest),
                 // nil
-                token::Nil => (Some(Ast::ExprLiteral(Ast::LitNil)), rest),
+                token::Nil => (Ast::ExprLiteral(Ast::LitNil), rest),
                 _ => fail!(
                         "ERROR at {},{}: Found {} but Expected Ident or '('",
                         first_tok.line + 1,
@@ -89,7 +87,7 @@ fn parse_primary_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok
 }
 
 // <postfix-expr>
-fn parse_postfix_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_postfix_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     // <primary-expr> ...
     let (parsed_expr, tokens_after_expr) = parse_primary_expr(tokens);
     match tokens_after_expr {
@@ -97,7 +95,7 @@ fn parse_postfix_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok
             match first_tok.token {
                 token::OpenParen | token::Dot | token::OpenBrac => {
                     let (parsed_postfix, tokens_after_postfix) = parse_postfix_continuation(tokens_after_expr);
-                    (Some(Ast::ExprPostfix(box parsed_expr.unwrap(), box parsed_postfix)), tokens_after_postfix)
+                    (Ast::ExprPostfix(box parsed_expr, box parsed_postfix), tokens_after_postfix)
                 },
                 _ => (parsed_expr, tokens_after_expr)
             }
@@ -127,7 +125,7 @@ fn parse_postfix_continuation(tokens: &[token::Tok]) -> (Ast::Postfix, &[token::
                                 // ... ]
                                 token::CloseBrac => {
                                     let (next_postfix, tokens_after_next) = parse_postfix_continuation(next_rest);
-                                    (Ast::PostfixIndex(box parsed_expr.unwrap(), box next_postfix), tokens_after_next)
+                                    (Ast::PostfixIndex(box parsed_expr, box next_postfix), tokens_after_next)
                                 },
                                 _ => fail!(
                                     "ERROR at {},{}: Found {} but expected ']' to match '[' at {},{}",
@@ -198,12 +196,12 @@ fn parse_args(tokens: &[token::Tok]) -> (Ast::Args, &[token::Tok]) {
                             match next_tok.token {
                                 // ... )
                                 token::CloseParen => {
-                                    (Ast::ArgsItem(box parsed_expr.unwrap(), box Ast::ArgsNone), rest)
+                                    (Ast::ArgsItem(box parsed_expr, box Ast::ArgsNone), rest)
                                 },
                                 // ... , ...
                                 token::Comma => {
                                     let (parsed_arg, tokens_after_arg) = parse_args(rest);
-                                    (Ast::ArgsItem(box parsed_expr.unwrap(), box parsed_arg), tokens_after_arg)
+                                    (Ast::ArgsItem(box parsed_expr, box parsed_arg), tokens_after_arg)
                                 }
                                 _ => fail!(
                                     "ERROR at {},{}: Expected ')' or ',' but found {}",
@@ -223,19 +221,19 @@ fn parse_args(tokens: &[token::Tok]) -> (Ast::Args, &[token::Tok]) {
 }
 
 // <unary-expr>
-fn parse_unary_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_unary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     match tokens {
         [ref first_tok, ..rest] => {
             match first_tok.token {
                 // - ...
                 token::Sub => {
                     let (parsed_expr, tokens_after_expr) = parse_unary_expr(rest);
-                    (Some(Ast::ExprUnOp(Ast::UnNeg, box parsed_expr.unwrap())), tokens_after_expr)
+                    (Ast::ExprUnOp(Ast::UnNeg, box parsed_expr), tokens_after_expr)
                 },
                 // ! ...
                 token::Not => {
                     let (parsed_expr, tokens_after_expr) = parse_unary_expr(rest);
-                    (Some(Ast::ExprUnOp(Ast::UnNot, box parsed_expr.unwrap())), tokens_after_expr)
+                    (Ast::ExprUnOp(Ast::UnNot, box parsed_expr), tokens_after_expr)
                 },
                 // <primary-expr>
                 _ => parse_postfix_expr(tokens)
@@ -246,7 +244,7 @@ fn parse_unary_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok])
 }
 
 // <exponential-expr>
-fn parse_exponential_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_exponential_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_unary_expr,
@@ -258,7 +256,7 @@ fn parse_exponential_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token:
 }
 
 // <multiplicative-expr>
-fn parse_multiplicative_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_multiplicative_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_exponential_expr,
@@ -272,7 +270,7 @@ fn parse_multiplicative_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[tok
 }
 
 // <additive-expr>
-fn parse_additive_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_additive_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_multiplicative_expr,
@@ -285,7 +283,7 @@ fn parse_additive_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::To
 }
 
 // <relational-expr>
-fn parse_relational_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_relational_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_additive_expr,
@@ -300,7 +298,7 @@ fn parse_relational_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::
 }
 
 // <equality-expr>
-fn parse_equality_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_equality_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_relational_expr,
@@ -315,7 +313,7 @@ fn parse_equality_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::To
 }
 
 // <and-expr>
-fn parse_and_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_and_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_equality_expr,
@@ -327,7 +325,7 @@ fn parse_and_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
 }
 
 // <or-expr>
-fn parse_or_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+fn parse_or_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_and_expr,
@@ -339,7 +337,7 @@ fn parse_or_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
 }
 
 // <expr>
-pub fn parse_expr(tokens: &[token::Tok]) -> (Option<Ast::Expr>, &[token::Tok]) {
+pub fn parse_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     //TODO: add steps before additivex
     parse_or_expr(tokens)
 }
