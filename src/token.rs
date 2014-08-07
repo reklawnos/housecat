@@ -2,14 +2,18 @@
 pub enum Token {
     // Keywords
     Def,                // 'def'
+    Nil,                // 'nil'
     // Symbols
     Eof,                // End of file
     Colon,              // :
     Dot,                // .
-    OpenBrac,           // {
-    CloseBrac,          // }
+    OpenCurly,          // {
+    CloseCurly,         // }
+    OpenBrac,           // [
+    CloseBrac,          // ]
     OpenParen,          // (
     CloseParen,         // )
+    Comma,              // ,
     // User values
     Bool(bool),         // 'true' or 'false'
     Int(i64),           // ex. 1324, -43

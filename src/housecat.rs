@@ -1,5 +1,6 @@
 #![feature(phase)]
 #![feature(globs)]
+#![feature(macro_rules)]
 
 extern crate regex;
 

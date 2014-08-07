@@ -14,8 +14,25 @@ pub mod Ast {
     pub enum Expr {
         ExprUnOp(UnOp, Box<Expr>),              // <UnOp> <Expr>
         ExprBinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
-        ExprLiteral(Literal),                   // <literal>
+        ExprLiteral(Literal),                   // <Literal>
         ExprIdent(Box<String>),                 // <Ident>
+        ExprPostfix(Box<Expr>, Box<Postfix>)    // <Expr> <Postfix>
+    }
+
+    //Postfix Operations
+    #[deriving(Show)]
+    pub enum Postfix {
+        PostfixPlay(Box<Args>, Box<Postfix>),     // ... ( <Args> ) <Postfix>
+        PostfixIndex(Box<Expr>, Box<Postfix>),    // ... [ <Expr> ] <Postfix>
+        PostfixAccess(Box<String>, Box<Postfix>), // ... . <Ident> <Postfix>
+        PostfixNone                               // EPS
+    }
+
+    //Arguments
+    #[deriving(Show)]
+    pub enum Args {
+        ArgsItem(Box<Expr>, Box<Args>), // <Expr> , <Args>
+        ArgsNone                       // EPS
     }
 
     //Statements
@@ -38,6 +55,7 @@ pub mod Ast {
         BinSub,   // '-'
         BinMul,   // '*'
         BinDiv,   // '/'
+        BinMod,   // '%'
         BinExp,   // '^'
         BinLt,    // '<'
         BinLte,   // '<='
@@ -47,5 +65,7 @@ pub mod Ast {
         BinNeq,   // '!='
         BinSame,  // '=='
         BinNsame, // '!=='
+        BinAnd,   // '&&'
+        BinOr,    // '||'
     }
 }

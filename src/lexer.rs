@@ -10,8 +10,11 @@ pub enum ParseType {
     PtSkip,
     PtColon,
     PtDot,
+    PtComma,
     PtOpenBrac,
     PtCloseBrac,
+    PtOpenCurly,
+    PtCloseCurly,
     PtOpenParen,
     PtCloseParen,
     PtComment,
@@ -20,14 +23,17 @@ pub enum ParseType {
 
 static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (PtBool, regex!(r"^(?:true|false)")),
-    (PtName, regex!(r"^[A-z]\w*")),
+    (PtName, regex!(r"^[:alpha:][:word:]*")),
     (PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
     (PtInt, regex!(r"^-?[0-9]+")),
     (PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
     (PtColon, regex!(r"^:")),
     (PtDot, regex!(r"^\.")),
-    (PtOpenBrac, regex!(r"^\{")),
-    (PtCloseBrac, regex!(r"^\}")),
+    (PtComma, regex!(r"^,")),
+    (PtOpenBrac, regex!(r"^\[")),
+    (PtCloseBrac, regex!(r"^\]")),
+    (PtOpenCurly, regex!(r"^\{")),
+    (PtCloseCurly, regex!(r"^\}")),
     (PtOpenParen, regex!(r"^\(")),
     (PtCloseParen, regex!(r"^\)")),
     (PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/])")),
@@ -88,6 +94,7 @@ fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
         PtName => {
             match section {
                 "def" => token::Def,
+                "nil" => token::Nil,
                 s => {
                     token::Ident(box s.to_string())
                 }
@@ -104,12 +111,14 @@ fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
         },
         PtColon => token::Colon,
         PtDot => token::Dot,
+        PtComma => token::Comma,
         PtOpenBrac => token::OpenBrac,
         PtCloseBrac => token::CloseBrac,
+        PtOpenCurly => token::OpenCurly,
+        PtCloseCurly => token::CloseCurly,
         PtOpenParen => token::OpenParen,
         PtCloseParen => token::CloseParen,
         PtOperator => {
-            println!("Operator: {}", section);
             match section {
                 "!" => token::Not,
                 "^" => token::Exp,
