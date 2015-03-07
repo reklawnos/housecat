@@ -1,54 +1,54 @@
-use token;
-use ast::Ast;
+use token::{Token, Tok};
+use ast::ast::*;
 
 macro_rules! parse_expr_binary_op(
-    ($tokens:ident, $parse_lhs:ident, $parse_rhs:ident, [ $($tok:pat -> $op:expr),+ ]) => ({
+    ($tokens:ident, $parse_lhs:ident, $parse_rhs:ident, [ $($tok:pat => $op:expr),+ ]) => ({
         // <LHS> ...
-        let (parsed_lhs, tokens_after_LHS) = $parse_lhs($tokens);
-        match tokens_after_LHS {
-            [ref next_tok, ..rest] => {
+        let (parsed_lhs, tokens_after_lhs) = $parse_lhs($tokens);
+        match tokens_after_lhs {
+            [ref next_tok, rest..] => {
                 match next_tok.token {
                     $(
                         // ... <op> <RHS>
                         $tok => {
                             let (parsed_rhs, tokens_after_term) = $parse_rhs(rest);
                             (
-                                Ast::ExprBinOp(
+                                Expr::ExprBinOp(
                                     $op,
-                                    box parsed_lhs,
-                                    box parsed_rhs
+                                    Box::new(parsed_lhs),
+                                    Box::new(parsed_rhs)
                                 ),
                                 tokens_after_term
                             )
                         },
                     )+
                     // <LHS>
-                    _ => (parsed_lhs, tokens_after_LHS),
+                    _ => (parsed_lhs, tokens_after_lhs),
                 }
             }
             // <LHS>
-            _ => (parsed_lhs, tokens_after_LHS),
+            _ => (parsed_lhs, tokens_after_lhs),
         }
     });
-)
+);
 
 // <primary-expr>
-fn parse_primary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_primary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     match tokens {
-        [ref first_tok, ..rest] => {
+        [ref first_tok, rest..] => {
             match first_tok.token {
                 // <ident>
-                token::Ident(ref id) => (Ast::ExprIdent(id.clone()), rest),
+                Token::Ident(ref id) => (Expr::ExprIdent(id.clone()), rest),
                 // ( <expr> ...
-                token::OpenParen => {
+                Token::OpenParen => {
                     let (parsed_expr, tokens_after_expr) = parse_expr(rest);
                     match tokens_after_expr {
-                        [ref next_tok, ..next_rest] => {
+                        [ref next_tok, next_rest..] => {
                             match next_tok.token {
                                 // ... )
-                                token::CloseParen => (parsed_expr, next_rest),
-                                _ => fail!(
-                                        "ERROR at {},{}: Found {} but expected ')' to match '(' at {},{}",
+                                Token::CloseParen => (parsed_expr, next_rest),
+                                _ => panic!(
+                                        "ERROR at {},{}: Found {:?} but expected ')' to match '(' at {},{}",
                                         next_tok.line + 1,
                                         next_tok.col + 1,
                                         next_tok.token,
@@ -57,7 +57,7 @@ fn parse_primary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
                                     )
                             }
                         }
-                        _ => fail!(
+                        _ => panic!(
                             "ERROR: Reached end of file, but the paren at {},{} is unmatched",
                             first_tok.line + 1,
                             first_tok.col + 1
@@ -65,37 +65,37 @@ fn parse_primary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
                     }
                 },
                 // <bool>
-                token::Bool(b) => (Ast::ExprLiteral(Ast::LitBool(b)), rest),
+                Token::Bool(b) => (Expr::ExprLiteral(Literal::LitBool(b)), rest),
                 // <int>
-                token::Int(i) => (Ast::ExprLiteral(Ast::LitInt(i)), rest),
+                Token::Int(i) => (Expr::ExprLiteral(Literal::LitInt(i)), rest),
                 // <float>
-                token::Float(f) => (Ast::ExprLiteral(Ast::LitFloat(f)), rest),
+                Token::Float(f) => (Expr::ExprLiteral(Literal::LitFloat(f)), rest),
                 // <string>
-                token::String(ref s) => (Ast::ExprLiteral(Ast::LitString(s.clone())), rest),
+                Token::String(ref s) => (Expr::ExprLiteral(Literal::LitString(s.clone())), rest),
                 // nil
-                token::Nil => (Ast::ExprLiteral(Ast::LitNil), rest),
-                _ => fail!(
-                        "ERROR at {},{}: Found {} but Expected Ident or '('",
+                Token::Nil => (Expr::ExprLiteral(Literal::LitNil), rest),
+                _ => panic!(
+                        "ERROR at {},{}: Found {:?} but Expected Ident or '('",
                         first_tok.line + 1,
                         first_tok.col + 1,
                         first_tok.token
                     )
             }
         }
-        _ => fail!("ERROR: Reached end of file, but Expected Ident or (Expression)")
+        _ => panic!("ERROR: Reached end of file, but Expected Ident or (Expression)")
     }
 }
 
 // <postfix-expr>
-fn parse_postfix_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_postfix_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     // <primary-expr> ...
     let (parsed_expr, tokens_after_expr) = parse_primary_expr(tokens);
     match tokens_after_expr {
         [ref first_tok, ..] => {
             match first_tok.token {
-                token::OpenParen | token::Dot | token::OpenBrac => {
+                Token::OpenParen | Token::Dot | Token::OpenBrac => {
                     let (parsed_postfix, tokens_after_postfix) = parse_postfix_continuation(tokens_after_expr);
-                    (Ast::ExprPostfix(box parsed_expr, box parsed_postfix), tokens_after_postfix)
+                    (Expr::ExprPostfix(Box::new(parsed_expr), Box::new(parsed_postfix)), tokens_after_postfix)
                 },
                 _ => (parsed_expr, tokens_after_expr)
             }
@@ -106,29 +106,29 @@ fn parse_postfix_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
     //parse_primary_expr(tokens)
 }
 
-fn parse_postfix_continuation(tokens: &[token::Tok]) -> (Ast::Postfix, &[token::Tok]) {
+fn parse_postfix_continuation(tokens: &[Tok]) -> (Postfix, &[Tok]) {
     match tokens {
-        [ref first_tok, ..rest] => {
+        [ref first_tok, rest..] => {
             match first_tok.token {
                 // ... ( ...
-                token::OpenParen => {
+                Token::OpenParen => {
                     let (parsed_args, tokens_after_args) = parse_args(rest);
                     let (next_postfix, tokens_after_postfix) = parse_postfix_continuation(tokens_after_args);
-                    (Ast::PostfixPlay(box parsed_args, box next_postfix), tokens_after_postfix)
+                    (Postfix::PostfixPlay(Box::new(parsed_args), Box::new(next_postfix)), tokens_after_postfix)
                 },
                 // ... [ ...
-                token::OpenBrac => {
+                Token::OpenBrac => {
                     let (parsed_expr, tokens_after_expr) = parse_expr(rest);
                     match tokens_after_expr {
-                        [ref next_tok, ..next_rest] => {
+                        [ref next_tok, next_rest..] => {
                             match next_tok.token {
                                 // ... ]
-                                token::CloseBrac => {
+                                Token::CloseBrac => {
                                     let (next_postfix, tokens_after_next) = parse_postfix_continuation(next_rest);
-                                    (Ast::PostfixIndex(box parsed_expr, box next_postfix), tokens_after_next)
+                                    (Postfix::PostfixIndex(Box::new(parsed_expr), Box::new(next_postfix)), tokens_after_next)
                                 },
-                                _ => fail!(
-                                    "ERROR at {},{}: Found {} but expected ']' to match '[' at {},{}",
+                                _ => panic!(
+                                    "ERROR at {},{}: Found {:?} but expected ']' to match '[' at {},{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
@@ -137,7 +137,7 @@ fn parse_postfix_continuation(tokens: &[token::Tok]) -> (Ast::Postfix, &[token::
                                 )
                             }
                         }
-                        _ => fail!(
+                        _ => panic!(
                             "ERROR: Reached end of file, but the bracket at {},{} is unmatched",
                             first_tok.line + 1,
                             first_tok.col + 1
@@ -145,29 +145,29 @@ fn parse_postfix_continuation(tokens: &[token::Tok]) -> (Ast::Postfix, &[token::
                     }
                 },
                 // ... . ...
-                token::Dot => {
+                Token::Dot => {
                     match rest {
-                        [ref next_tok, ..next_rest] => {
+                        [ref next_tok, next_rest..] => {
                             match next_tok.token {
                                 // <ident>
-                                token::Ident(ref i) => {
+                                Token::Ident(ref i) => {
                                     let (next_postfix, tokens_after_next) = parse_postfix_continuation(next_rest);
-                                    (Ast::PostfixAccess(i.clone(), box next_postfix), tokens_after_next)
+                                    (Postfix::PostfixAccess(i.clone(), Box::new(next_postfix)), tokens_after_next)
                                 },
-                                _ => fail!(
-                                    "ERROR at {},{}: Found {} but expected an ident",
+                                _ => panic!(
+                                    "ERROR at {},{}: Found {:?} but expected an ident",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
                                 )
                             }
                         },
-                        _ => fail!("ERROR: Reached end of file but expected an ident")
+                        _ => panic!("ERROR: Reached end of file but expected an ident")
                     }
                 },
                 // ... 
-                _ => fail!(
-                    "ERROR at {},{}: Unexpected token {}",
+                _ => panic!(
+                    "ERROR at {},{}: Unexpected Token {:?}",
                     first_tok.line + 1,
                     first_tok.col + 1,
                     first_tok.token,
@@ -175,169 +175,168 @@ fn parse_postfix_continuation(tokens: &[token::Tok]) -> (Ast::Postfix, &[token::
             }
         }
         // EPS
-        _ => (Ast::PostfixNone, tokens),
+        _ => (Postfix::PostfixNone, tokens),
     }
 }
 
 // <args>
-fn parse_args(tokens: &[token::Tok]) -> (Ast::Args, &[token::Tok]) {
+fn parse_args(tokens: &[Tok]) -> (Args, &[Tok]) {
     match tokens {
-        [ref first_tok, ..rest] => {
+        [ref first_tok, rest..] => {
             match first_tok.token {
                 // )
-                token::CloseParen => {
-                    (Ast::ArgsNone, rest)
+                Token::CloseParen => {
+                    (Args::ArgsNone, rest)
                 }
                 // <expr> ...
                 _ => {
                     let (parsed_expr, tokens_after_expr) = parse_expr(tokens);
                     match tokens_after_expr {
-                        [ref next_tok, ..rest] => {
+                        [ref next_tok, rest..] => {
                             match next_tok.token {
                                 // ... )
-                                token::CloseParen => {
-                                    (Ast::ArgsItem(box parsed_expr, box Ast::ArgsNone), rest)
+                                Token::CloseParen => {
+                                    (Args::ArgsItem(Box::new(parsed_expr), Box::new(Args::ArgsNone)), rest)
                                 },
                                 // ... , ...
-                                token::Comma => {
+                                Token::Comma => {
                                     let (parsed_arg, tokens_after_arg) = parse_args(rest);
-                                    (Ast::ArgsItem(box parsed_expr, box parsed_arg), tokens_after_arg)
+                                    (Args::ArgsItem(Box::new(parsed_expr), Box::new(parsed_arg)), tokens_after_arg)
                                 }
-                                _ => fail!(
-                                    "ERROR at {},{}: Expected ')' or ',' but found {}",
+                                _ => panic!(
+                                    "ERROR at {},{}: Expected ')' or ',' but found {:?}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token
                                 )
                             }
                         },
-                        _ => fail!("ERROR: Reached end of file but expected arguments or ')'")
+                        _ => panic!("ERROR: Reached end of file but expected more arguments or ')'")
                     }
                 }
             }
         },
-        _ => fail!("ERROR: Reached end of file but expected arguments or ')'")
+        _ => panic!("ERROR: Reached end of file but expected arguments or ')'")
     }
 }
 
 // <unary-expr>
-fn parse_unary_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_unary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     match tokens {
-        [ref first_tok, ..rest] => {
+        [ref first_tok, rest..] => {
             match first_tok.token {
                 // - ...
-                token::Sub => {
+                Token::Sub => {
                     let (parsed_expr, tokens_after_expr) = parse_unary_expr(rest);
-                    (Ast::ExprUnOp(Ast::UnNeg, box parsed_expr), tokens_after_expr)
+                    (Expr::ExprUnOp(UnOp::UnNeg, Box::new(parsed_expr)), tokens_after_expr)
                 },
                 // ! ...
-                token::Not => {
+                Token::Not => {
                     let (parsed_expr, tokens_after_expr) = parse_unary_expr(rest);
-                    (Ast::ExprUnOp(Ast::UnNot, box parsed_expr), tokens_after_expr)
+                    (Expr::ExprUnOp(UnOp::UnNot, Box::new(parsed_expr)), tokens_after_expr)
                 },
                 // <primary-expr>
                 _ => parse_postfix_expr(tokens)
             }
         }
-        _ => fail!("Expected expression")
+        _ => panic!("Expected expression")
     }
 }
 
 // <exponential-expr>
-fn parse_exponential_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_exponential_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_unary_expr,
         parse_exponential_expr,
         [
-            token::Exp -> Ast::BinExp
+            Token::Exp => BinOp::BinExp
         ]
     )
 }
 
 // <multiplicative-expr>
-fn parse_multiplicative_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_multiplicative_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_exponential_expr,
         parse_multiplicative_expr,
         [
-            token::Mul -> Ast::BinMul,
-            token::Div -> Ast::BinDiv,
-            token::Mod -> Ast::BinMod
+            Token::Mul => BinOp::BinMul,
+            Token::Div => BinOp::BinDiv,
+            Token::Mod => BinOp::BinMod
         ]
     )
 }
 
 // <additive-expr>
-fn parse_additive_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_additive_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_multiplicative_expr,
         parse_additive_expr,
         [
-            token::Add -> Ast::BinAdd,
-            token::Sub -> Ast::BinSub
+            Token::Add => BinOp::BinAdd,
+            Token::Sub => BinOp::BinSub
         ]
     )
 }
 
 // <relational-expr>
-fn parse_relational_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_relational_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_additive_expr,
         parse_relational_expr,
         [
-            token::Lt -> Ast::BinLt,
-            token::Lte -> Ast::BinLte,
-            token::Gt -> Ast::BinGt,
-            token::Gte -> Ast::BinGte
+            Token::Lt => BinOp::BinLt,
+            Token::Lte => BinOp::BinLte,
+            Token::Gt => BinOp::BinGt,
+            Token::Gte => BinOp::BinGte
         ]
     )
 }
 
 // <equality-expr>
-fn parse_equality_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_equality_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_relational_expr,
         parse_equality_expr,
         [
-            token::Eq -> Ast::BinEq,
-            token::Neq -> Ast::BinNeq,
-            token::Same -> Ast::BinSame,
-            token::Nsame -> Ast::BinNsame
+            Token::Eq => BinOp::BinEq,
+            Token::Neq => BinOp::BinNeq,
+            Token::Same => BinOp::BinSame,
+            Token::Nsame => BinOp::BinNsame
         ]
     )
 }
 
 // <and-expr>
-fn parse_and_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_and_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_equality_expr,
         parse_and_expr,
         [
-            token::And -> Ast::BinAnd
+            Token::And => BinOp::BinAnd
         ]
     )
 }
 
 // <or-expr>
-fn parse_or_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
+fn parse_or_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_expr_binary_op!(
         tokens,
         parse_and_expr,
         parse_or_expr,
         [
-            token::Or -> Ast::BinOr
+            Token::Or => BinOp::BinOr
         ]
     )
 }
 
 // <expr>
-pub fn parse_expr(tokens: &[token::Tok]) -> (Ast::Expr, &[token::Tok]) {
-    //TODO: add steps before additivex
+pub fn parse_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     parse_or_expr(tokens)
 }

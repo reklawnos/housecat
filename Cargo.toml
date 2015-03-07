@@ -8,3 +8,7 @@ authors = [ "whenderson" ]
 
 name = "housecat"
 path = "src/housecat.rs"
+
+[dependencies]
+regex = "0.1.18"
+regex_macros = "0.1.11"

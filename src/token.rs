@@ -1,10 +1,10 @@
-#[deriving(Show)]
+#[derive(Debug)]
 pub enum Token {
     // Keywords
     Def,                // 'def'
     Nil,                // 'nil'
     // Symbols
-    Eof,                // End of file
+    //Eof,                // End of file
     Colon,              // :
     Dot,                // .
     OpenCurly,          // {
@@ -43,6 +43,6 @@ pub enum Token {
 
 pub struct Tok {
     pub token: Token,
-    pub line: uint,
-    pub col: uint
+    pub line: usize,
+    pub col: usize
 }

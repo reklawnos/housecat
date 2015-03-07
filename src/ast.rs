@@ -1,6 +1,6 @@
-pub mod Ast {
+pub mod ast {
     //Literals
-    #[deriving(Show)]
+    #[derive(Debug)]
     pub enum Literal {
         LitBool(bool),          // <bool>
         LitInt(i64),            // <int>
@@ -10,7 +10,7 @@ pub mod Ast {
     }
 
     //Expressions
-    #[deriving(Show)]
+    #[derive(Debug)]
     pub enum Expr {
         ExprUnOp(UnOp, Box<Expr>),              // <UnOp> <Expr>
         ExprBinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
@@ -20,7 +20,7 @@ pub mod Ast {
     }
 
     //Postfix Operations
-    #[deriving(Show)]
+    #[derive(Debug)]
     pub enum Postfix {
         PostfixPlay(Box<Args>, Box<Postfix>),     // ... ( <Args> ) <Postfix>
         PostfixIndex(Box<Expr>, Box<Postfix>),    // ... [ <Expr> ] <Postfix>
@@ -29,27 +29,27 @@ pub mod Ast {
     }
 
     //Arguments
-    #[deriving(Show)]
+    #[derive(Debug)]
     pub enum Args {
         ArgsItem(Box<Expr>, Box<Args>), // <Expr> , <Args>
         ArgsNone                       // EPS
     }
 
     //Statements
-    #[deriving(Show)]
-    pub enum Statement {
-        StAssignment(Box<String>, Expr) // 
-    }
+    // #[derive(Debug)]
+    // pub enum Statement {
+    //     StAssignment(Box<String>, Expr) // 
+    // }
 
     //Unary Operators
-    #[deriving(Show)]
+    #[derive(Debug)]
     pub enum UnOp {
         UnNeg, // '-' (number negation)
         UnNot, // '!' (boolean not)
     }
 
     //Binary Operators
-    #[deriving(Show)]
+    #[derive(Debug)]
     pub enum BinOp {
         BinAdd,   // '+'
         BinSub,   // '-'

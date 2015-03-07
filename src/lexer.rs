@@ -1,4 +1,4 @@
-use token;
+use token::{Token, Tok};
 use regex;
 
 pub enum ParseType {
@@ -22,57 +22,57 @@ pub enum ParseType {
 }
 
 static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
-    (PtBool, regex!(r"^(?:true|false)")),
-    (PtName, regex!(r"^[:alpha:][:word:]*")),
-    (PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
-    (PtInt, regex!(r"^-?[0-9]+")),
-    (PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
-    (PtColon, regex!(r"^:")),
-    (PtDot, regex!(r"^\.")),
-    (PtComma, regex!(r"^,")),
-    (PtOpenBrac, regex!(r"^\[")),
-    (PtCloseBrac, regex!(r"^\]")),
-    (PtOpenCurly, regex!(r"^\{")),
-    (PtCloseCurly, regex!(r"^\}")),
-    (PtOpenParen, regex!(r"^\(")),
-    (PtCloseParen, regex!(r"^\)")),
-    (PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/])")),
-    (PtSkip, regex!(r"^\s")),
-    (PtComment, regex!(r"^#"))
+    (ParseType::PtBool, regex!(r"^(?:true|false)")),
+    (ParseType::PtName, regex!(r"^[:alpha:][:word:]*")),
+    (ParseType::PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
+    (ParseType::PtInt, regex!(r"^-?[0-9]+")),
+    (ParseType::PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
+    (ParseType::PtColon, regex!(r"^:")),
+    (ParseType::PtDot, regex!(r"^\.")),
+    (ParseType::PtComma, regex!(r"^,")),
+    (ParseType::PtOpenBrac, regex!(r"^\[")),
+    (ParseType::PtCloseBrac, regex!(r"^\]")),
+    (ParseType::PtOpenCurly, regex!(r"^\{")),
+    (ParseType::PtCloseCurly, regex!(r"^\}")),
+    (ParseType::PtOpenParen, regex!(r"^\(")),
+    (ParseType::PtCloseParen, regex!(r"^\)")),
+    (ParseType::PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/])")),
+    (ParseType::PtSkip, regex!(r"^\s")),
+    (ParseType::PtComment, regex!(r"^#"))
 ];
 
-pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<token::Tok>) -> Result<(), uint> {
-    let mut line = line.as_slice();
-    let mut col = 0u;
+pub fn parse_line(line: &String, line_no: usize, token_vec: & mut Vec<Tok>) -> Result<(), usize> {
+    let mut line = &line[..];
+    let mut col = 0usize;
     while line.len() > 0 {
         let mut found_token = false;
         let mut found_comment = false;
-        for &(parse_type, ref re) in TOKEN_SPECS.iter() {
+        for &(ref parse_type, ref re) in TOKEN_SPECS.iter() {
             let pos = match re.find(line) {
                 Some(range) => range,
                 None => continue
             };
             //Skip the rest of the line if we found a comment
-            match parse_type {
-                PtComment => {
+            match *parse_type {
+                ParseType::PtComment => {
                     found_comment = true;
                     break;
                 },
                 _ => {}
             }
             let (start,end) = pos;
-            let res = line.slice(start, end);
+            let res = &line[start..end];
             //Skip over whitespace
-            match parse_type {
-                PtSkip => {},
+            match *parse_type {
+                ParseType::PtSkip => {},
                 _ => {
                     let new_token = decide_token(parse_type, res);
-                    token_vec.push(token::Tok{token: new_token, line: line_no, col: col});
+                    token_vec.push(Tok{token: new_token, line: line_no, col: col});
                 }
             }
             //Push the column index to the end of what we just read
             col += end;
-            line = line.slice_from(end);
+            line = &line[end..];
             found_token = true;
             break;
         }
@@ -88,58 +88,58 @@ pub fn parse_line(line: &String, line_no: uint, token_vec: & mut Vec<token::Tok>
     Ok(())
 }
 
-fn decide_token(parse_type: ParseType, section: &str) -> token::Token {
-    match parse_type {
+fn decide_token(parse_type: &ParseType, section: &str) -> Token {
+    match *parse_type {
         //Capture keywords and idents
-        PtName => {
+        ParseType::PtName => {
             match section {
-                "def" => token::Def,
-                "nil" => token::Nil,
+                "def" => Token::Def,
+                "nil" => Token::Nil,
                 s => {
-                    token::Ident(box s.to_string())
+                    Token::Ident(Box::new(s.to_string()))
                 }
             }
         }
-        PtBool => token::Bool(from_str(section).unwrap()),
-        PtFloat => token::Float(from_str(section).unwrap()),
-        PtInt => token::Int(from_str(section).unwrap()),
+        ParseType::PtBool => Token::Bool(section.parse().unwrap()),
+        ParseType::PtFloat => Token::Float(section.parse().unwrap()),
+        ParseType::PtInt => Token::Int(section.parse().unwrap()),
         //TODO: add support for escape characters (should have error when there's an invalid char)
-        PtString => {
-            let trimmed_slice = section.slice_chars(1, section.char_len() - 1);
+        ParseType::PtString => {
+            let trimmed_slice = &section[1..section.len() - 1];//section.slice_chars(1, section.len() - 1);
             let escaped = trimmed_slice.replace("\\\"", "\"").replace("\\\\", "\\");
-            token::String(box escaped)
+            Token::String(Box::new(escaped))
         },
-        PtColon => token::Colon,
-        PtDot => token::Dot,
-        PtComma => token::Comma,
-        PtOpenBrac => token::OpenBrac,
-        PtCloseBrac => token::CloseBrac,
-        PtOpenCurly => token::OpenCurly,
-        PtCloseCurly => token::CloseCurly,
-        PtOpenParen => token::OpenParen,
-        PtCloseParen => token::CloseParen,
-        PtOperator => {
+        ParseType::PtColon => Token::Colon,
+        ParseType::PtDot => Token::Dot,
+        ParseType::PtComma => Token::Comma,
+        ParseType::PtOpenBrac => Token::OpenBrac,
+        ParseType::PtCloseBrac => Token::CloseBrac,
+        ParseType::PtOpenCurly => Token::OpenCurly,
+        ParseType::PtCloseCurly => Token::CloseCurly,
+        ParseType::PtOpenParen => Token::OpenParen,
+        ParseType::PtCloseParen => Token::CloseParen,
+        ParseType::PtOperator => {
             match section {
-                "!" => token::Not,
-                "^" => token::Exp,
-                "*" => token::Mul,
-                "/" => token::Div,
-                "%" => token::Mod,
-                "+" => token::Add,
-                "-" => token::Sub,
-                "<" => token::Lt,
-                "<=" => token::Lte,
-                ">" => token::Gt,
-                ">=" => token::Gte,
-                "=" => token::Eq,
-                "!=" => token::Neq,
-                "==" => token::Same,
-                "!==" => token::Nsame,
-                "&&" => token::And,
-                "||" => token::Or,
-                _ => fail!("Unknown binary op")
+                "!" => Token::Not,
+                "^" => Token::Exp,
+                "*" => Token::Mul,
+                "/" => Token::Div,
+                "%" => Token::Mod,
+                "+" => Token::Add,
+                "-" => Token::Sub,
+                "<" => Token::Lt,
+                "<=" => Token::Lte,
+                ">" => Token::Gt,
+                ">=" => Token::Gte,
+                "=" => Token::Eq,
+                "!=" => Token::Neq,
+                "==" => Token::Same,
+                "!==" => Token::Nsame,
+                "&&" => Token::And,
+                "||" => Token::Or,
+                _ => panic!("Unknown binary op")
             }
         }
-        _ => fail!("not implemented")
+        _ => panic!("not implemented")
     }
 }
