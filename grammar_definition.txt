@@ -2,7 +2,6 @@ An LL(1) Grammar for Parsing Housecat
 
 © Walker Henderson, 2014
 
-EPS is 'epsilon,' the empty string.
 <bool>, <int>, <float>, <string>, and <ident> are all represented by strings of terminals.
 
 
@@ -12,7 +11,7 @@ EPS is 'epsilon,' the empty string.
     | <float>
     | <string>
     | <ident>
-    | nil
+    | "nil"
     | { <statements> }
     | ( <expr> )
 
@@ -20,14 +19,14 @@ EPS is 'epsilon,' the empty string.
     | <primary-expr> <postfix-continuation>
 
 <postfix-continuation> ::=
-    | ( <args> ) <postfix-continuation>
+    | "(" <args> ")" <postfix-continuation>
     | . <ident> <postfix-continuation>
-    | [ <expr> ] <postfix-continuation>
-    | EPS
+    | "[" <expr> "]" <postfix-continuation>
+    | ""
 
 <args> ::=
     | <args-list>
-    | EPS
+    | ""
 
 <args-list> ::=
     | <expr>
@@ -90,4 +89,4 @@ EPS is 'epsilon,' the empty string.
 
 <statments> ::=
     | <stmt> <statements>
-    | EPS
+    | ""
