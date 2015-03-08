@@ -41,8 +41,9 @@ pub enum Token {
 
 }
 
-pub struct Tok {
+pub struct Tok<'a> {
     pub token: Token,
     pub line: usize,
+    pub line_string: &'a String, 
     pub col: usize
 }

@@ -12,10 +12,13 @@ use std::fs::File;
 use std::env;
 use std::path::Path;
 
+
+
 mod token;
 mod ast;
 mod parser;
 mod lexer;
+mod utils;
 
 
 fn main() {
@@ -24,13 +27,25 @@ fn main() {
     if command_args.len() <= 1 {
         println!("No .hcat file provided!");
     } else {
-        let path = Path::new(&command_args[1][..]);
-        let result = do_file_parse(&path);
+        let path = &Path::new(&command_args[1][..]);
+        let file = match File::open(path) {
+            Err(err) => {
+                 panic!("couldn't open {}: {}", path.display(), err);
+            },
+            Ok(file) => file,
+        };
+        let br = BufReader::new(file);
+        let mut file_lines: Vec<String> = Vec::new();
+        for line in br.lines() {
+            file_lines.push(line.unwrap());
+        }
+        let mut toks: Vec<token::Tok> = Vec::new();
+        let result = do_file_parse(&file_lines, & mut toks);
         match result {
             Err(s) => {
                 println!("{}", s);
             }
-            Ok(toks) => {
+            Ok(()) => {
                 for t in toks.iter() {
                     println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                 }
@@ -42,39 +57,25 @@ fn main() {
     }
 }
 
-fn do_file_parse(path: &Path) -> Result<Vec<token::Tok>, String> {
-    let file = match File::open(path) {
-        Err(err) => {
-            return Err(format!("couldn't open {}: {}", path.display(), err));
-        },
-        Ok(file) => file,
-    };
-    let br = BufReader::new(file);
 
-    let mut result: Vec<token::Tok> = Vec::new();
-    for (line_index, l) in br.lines().enumerate() {
-        let unwrapped_line = &l.unwrap();
-        let res = lexer::parse_line(unwrapped_line, line_index, & mut result);
+fn do_file_parse<'a>(lines: &'a Vec<String>, result_vec: & mut Vec<token::Tok<'a>>) -> Result<(), String> {
+    for (line_index, l) in lines.iter().enumerate() {
+        let res = lexer::parse_line(&l, line_index, result_vec);
         match res {
             Ok(()) => {},
             Err(col) => {
-                let mut caret_string = String::with_capacity(col + 2);
-                for _ in 0..col {
-                    caret_string.push(' ');
-                }
-                caret_string.push('^');
                 return Err(
                     format!(
                         "ERROR at {},{}: Lexing failure: syntax error, invalid character {}\n{}\n{}",
                         line_index + 1,
                         col + 1,
-                        unwrapped_line[..].char_at(col),
-                        unwrapped_line,
-                        caret_string
+                        l[..].char_at(col),
+                        l,
+                        utils::get_caret_string(col)
                     )
                 );
             }
         }
     }
-    Ok(result)
+    Ok(())
 }

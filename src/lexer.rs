@@ -42,18 +42,18 @@ static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (ParseType::PtComment, regex!(r"^#"))
 ];
 
-pub fn parse_line(line: &String, line_no: usize, token_vec: & mut Vec<Tok>) -> Result<(), usize> {
-    let mut line = &line[..];
+pub fn parse_line<'a>(line: &'a String, line_no: usize, token_vec: & mut Vec<Tok<'a>>) -> Result<(), usize> {
+    let mut line_slice = &line[..];
     let mut col = 0usize;
-    while line.len() > 0 {
+    while line_slice.len() > 0 {
         let mut found_token = false;
         let mut found_comment = false;
         for &(ref parse_type, ref re) in TOKEN_SPECS.iter() {
-            let pos = match re.find(line) {
+            let pos = match re.find(line_slice) {
                 Some(range) => range,
                 None => continue
             };
-            //Skip the rest of the line if we found a comment
+            //Skip the rest of the line_slice if we found a comment
             match *parse_type {
                 ParseType::PtComment => {
                     found_comment = true;
@@ -62,18 +62,18 @@ pub fn parse_line(line: &String, line_no: usize, token_vec: & mut Vec<Tok>) -> R
                 _ => {}
             }
             let (start,end) = pos;
-            let res = &line[start..end];
+            let res = &line_slice[start..end];
             //Skip over whitespace
             match *parse_type {
                 ParseType::PtSkip => {},
                 _ => {
                     let new_token = decide_token(parse_type, res);
-                    token_vec.push(Tok{token: new_token, line: line_no, col: col});
+                    token_vec.push(Tok{token: new_token, line: line_no, col: col, line_string: line});
                 }
             }
             //Push the column index to the end of what we just read
             col += end;
-            line = &line[end..];
+            line_slice = &line_slice[end..];
             found_token = true;
             break;
         }

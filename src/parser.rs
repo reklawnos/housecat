@@ -1,5 +1,6 @@
 use token::{Token, Tok};
 use ast::ast::*;
+use utils::*;
 
 macro_rules! parse_expr_binary_op(
     ($tokens:ident, $parse_lhs:ident, $parse_rhs:ident, [ $($tok:pat => $op:expr),+ ]) => ({
@@ -33,7 +34,7 @@ macro_rules! parse_expr_binary_op(
 );
 
 // <primary-expr>
-fn parse_primary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -48,19 +49,24 @@ fn parse_primary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
                                 // ... )
                                 Token::CloseParen => (parsed_expr, next_rest),
                                 _ => panic!(
-                                        "ERROR at {},{}: Found {:?} but expected ')' to match '(' at {},{}",
+                                        "ERROR at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
                                         next_tok.line + 1,
                                         next_tok.col + 1,
                                         next_tok.token,
                                         first_tok.line + 1,
                                         first_tok.col + 1,
+                                        next_tok.line_string,
+                                        get_caret_string(next_tok.col)
                                     )
                             }
                         }
                         _ => panic!(
-                            "ERROR: Reached end of file, but the paren at {},{} is unmatched",
+                            "ERROR: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
                             first_tok.line + 1,
-                            first_tok.col + 1
+                            first_tok.col + 1,
+                            first_tok.line_string,
+                            get_caret_string(first_tok.col)
+
                         )
                     }
                 },
@@ -75,19 +81,21 @@ fn parse_primary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
                 // nil
                 Token::Nil => (Expr::ExprLiteral(Literal::LitNil), rest),
                 _ => panic!(
-                        "ERROR at {},{}: Found {:?} but Expected Ident or '('",
+                        "ERROR at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
                         first_tok.line + 1,
                         first_tok.col + 1,
-                        first_tok.token
+                        first_tok.token,
+                        first_tok.line_string,
+                        get_caret_string(first_tok.col)
                     )
             }
         }
-        _ => panic!("ERROR: Reached end of file, but Expected Ident or (Expression)")
+        _ => panic!("ERROR: Reached end of file, but expected Ident or (Expression)")
     }
 }
 
 // <postfix-expr>
-fn parse_postfix_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     // <primary-expr> ...
     let (parsed_expr, tokens_after_expr) = parse_primary_expr(tokens);
     match tokens_after_expr {
@@ -106,7 +114,7 @@ fn parse_postfix_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
     //parse_primary_expr(tokens)
 }
 
-fn parse_postfix_continuation(tokens: &[Tok]) -> (Postfix, &[Tok]) {
+fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> (Postfix, &'a[Tok<'a>]) {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -128,19 +136,23 @@ fn parse_postfix_continuation(tokens: &[Tok]) -> (Postfix, &[Tok]) {
                                     (Postfix::PostfixIndex(Box::new(parsed_expr), Box::new(next_postfix)), tokens_after_next)
                                 },
                                 _ => panic!(
-                                    "ERROR at {},{}: Found {:?} but expected ']' to match '[' at {},{}",
+                                    "ERROR at {},{}: Found {:?} but expected ']' to match '[' at {},{}\n{}\n{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
                                     first_tok.line + 1,
                                     first_tok.col + 1,
+                                    next_tok.line_string,
+                                    get_caret_string(next_tok.col)
                                 )
                             }
                         }
                         _ => panic!(
-                            "ERROR: Reached end of file, but the bracket at {},{} is unmatched",
+                            "ERROR: Reached end of file, but '[' at {},{} is unmatched\n{}\n{}",
                             first_tok.line + 1,
-                            first_tok.col + 1
+                            first_tok.col + 1,
+                            first_tok.line_string,
+                            get_caret_string(first_tok.col)
                         )
                     }
                 },
@@ -155,22 +167,26 @@ fn parse_postfix_continuation(tokens: &[Tok]) -> (Postfix, &[Tok]) {
                                     (Postfix::PostfixAccess(i.clone(), Box::new(next_postfix)), tokens_after_next)
                                 },
                                 _ => panic!(
-                                    "ERROR at {},{}: Found {:?} but expected an ident",
+                                    "ERROR at {},{}: Found {:?} but expected an Ident\n{}\n{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
+                                    next_tok.line_string,
+                                    get_caret_string(next_tok.col)
                                 )
                             }
                         },
-                        _ => panic!("ERROR: Reached end of file but expected an ident")
+                        _ => panic!("ERROR: Reached end of file but expected an Ident")
                     }
                 },
                 // ... 
                 _ => panic!(
-                    "ERROR at {},{}: Unexpected Token {:?}",
+                    "ERROR at {},{}: Unexpected token {:?}\n{}\n{}",
                     first_tok.line + 1,
                     first_tok.col + 1,
                     first_tok.token,
+                    first_tok.line_string,
+                    get_caret_string(first_tok.col)
                 )
             }
         }
@@ -180,7 +196,7 @@ fn parse_postfix_continuation(tokens: &[Tok]) -> (Postfix, &[Tok]) {
 }
 
 // <args>
-fn parse_args(tokens: &[Tok]) -> (Args, &[Tok]) {
+fn parse_args<'a>(tokens: &'a[Tok]) -> (Args, &'a[Tok<'a>]) {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -204,10 +220,12 @@ fn parse_args(tokens: &[Tok]) -> (Args, &[Tok]) {
                                     (Args::ArgsItem(Box::new(parsed_expr), Box::new(parsed_arg)), tokens_after_arg)
                                 }
                                 _ => panic!(
-                                    "ERROR at {},{}: Expected ')' or ',' but found {:?}",
+                                    "ERROR at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
-                                    next_tok.token
+                                    next_tok.token,
+                                    next_tok.line_string,
+                                    get_caret_string(next_tok.col)
                                 )
                             }
                         },
@@ -221,7 +239,7 @@ fn parse_args(tokens: &[Tok]) -> (Args, &[Tok]) {
 }
 
 // <unary-expr>
-fn parse_unary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -244,7 +262,7 @@ fn parse_unary_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <exponential-expr>
-fn parse_exponential_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_exponential_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_unary_expr,
@@ -256,7 +274,7 @@ fn parse_exponential_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <multiplicative-expr>
-fn parse_multiplicative_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_multiplicative_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_exponential_expr,
@@ -270,7 +288,7 @@ fn parse_multiplicative_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <additive-expr>
-fn parse_additive_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_additive_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_multiplicative_expr,
@@ -283,7 +301,7 @@ fn parse_additive_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <relational-expr>
-fn parse_relational_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_relational_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_additive_expr,
@@ -298,7 +316,7 @@ fn parse_relational_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <equality-expr>
-fn parse_equality_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_equality_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_relational_expr,
@@ -313,7 +331,7 @@ fn parse_equality_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <and-expr>
-fn parse_and_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_and_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_equality_expr,
@@ -325,7 +343,7 @@ fn parse_and_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <or-expr>
-fn parse_or_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+fn parse_or_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_expr_binary_op!(
         tokens,
         parse_and_expr,
@@ -337,6 +355,6 @@ fn parse_or_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
 }
 
 // <expr>
-pub fn parse_expr(tokens: &[Tok]) -> (Expr, &[Tok]) {
+pub fn parse_expr<'a>(tokens: &'a[Tok]) -> (Expr, &'a[Tok<'a>]) {
     parse_or_expr(tokens)
 }
