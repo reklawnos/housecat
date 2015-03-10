@@ -22,7 +22,7 @@ The else statement can be dropped:
 While loops are written as:
     
     # prints out numbers 1 through 15
-    def x: 0
+    var x: 0
     while x < 15 do
         x: x + 1
         print(x) 
@@ -30,22 +30,23 @@ While loops are written as:
 
 Clips
 -------------------
-Clips are defined with a `{...}` block. Clips have their own scope.
+Clips are defined using `[fn(<params>)]? [-> <return value>]? {...}`. Clips have their own scope.
 
-    def x: 3
+    var x: 3
     {
         def x: 6
-        print(x) # prints "6"
-    }() # play the anonymous clip
-    print(x) # prints "3"
+        print(x)  # prints "6"
+    }()  # play the anonymous clip
+    print(x)  # prints "3"
+
 
 If something is not defined in a clip, the parent scopes are checked recursively:
 
     def test: {
         print(y)
     }
-    def y: "bagels!"
-    test() # prints "bagels!"
+    var y: "bagels!"
+    test()  # prints "bagels!"
 
 ### Using clips like objects
 Clips can essentially act like objects, and their fields can be accessed through dot notation:
@@ -53,11 +54,11 @@ Clips can essentially act like objects, and their fields can be accessed through
     def c: {
         def x: "foo"
     }
-    print(c.x) # prints "foo"
+    print(c.x)  # prints "foo"
     c.x: "bar"
-    print(c.x) # prints "bar"
+    print(c.x)  # prints "bar"
 
-The `clone` function creates a copy of an existing clip:
+The `clone` builtin creates a copy of an existing clip:
 
     def person: {
         def name: "foo"
@@ -66,38 +67,35 @@ The `clone` function creates a copy of an existing clip:
         }
     }
     
-    def person1: clone(person)
-    def person2: clone(person)
+    var person1: clone(person)
+    var person2: clone(person)
     person1.name: "jack"
     person2.name: "jill"
-    person1.speak() # prints "jack"
-    person2.speak() # prints "jill"
+    person1.speak()  # prints "jack"
+    person2.speak()  # prints "jill"
 
 ### Def
-The `def` keyword marks a variable as being the "definitive" version for that clip. Each time a new `def` is made with the same variable, it is overridden. The reason for this is if there is functionality inside of the clip, we want to get at a particular definition of a variable.
-
-When assigning to a variable in a clip, the assignment is stored in the last-most `def`. For example:
+The `def` keyword defines a variable as being a field on that clip.
 
     def cl: {
         def x: 3
-        x: x + 3
-        def x: 7
+        #def x: 7  # error: 'x' is already defined for this clip
     }
-    print(cl.x) # prints "7"
+    print(cl.x)  # prints "7"
     cl.x: 10
-    print(cl.x) # prints "10"
+    print(cl.x)  # prints "10"
 
-Definitions can be added to a clip after it is assigned:
+Definitions can be added to a clip after it is created:
     
     def cl: {
         def x: 3
     }
-    print(cl.x) # prints '3'
-    # print(cl.y) # error: 'x' is not defined
+    print(cl.x)  # prints '3'
+    # print(cl.y)  # error: 'y' is not defined
     def cl.y: 4
-    print(cl.y) # prints '4'
+    print(cl.y)  # prints '4'
 
-When accessing a variable, the last assignment at the point of access is used. For example:
+Playing a clip can alter things:
 
     def person: {
         def name: "Jensen"
@@ -109,113 +107,127 @@ When accessing a variable, the last assignment at the point of access is used. F
         speak()
         name: "Joe"
     }
-    print(person.name)    # prints "Joe"
-    person()              # prints "Jensen", then "Bagelman"
-    person.name: "Alfred" # changes def of name
-    print(person.name)    # prints "Joe"
-    person()              # prints "Alfred", then "Bagelman"
-    
-This is useful for creating "smart" variables:
-
-    def doubleVal: {
-        def val: 0
-        val: val * 2
-    }
-    def d: clone(doubleVal)
-    print(d.val) # prints 0
-    d.val: 2
-    print(d.val) # prints 4
+    print(person.name)     # prints "Joe"
+    person()               # prints "Jensen", then "Bagelman"
+    person.name: "Alfred"  # changes def of name
+    print(person.name)     # prints "Alfred"
+    person()               # prints "Alfred", then "Bagelman"
 
 An attempted access or assignment of a variable that has not been defined in this scope or any ancestor scope results in an error.
 
-    # print(butts) # error: 'butts' is not defined
-    # butts: "face" # error: 'butts' is not defined
+    # print(foo)  # error: 'foo' is not defined
+    # foo: "bar"  # error: 'foo' is not defined
     def c: {
-        print(butts)
+        print(foo)
     }
-    # c() # error: 'butts' is not defined
+    # c()  # error: 'foo' is not defined
 
-Though adding `def butts: "farts"` before the first line would avoid all of the errors.
+Though adding `def foo: "bar"` before the first line would avoid all of the errors.
 
 Dot notation specifies a particular scope that should be searched
 
 All non-clip types are passed by value, while clips are passed by reference. A new, identical clip can be created by cloning it.
 
 ### Using clips like functions
-By default, every clip includes a definition of `result`, equivalent to `def result: nil`. Playing a clip returns the value of `result`.
+Clips can return values if they are specified in the clip definition.
 
-    def getBob: {
-        def bob: {
+    def get_bob: fn() -> bob {
+        bob: {
             def name: "Bob"
         }
-        result: bob
     }
-    def myBob: getBob # a reference to 'bob' in the getBob clip
-    print(myBob.name) # prints "bob"
+    var my_bob: get_bob  # a reference to 'bob' in the get_bob clip
+    print(my_bob.name)  # prints "bob"
 
 Clips can take parameters that are passed into the scope of the clip.
 
-    def printSaying: {(greeting, name)
+    def print_saying: fn(greeting, name) {
         print(greeting + ", " + name)
     }
-    printSaying("hello", "bagels") # prints 'hello, bagels'
+    print_saying("hello", "bagels")  # prints 'hello, bagels'
 
 This is functionally equivalent to:
     
-    def printSaying: {
+    def print_saying: fn() {
         def greeting: nil
         def name: nil
         print(greeting + ", " + name)
     }
-    printSaying.greeting: "hello"
-    printSaying.name: "bagels"
-    printSaying() # prints 'hello, bagels'
+    print_saying.greeting: "hello"
+    print_saying.name: "bagels"
+    print_saying() # prints 'hello, bagels'
 
 Note that the parameters act like normal variable definitions. The only difference is that they can be set when they are played.
 
 This can also be used for making a 'constructor:'
 
-    def makePerson: {(name, age)
+    def make_person: fn(name, age) -> result {
         def person: {
             def name: name
             def age: age
         }
-        result: clone(person) # return a clone of 'person'
+        def result: clone(person)  # return a clone of 'person'
     }
-    def bob: makePerson("bob", 25)
-    print(bob.name) # prints "bob"
-    print(bob.age) # prints 25
+    var bob: make_person("bob", 25)
+    print(bob.name)  # prints "bob"
+    print(bob.age)  # prints 25
+
+Clips can also return multiple values in the form of a tuple:
+
+    def get_values: fn(param1, param2) -> (ret_val1, ret_val2) {
+        def retval_1: "return this value, appended to " + param1
+        def retval_2: "return this value and " + param2 + " too!"
+    }
+    # destructuring and definition in same statement
+    (var val_1, var val_2): get_values("this string!", "another string")
+    
+    # alternately
+    var val_3: nil
+    var val_4: nil
+    (val_3, val_4): get_values("this string!", "another string")
+
+    # also alternately
+    var tup: get_values("this string!", "another string")
+    print(tup.0)  # prints "return this value, appended to this string!"
+    print(tup.1)  # prints "return this value and another string too!"
+
+You can break out of a clip's playback using `return`.
+
+    def process_input: fn(input) -> (result, error) {
+        if !is_valid(input) then
+            result: nil
+            error: "input is invalid!"
+            return 
+        end
+        result: "this input is muy bueno"
+        error: nil
+    }
+    (var result, var error): process_input("invalid input")
+    print(error)  # prints "input is invalid!"
 
 ### Import
-The `import` function allows a form of inheritance. All the fields inside of the imported clip are put inside of the scope where `import` is called. For example,
+The `import` function allows files to be imported as a clip.
 
-    def person: {
-        def name: "foo"
-        def speak: {
-            print(name)
+    # bagel.hc:
+    def has_poppyseeds: true
+
+    # main.hc
+    var bagel: import('bagel.hc')
+    print(bagel.toppings)  # prints true
+
+### `var`
+Variables can be defined that are not exported out of the clip's scope using the `var` keyword. You can sort of think of this as a 'private' variable, but it does not persist for the life of the clip. It only lives as long as the time it takes to play the clip. These variables are only visible to the scope they were defined in and child scopes.
+
+    def my_clip: fn() -> sum {
+        def field_a: "this is a field!"
+        var add: " but is it?"
+        sum: field_a + add
+
+        def get_add: fn() -> result {
+            result: add
         }
     }
-    
-    person.name: "bagelmaster"
-    
-    def chef: {
-        import(person)
-        def name: "Guillaume"
-        def cook: {
-            print("I made food :3")
-        }
-    }
-
-Is the same as:
-
-    def chef: {
-        def name: "foo"
-        def speak: {
-            print(name)
-        }
-        name: "bagelmaster"
-        def name: "Guillaume"
-        def cook: {
-            print("I made food :3")
-        }
-    }
+    print(my_clip.field_a)  # prints "this is a field!"
+    # print(my_clip.add)  # error: 'add' is not defined
+    print(my_clip())  # prints "this is a field! but is it?"
+    # print(my_clip.get_add())  #error: 'add' is not defined

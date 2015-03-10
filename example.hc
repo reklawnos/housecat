@@ -8,15 +8,15 @@ def person: {
     speak()
     name: "Joe"
 }
-def get_somethings: {
+def get_somethings: fn() -> (retval1, retval2, retval3) {
     def retval1: "return 1"
     def retval2: "return 2"
     def retval3: "return 3"
-} -> (retval1, retval2, retval3)
+} 
 
-def get_somethings: {
+def get_somethings: fn() -> (retval) {
     def retval: "return"
-} -> (retval)
+}
 
 print(person.name)    # prints "Joe"
 person()              # prints "Jensen", then "Bagelman", then "Joe"

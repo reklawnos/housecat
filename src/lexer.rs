@@ -18,15 +18,16 @@ pub enum ParseType {
     PtOpenParen,
     PtCloseParen,
     PtComment,
-    PtOperator
+    PtOperator,
+    PtRet
 }
 
 static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (ParseType::PtBool, regex!(r"^(?:true|false)")),
     (ParseType::PtName, regex!(r"^[:alpha:][:word:]*")),
+    (ParseType::PtRet, regex!(r"^->")),
     (ParseType::PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
     (ParseType::PtInt, regex!(r"^-?[0-9]+")),
-    //(ParseType::PtString, regex!("^\"(?:[^\"\\\\]|\\\\.)*\"")),
     (ParseType::PtString, regex!(r#"^"(?:[^"\\]|\\.)*""#)),
     (ParseType::PtColon, regex!(r"^:")),
     (ParseType::PtDot, regex!(r"^\.")),
@@ -96,6 +97,8 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
             match tok_string {
                 "def" => Token::Def,
                 "nil" => Token::Nil,
+                "fn" => Token::Fn,
+                "return" => Token::Return,
                 s => {
                     Token::Ident(Box::new(s.to_string()))
                 }
@@ -119,6 +122,7 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
         ParseType::PtCloseCurly => Token::CloseCurly,
         ParseType::PtOpenParen => Token::OpenParen,
         ParseType::PtCloseParen => Token::CloseParen,
+        ParseType::PtRet => Token::Ret,
         ParseType::PtOperator => {
             match tok_string {
                 "!" => Token::Not,

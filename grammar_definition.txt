@@ -30,49 +30,49 @@ An LL(1) Grammar for Parsing Housecat
 
 <args-list> ::=
     | <expr>
-    | <expr>, <args-list>
+    | <expr> "," <args-list>
 
 <unary-expr> ::=
     | <postfix-expr>
-    | - <unary-expr>
-    | ! <unary-expr>
+    | "-" <unary-expr>
+    | "!" <unary-expr>
 
 <exponential-expr> ::=
     | <unary-expr>
-    | <unary-expr> ^ <exponential-expr>
+    | <unary-expr> "^" <exponential-expr>
 
 <multiplicative-expr> ::=
     | <exponential-expr>
-    | <exponential-expr> * <multiplicative-expr>
-    | <exponential-expr> / <multiplicative-expr>
-    | <exponential-expr> % <multiplicative-expr>
+    | <exponential-expr> "*" <multiplicative-expr>
+    | <exponential-expr> "/" <multiplicative-expr>
+    | <exponential-expr> "%" <multiplicative-expr>
 
 <additive-expr> ::=
     | <multiplicative-expr>
-    | <multiplicative-expr> + <additive-expr>
-    | <multiplicative-expr> - <additive-expr>
+    | <multiplicative-expr> "+" <additive-expr>
+    | <multiplicative-expr> "-" <additive-expr>
 
 <relational-expr> ::=
     | <additive-expr>
-    | <additive-expr> < <relational-expr>
-    | <additive-expr> <= <relational-expr>
-    | <additive-expr> > <relational-expr>
-    | <additive-expr> >= <relational-expr>
+    | <additive-expr> "<" <relational-expr>
+    | <additive-expr> "<=" <relational-expr>
+    | <additive-expr> ">" <relational-expr>
+    | <additive-expr> ">=" <relational-expr>
 
 <equality-expr> ::=
     | <relational-expr>
-    | <relational-expr> = <equality-expr>
-    | <relational-expr> != <equality-expr>
-    | <relational-expr> == <equality-expr>
-    | <relational-expr> !== <equality-expr>
+    | <relational-expr> "=" <equality-expr>
+    | <relational-expr> "!=" <equality-expr>
+    | <relational-expr> "==" <equality-expr>
+    | <relational-expr> "!==" <equality-expr>
 
 <and-expr> ::=
     | <equality-expr>
-    | <equality-expr> && <and-expr>
+    | <equality-expr> "&&" <and-expr>
 
 <or-expr> ::=
     | <and-expr>
-    | <and-expr> || <and-expr>
+    | <and-expr> "||" <and-expr>
 
 <expr> ::=
     | <or-expr>

@@ -7,7 +7,7 @@ authors = [ "whenderson" ]
 [[bin]]
 
 name = "housecat"
-path = "src/housecat.rs"
+path = "src/main.rs"
 
 [dependencies]
 regex = "0.1.18"

@@ -7,4 +7,11 @@ var doPrint: func(name) {
 	print(greeting + " " + name) # string concatenation
 }
 
+
 doPrint()
+
+
+fn(param1, param2) -> (ret_val1, ret_val2) {
+    def retval_1: "return this value, appended to " + param1
+    def retval_2: "return this value and " + param2 + " too!"
+}
