@@ -50,7 +50,8 @@ fn main() {
                     println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                 }
                 match parser::parse_expr(&toks[..]) {
-                    (exp, _) => println!("{:?}", exp)
+                    Ok((exp, _)) => println!("{:?}", exp),
+                    Err(s) => println!("{}", s)
                 }
             }
         }
