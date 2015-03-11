@@ -187,18 +187,11 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
                         _ => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
                     }
                 },
-                // ... 
-                _ => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected `(`, `[`, or `.` but found token {:?}\n{}\n{}",
-                    first_tok.line + 1,
-                    first_tok.col + 1,
-                    first_tok.token,
-                    first_tok.line_string,
-                    get_caret_string(first_tok.col)
-                ))
+                // EPS 
+                _ => Ok((Postfix::PostfixNone, tokens))
             }
         }
-        // EPS
+        // EOF
         _ => Ok((Postfix::PostfixNone, tokens))
     }
 }
