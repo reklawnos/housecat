@@ -67,7 +67,7 @@ fn do_file_parse<'a>(lines: &'a Vec<String>, result_vec: & mut Vec<token::Tok<'a
             Err(col) => {
                 return Err(
                     format!(
-                        "ERROR at {},{}: Lexing failure: syntax error, invalid character {}\n{}\n{}",
+                        "LEXING FAILURE at {},{}: invalid character {}\n{}\n{}",
                         line_index + 1,
                         col + 1,
                         l[..].char_at(col),

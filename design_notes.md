@@ -179,17 +179,17 @@ Clips can also return multiple values in the form of a tuple:
         def retval_2: "return this value and " + param2 + " too!"
     }
     # destructuring and definition in same statement
-    (var val_1, var val_2): get_values("this string!", "another string")
+    var val_1, var val_2: get_values("this string!", "another string")
     
     # alternately
     var val_3: nil
     var val_4: nil
-    (val_3, val_4): get_values("this string!", "another string")
+    val_3, val_4: get_values("this string!", "another string")
 
     # also alternately
     var tup: get_values("this string!", "another string")
-    print(tup.0)  # prints "return this value, appended to this string!"
-    print(tup.1)  # prints "return this value and another string too!"
+    print(tup[0])  # prints "return this value, appended to this string!"
+    print(tup[1])  # prints "return this value and another string too!"
 
 You can break out of a clip's playback using `return`.
 

@@ -58,7 +58,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
                                 // ... )
                                 Token::CloseParen => Ok((parsed_expr, next_rest)),
                                 _ => Err(format!(
-                                        "ERROR at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
+                                        "PARSING FAILURE at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
                                         next_tok.line + 1,
                                         next_tok.col + 1,
                                         next_tok.token,
@@ -70,7 +70,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
                             }
                         }
                         _ => Err(format!(
-                            "ERROR: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
+                            "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
                             first_tok.line + 1,
                             first_tok.col + 1,
                             first_tok.line_string,
@@ -89,7 +89,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
                 // nil
                 Token::Nil => Ok((Expr::ExprLiteral(Literal::LitNil), rest)),
                 _ => Err(format!(
-                        "ERROR at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
+                        "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
                         first_tok.line + 1,
                         first_tok.col + 1,
                         first_tok.token,
@@ -98,7 +98,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
                     ))
             }
         }
-        _ => Err(format!("ERROR: Reached end of file, but expected Ident or (Expression)"))
+        _ => Err(format!("PARSING FAILURE: Reached end of file, but expected Ident or (Expression)"))
     }
 }
 
@@ -144,7 +144,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
                                     Ok((Postfix::PostfixIndex(Box::new(parsed_expr), Box::new(next_postfix)), tokens_after_next))
                                 },
                                 _ => Err(format!(
-                                    "ERROR at {},{}: Found {:?} but expected ']' to match '[' at {},{}\n{}\n{}",
+                                    "PARSING FAILURE at {},{}: Found {:?} but expected ']' to match '[' at {},{}\n{}\n{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
@@ -156,7 +156,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
                             }
                         }
                         _ => Err(format!(
-                            "ERROR: Reached end of file, but '[' at {},{} is unmatched\n{}\n{}",
+                            "PARSING FAILURE: Reached end of file, but '[' at {},{} is unmatched\n{}\n{}",
                             first_tok.line + 1,
                             first_tok.col + 1,
                             first_tok.line_string,
@@ -175,7 +175,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
                                     Ok((Postfix::PostfixAccess(i.clone(), Box::new(next_postfix)), tokens_after_next))
                                 },
                                 _ => Err(format!(
-                                    "ERROR at {},{}: Found {:?} but expected an Ident\n{}\n{}",
+                                    "PARSING FAILURE at {},{}: Found {:?} but expected an Ident\n{}\n{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
@@ -184,12 +184,12 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
                                 ))
                             }
                         },
-                        _ => Err(format!("ERROR: Reached end of file but expected an Ident"))
+                        _ => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
                     }
                 },
                 // ... 
                 _ => Err(format!(
-                    "ERROR at {},{}: Unexpected token {:?}\n{}\n{}",
+                    "PARSING FAILURE at {},{}: Expected `(`, `[`, or `.` but found token {:?}\n{}\n{}",
                     first_tok.line + 1,
                     first_tok.col + 1,
                     first_tok.token,
@@ -228,7 +228,7 @@ fn parse_args<'a>(tokens: &'a[Tok]) -> Result<(Args, &'a[Tok<'a>]), String> {
                                     Ok((Args::ArgsItem(Box::new(parsed_expr), Box::new(parsed_arg)), tokens_after_arg))
                                 }
                                 _ => Err(format!(
-                                    "ERROR at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
+                                    "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
                                     next_tok.line + 1,
                                     next_tok.col + 1,
                                     next_tok.token,
@@ -237,12 +237,12 @@ fn parse_args<'a>(tokens: &'a[Tok]) -> Result<(Args, &'a[Tok<'a>]), String> {
                                 ))
                             }
                         },
-                        _ => Err(format!("ERROR: Reached end of file but expected more arguments or ')'"))
+                        _ => Err(format!("PARSING FAILURE: Reached end of file but expected more arguments or ')'"))
                     }
                 }
             }
         },
-        _ => Err(format!("ERROR: Reached end of file but expected arguments or ')'"))
+        _ => Err(format!("PARSING FAILURE: Reached end of file but expected arguments or ')'"))
     }
 }
 
@@ -261,7 +261,7 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), String
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
                     Ok((Expr::ExprUnOp(UnOp::UnNot, Box::new(parsed_expr)), tokens_after_expr))
                 },
-                // <primary-expr>
+                // <postfix-expr>
                 _ => parse_postfix_expr(tokens)
             }
         }
