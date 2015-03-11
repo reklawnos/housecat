@@ -42,6 +42,7 @@ macro_rules! parse_expr_binary_op(
     });
 );
 
+
 // <primary-expr>
 fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), String> {
     match tokens {
@@ -57,6 +58,11 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
                             match next_tok.token {
                                 // ... )
                                 Token::CloseParen => Ok((parsed_expr, next_rest)),
+                                // ... , ...
+                                Token::Comma => {
+                                    let (parsed_list, tokens_after_list) = get_parsed!(parse_expr_list(next_rest));
+                                    Ok((Expr::ExprTuple(Box::new(ExprList::ListItem(Box::new(parsed_expr), Box::new(parsed_list)))), tokens_after_list))
+                                }
                                 _ => Err(format!(
                                         "PARSING FAILURE at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
                                         next_tok.line + 1,
@@ -128,7 +134,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
             match first_tok.token {
                 // ... ( ...
                 Token::OpenParen => {
-                    let (parsed_args, tokens_after_args) = get_parsed!(parse_args(rest));
+                    let (parsed_args, tokens_after_args) = get_parsed!(parse_expr_list(rest));
                     let (next_postfix, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_args));
                     Ok((Postfix::PostfixPlay(Box::new(parsed_args), Box::new(next_postfix)), tokens_after_postfix))
                 },
@@ -197,13 +203,13 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
 }
 
 // <args>
-fn parse_args<'a>(tokens: &'a[Tok]) -> Result<(Args, &'a[Tok<'a>]), String> {
+fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<(ExprList, &'a[Tok<'a>]), String> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
                 // )
                 Token::CloseParen => {
-                    Ok((Args::ArgsNone, rest))
+                    Ok((ExprList::ListNone, rest))
                 }
                 // <expr> ...
                 _ => {
@@ -213,12 +219,12 @@ fn parse_args<'a>(tokens: &'a[Tok]) -> Result<(Args, &'a[Tok<'a>]), String> {
                             match next_tok.token {
                                 // ... )
                                 Token::CloseParen => {
-                                    Ok((Args::ArgsItem(Box::new(parsed_expr), Box::new(Args::ArgsNone)), rest))
+                                    Ok((ExprList::ListItem(Box::new(parsed_expr), Box::new(ExprList::ListNone)), rest))
                                 },
                                 // ... , ...
                                 Token::Comma => {
-                                    let (parsed_arg, tokens_after_arg) = get_parsed!(parse_args(rest));
-                                    Ok((Args::ArgsItem(Box::new(parsed_expr), Box::new(parsed_arg)), tokens_after_arg))
+                                    let (parsed_arg, tokens_after_arg) = get_parsed!(parse_expr_list(rest));
+                                    Ok((ExprList::ListItem(Box::new(parsed_expr), Box::new(parsed_arg)), tokens_after_arg))
                                 }
                                 _ => Err(format!(
                                     "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
@@ -230,12 +236,12 @@ fn parse_args<'a>(tokens: &'a[Tok]) -> Result<(Args, &'a[Tok<'a>]), String> {
                                 ))
                             }
                         },
-                        _ => Err(format!("PARSING FAILURE: Reached end of file but expected more arguments or ')'"))
+                        _ => Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
                     }
                 }
             }
         },
-        _ => Err(format!("PARSING FAILURE: Reached end of file but expected arguments or ')'"))
+        _ => Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
     }
 }
 

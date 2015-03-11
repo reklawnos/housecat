@@ -16,23 +16,24 @@ pub mod ast {
         ExprBinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
         ExprLiteral(Literal),                   // <Literal>
         ExprIdent(Box<String>),                 // <Ident>
-        ExprPostfix(Box<Expr>, Box<Postfix>)    // <Expr> <Postfix>
+        ExprPostfix(Box<Expr>, Box<Postfix>),   // <Expr> <Postfix>
+        ExprTuple(Box<ExprList>)                // (<Expr>, <Expr>, ...)
     }
 
     //Postfix Operations
     #[derive(Debug)]
     pub enum Postfix {
-        PostfixPlay(Box<Args>, Box<Postfix>),     // ... ( <Args> ) <Postfix>
+        PostfixPlay(Box<ExprList>, Box<Postfix>), // ... ( <Args> ) <Postfix>
         PostfixIndex(Box<Expr>, Box<Postfix>),    // ... [ <Expr> ] <Postfix>
         PostfixAccess(Box<String>, Box<Postfix>), // ... . <Ident> <Postfix>
         PostfixNone                               // EPS
     }
 
-    //Arguments
+    //Lists of expressions
     #[derive(Debug)]
-    pub enum Args {
-        ArgsItem(Box<Expr>, Box<Args>), // <Expr> , <Args>
-        ArgsNone                       // EPS
+    pub enum ExprList {
+        ListItem(Box<Expr>, Box<ExprList>), // <Expr> , <ExprList>
+        ListNone                            // EPS
     }
 
     //Statements

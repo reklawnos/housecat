@@ -13,8 +13,10 @@ Expressions
         | <string>
         | <ident>
         | "nil"
-        | { <statements> }
-        | ( <expr> )
+        | "{" <clip-block>
+        | "fn" <clip-def>
+        | "(" <expr> ")"
+        | "(" <expr> "," <expr-list>
 
     <postfix-expr> ::=
         | <primary-expr> <postfix-continuation>
@@ -26,11 +28,11 @@ Expressions
         | ""
 
     <args> ::=
-        | <args-list> ")"
+        | <expr-list>
         | ")"
 
-    <args-list> ::=
-        | <expr>
+    <expr-list> ::=
+        | <expr> ")"
         | <expr> "," <args-list>
 
     <unary-expr> ::=
@@ -82,22 +84,62 @@ Expressions
 Statements
 ----------
 
-    <assignment-types> ::=
-        | "var" <ident>
-        | "def" <ident>
-        | <ident>
+    <item-continuation> ::=
+        | "." <ident> <postfix-continuation>
+        | "[" <expr> "]" <postfix-continuation>
+        | ""
 
-    <assignment-idents> ::=
-        | <assignment-types>
-        | <assignment-types> "," <assignment-idents>
+    <item-ident> ::=
+        | <ident> <item-continuation>
 
-    <if-expr>
+    <item-types> ::=
+        | "var" <item-ident>
+        | "def" <item-ident>
+        | <item-ident>
+
+    <items> ::=
+        | <item-types>
+        | <item-types> "," <items>
+
+    <stmt-items> ::=
+        | <items>
+        | <items> ":" <expr>
 
     <stmt> ::=
-        | <assignment-idents> ":" <expr>
-        | "if" <expr> "then" <statements> "end"
-        | "if" <expr> "then" <statements> "else" <statements> "end"
+        | <stmt-items>
+        | "{" <clip-block>
+        | "fn" <clip-def>
+        | "if" <expr> "then" <if-statements>
 
-    <statments> ::=
-        | <stmt> <statements>
+    <if-statements> ::=
+        | <stmt> <if-statements>
+        | "end"
+        | "else" <block-statements>
+
+    <block-statements> ::=
+        | <stmt> <block-statements>
+        | "end"
+
+    <clip-statements> ::=
+        | <stmt> <clip-statements>
+        | "}"
+
+    <base-statments> ::=
+        | <stmt> <base-statements>
         | ""
+
+Clips
+-----
+
+    <params> ::=
+        | <params-list> ")"
+        | ")"
+
+    <params-list> ::=
+        | <ident>
+        | <ident> "," <params-list>
+
+    <clip-def> ::=
+        | "(" <params> "{" <clip-statements>
+        | "(" <params> "->" <ident> <clip-statements>
+        | "(" <params> "->" "(" <params> <clip-statements>

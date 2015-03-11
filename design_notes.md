@@ -18,6 +18,18 @@ The else statement can be dropped:
         print("x is 3!")
     end
 
+Defining something inside of an if statement will define it for the parent scope, while vars are constrained to the if statement's scope.
+
+    def my_clip: {
+        if true then
+            def x: 10
+            var y: 20
+        end
+        print(x)  # prints "10"
+        # print(y)  # error: y is not defined
+    }
+    print(my_clip.x)  # prints "10"
+
 ### While statements
 While loops are written as:
     
