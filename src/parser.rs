@@ -446,7 +446,7 @@ pub fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItemList> {
     match tokens_after_item {
         [ref first_tok, rest..] => {
             match first_tok.token {
-                // ... "," ...
+                // ... "," <item-list>
                 Token::Comma => {
                     let (parsed_list, tokens_after_list) = get_parsed!(parse_item_list(rest));
                     Result::Ok(StmtItemList::Item(Box::new(parsed_item), Box::new(parsed_list)), tokens_after_list)
@@ -465,7 +465,7 @@ pub fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
     match tokens_after_items {
         [ref first_tok, rest..] => {
             match first_tok.token {
-                // ... ":" ...
+                // ... ":" <expr>
                 Token::Assign => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     Result::Ok(Stmt::Assignment(Box::new(parsed_items), Box::new(parsed_expr)), tokens_after_expr)

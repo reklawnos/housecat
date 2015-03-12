@@ -106,6 +106,7 @@ Statements
         | "{" <clip-block>
         | "fn" <clip-def>
         | "if" <expr> "then" <if-statements>
+        | "while" <expr> "do" <block-statements>
 
     <if-statements> ::=
         | <stmt> <if-statements>
