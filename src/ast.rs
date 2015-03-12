@@ -3,72 +3,79 @@ pub mod ast {
     //Literals
     #[derive(Debug)]
     pub enum Literal {
-        LitBool(bool),          // <bool>
-        LitInt(i64),            // <int>
-        LitFloat(f64),          // <float>
-        LitString(Box<String>), // <string>
-        LitNil,                 // 'nil'
+        Bool(bool),          // <bool>
+        Int(i64),            // <int>
+        Float(f64),          // <float>
+        String(Box<String>), // <string>
+        Nil,                 // 'nil'
     }
 
     //Expressions
     #[derive(Debug)]
     pub enum Expr {
-        ExprUnOp(UnOp, Box<Expr>),              // <UnOp> <Expr>
-        ExprBinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
-        ExprLiteral(Literal),                   // <Literal>
-        ExprIdent(Box<String>),                 // <Ident>
-        ExprPostfix(Box<Expr>, Box<Postfix>),   // <Expr> <Postfix>
-        ExprTuple(Box<ExprList>)                // (<Expr>, <Expr>, ...)
+        UnOp(UnOp, Box<Expr>),              // <UnOp> <Expr>
+        BinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
+        Literal(Literal),                   // <Literal>
+        Ident(Box<String>),                 // <Ident>
+        Postfix(Box<Expr>, Box<Postfix>),   // <Expr> <Postfix>
+        Tuple(Box<ExprList>)                // (<Expr>, <Expr>, ...)
     }
 
     //Postfix Operations
     #[derive(Debug)]
     pub enum Postfix {
-        PostfixPlay(Box<ExprList>, Box<Postfix>), // ... ( <Args> ) <Postfix>
-        PostfixIndex(Box<Expr>, Box<Postfix>),    // ... [ <Expr> ] <Postfix>
-        PostfixAccess(Box<String>, Box<Postfix>), // ... . <Ident> <Postfix>
-        PostfixNone                               // EPS
+        Play(Box<ExprList>, Box<Postfix>), // ... ( <Args> ) <Postfix>
+        Index(Box<Expr>, Box<Postfix>),    // ... [ <Expr> ] <Postfix>
+        Access(Box<String>, Box<Postfix>), // ... . <Ident> <Postfix>
+        None                               // EPS
     }
 
     //Lists of expressions
     #[derive(Debug)]
     pub enum ExprList {
-        ListItem(Box<Expr>, Box<ExprList>), // <Expr> , <ExprList>
-        ListNone                            // EPS
+        Item(Box<Expr>, Box<ExprList>), // <Expr> , <ExprList>
+        None                            // EPS
     }
-
-    //Statements
-    // #[derive(Debug)]
-    // pub enum Statement {
-    //     StAssignment(Box<String>, Expr) // 
-    // }
 
     //Unary Operators
     #[derive(Debug)]
     pub enum UnOp {
-        UnNeg, // '-' (number negation)
-        UnNot, // '!' (boolean not)
+        Neg, // '-' (number negation)
+        Not, // '!' (boolean not)
     }
 
     //Binary Operators
     #[derive(Debug)]
     pub enum BinOp {
-        BinAdd,   // '+'
-        BinSub,   // '-'
-        BinMul,   // '*'
-        BinDiv,   // '/'
-        BinMod,   // '%'
-        BinExp,   // '^'
-        BinIn,    // 'in'
-        BinLt,    // '<'
-        BinLte,   // '<='
-        BinGt,    // '>'
-        BinGte,   // '>='
-        BinEq,    // '='
-        BinNeq,   // '!='
-        BinSame,  // '=='
-        BinNsame, // '!=='
-        BinAnd,   // '&&'
-        BinOr,    // '||'
+        Add,   // '+'
+        Sub,   // '-'
+        Mul,   // '*'
+        Div,   // '/'
+        Mod,   // '%'
+        Exp,   // '^'
+        In,    // 'in'
+        Lt,    // '<'
+        Lte,   // '<='
+        Gt,    // '>'
+        Gte,   // '>='
+        Eq,    // '='
+        Neq,   // '!='
+        Same,  // '=='
+        Nsame, // '!=='
+        And,   // '&&'
+        Or,    // '||'
     }
+
+    //Statement
+    #[derive(Debug)]
+    // pub enum Stmt {
+    //     Assignment
+    // }
+
+    //List of statements
+    #[derive(Debug)]
+    // pub enum StmtList {
+    //     Item(Box<Stmt>, Box<StmtList>),
+    //     None
+    // }
 }
