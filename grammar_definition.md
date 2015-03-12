@@ -55,12 +55,16 @@ Expressions
         | <multiplicative-expr> "+" <additive-expr>
         | <multiplicative-expr> "-" <additive-expr>
 
-    <relational-expr> ::=
+    <in-expr> ::=
         | <additive-expr>
-        | <additive-expr> "<" <relational-expr>
-        | <additive-expr> "<=" <relational-expr>
-        | <additive-expr> ">" <relational-expr>
-        | <additive-expr> ">=" <relational-expr>
+        | <additive-expr> "in" <in-expr>
+
+    <relational-expr> ::=
+        | <in-expr>
+        | <in-expr> "<" <relational-expr>
+        | <in-expr> "<=" <relational-expr>
+        | <in-expr> ">" <relational-expr>
+        | <in-expr> ">=" <relational-expr>
 
     <equality-expr> ::=
         | <relational-expr>
@@ -75,7 +79,7 @@ Expressions
 
     <or-expr> ::=
         | <and-expr>
-        | <and-expr> "||" <and-expr>
+        | <and-expr> "||" <or-expr>
 
     <expr> ::=
         | <or-expr>

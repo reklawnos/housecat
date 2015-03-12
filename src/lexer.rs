@@ -98,6 +98,7 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
                 "def" => Token::Def,
                 "nil" => Token::Nil,
                 "fn" => Token::Fn,
+                "in" => Token::In,
                 "return" => Token::Return,
                 s => {
                     Token::Ident(Box::new(s.to_string()))

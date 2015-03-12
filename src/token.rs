@@ -5,6 +5,7 @@ pub enum Token {
     Nil,                // `nil`
     Fn,                 // `fn`
     Return,             // `return`
+    In,
     // Symbols
     //Eof,                // End of file
     Colon,              // `:`

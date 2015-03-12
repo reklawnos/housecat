@@ -50,15 +50,15 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
             match first_tok.token {
                 // <ident>
                 Token::Ident(ref id) => Ok((Expr::ExprIdent(id.clone()), rest)),
-                // ( <expr> ...
+                // "(" <expr> ...
                 Token::OpenParen => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     match tokens_after_expr {
                         [ref next_tok, next_rest..] => {
                             match next_tok.token {
-                                // ... )
+                                // ... ")"
                                 Token::CloseParen => Ok((parsed_expr, next_rest)),
-                                // ... , ...
+                                // ... "," ...
                                 Token::Comma => {
                                     let (parsed_list, tokens_after_list) = get_parsed!(parse_expr_list(next_rest));
                                     Ok((Expr::ExprTuple(Box::new(ExprList::ListItem(Box::new(parsed_expr), Box::new(parsed_list)))), tokens_after_list))
@@ -92,7 +92,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Stri
                 Token::Float(f) => Ok((Expr::ExprLiteral(Literal::LitFloat(f)), rest)),
                 // <string>
                 Token::String(ref s) => Ok((Expr::ExprLiteral(Literal::LitString(s.clone())), rest)),
-                // nil
+                // "nil"
                 Token::Nil => Ok((Expr::ExprLiteral(Literal::LitNil), rest)),
                 _ => Err(format!(
                         "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
@@ -132,19 +132,19 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<(Postfix, &'a[Tok<
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
-                // ... ( ...
+                // ... "(" ...
                 Token::OpenParen => {
                     let (parsed_args, tokens_after_args) = get_parsed!(parse_expr_list(rest));
                     let (next_postfix, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_args));
                     Ok((Postfix::PostfixPlay(Box::new(parsed_args), Box::new(next_postfix)), tokens_after_postfix))
                 },
-                // ... [ ...
+                // ... "[" ...
                 Token::OpenBrac => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     match tokens_after_expr {
                         [ref next_tok, next_rest..] => {
                             match next_tok.token {
-                                // ... ]
+                                // ... "]"
                                 Token::CloseBrac => {
                                     let (next_postfix, tokens_after_next) = get_parsed!(parse_postfix_continuation(next_rest));
                                     Ok((Postfix::PostfixIndex(Box::new(parsed_expr), Box::new(next_postfix)), tokens_after_next))
@@ -217,11 +217,11 @@ fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<(ExprList, &'a[Tok<'a>]), Str
                     match tokens_after_expr {
                         [ref next_tok, rest..] => {
                             match next_tok.token {
-                                // ... )
+                                // ... ")"
                                 Token::CloseParen => {
                                     Ok((ExprList::ListItem(Box::new(parsed_expr), Box::new(ExprList::ListNone)), rest))
                                 },
-                                // ... , ...
+                                // ... "," ...
                                 Token::Comma => {
                                     let (parsed_arg, tokens_after_arg) = get_parsed!(parse_expr_list(rest));
                                     Ok((ExprList::ListItem(Box::new(parsed_expr), Box::new(parsed_arg)), tokens_after_arg))
@@ -250,12 +250,12 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), String
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
-                // - ...
+                // "-" ...
                 Token::Sub => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
                     Ok((Expr::ExprUnOp(UnOp::UnNeg, Box::new(parsed_expr)), tokens_after_expr))
                 },
-                // ! ...
+                // "!" ...
                 Token::Not => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
                     Ok((Expr::ExprUnOp(UnOp::UnNot, Box::new(parsed_expr)), tokens_after_expr))
@@ -307,11 +307,23 @@ fn parse_additive_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), Str
     )
 }
 
+// <in-expr>
+fn parse_in_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), String> {
+    parse_expr_binary_op!(
+        tokens,
+        parse_additive_expr,
+        parse_in_expr,
+        [
+            Token::In => BinOp::BinIn
+        ]
+    )
+}
+
 // <relational-expr>
 fn parse_relational_expr<'a>(tokens: &'a[Tok]) -> Result<(Expr, &'a[Tok<'a>]), String> {
     parse_expr_binary_op!(
         tokens,
-        parse_additive_expr,
+        parse_in_expr,
         parse_relational_expr,
         [
             Token::Lt => BinOp::BinLt,

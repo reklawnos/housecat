@@ -1,4 +1,5 @@
 pub mod ast {
+
     //Literals
     #[derive(Debug)]
     pub enum Literal {
@@ -58,6 +59,7 @@ pub mod ast {
         BinDiv,   // '/'
         BinMod,   // '%'
         BinExp,   // '^'
+        BinIn,    // 'in'
         BinLt,    // '<'
         BinLte,   // '<='
         BinGt,    // '>'
