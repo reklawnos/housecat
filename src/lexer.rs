@@ -114,7 +114,7 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
             let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
             Token::String(Box::new(escaped))
         },
-        ParseType::PtColon => Token::Colon,
+        ParseType::PtColon => Token::Assign,
         ParseType::PtDot => Token::Dot,
         ParseType::PtComma => Token::Comma,
         ParseType::PtOpenBrac => Token::OpenBrac,

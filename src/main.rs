@@ -20,7 +20,6 @@ mod parser;
 mod lexer;
 mod utils;
 
-
 fn main() {
     let command_args : Vec<String> = env::args().collect();
     //TODO: do_repl();
@@ -50,8 +49,8 @@ fn main() {
                     println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                 }
                 match parser::parse_expr(&toks[..]) {
-                    Ok((exp, _)) => println!("{:?}", exp),
-                    Err(s) => println!("{}", s)
+                    parser::Result::Ok(exp, _) => println!("{:?}", exp),
+                    parser::Result::Err(s) => println!("{}", s)
                 }
             }
         }

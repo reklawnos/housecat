@@ -97,7 +97,7 @@ Statements
         | <ident> <item-continuation>
 
     <item-types> ::=
-        | "var" <item-ident>
+        | "var" <ident>
         | "def" <item-ident>
         | <item-ident>
 

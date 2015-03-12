@@ -8,7 +8,7 @@ pub enum Token {
     In,
     // Symbols
     //Eof,                // End of file
-    Colon,              // `:`
+    Assign,             // `:`
     Dot,                // `.`
     OpenCurly,          // `{`
     CloseCurly,         // `}`
