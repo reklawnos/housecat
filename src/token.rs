@@ -2,10 +2,16 @@
 pub enum Token {
     // Keywords
     Def,                // `def`
+    Var,                // `var`
     Nil,                // `nil`
     Fn,                 // `fn`
     Return,             // `return`
-    In,
+    In,                 // `in`
+    If,                 // `if`
+    Then,               // `then`
+    Else,               // `else`
+    End,                // `end`
+    
     // Symbols
     //Eof,                // End of file
     Assign,             // `:`

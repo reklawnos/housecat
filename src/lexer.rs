@@ -96,6 +96,7 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
         ParseType::PtName => {
             match tok_string {
                 "def" => Token::Def,
+                "var" => Token::Var,
                 "nil" => Token::Nil,
                 "fn" => Token::Fn,
                 "in" => Token::In,

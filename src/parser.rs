@@ -49,6 +49,13 @@ pub enum Result<'a, T> {
     Err(String)
 }
 
+fn print_toks<'a>(func: &str, tokens: &'a[Tok]) {
+    print!("{}: ", func);
+    for t in tokens.iter() {
+        print!("{:?}, ", t.token);
+    }
+    println!("");
+}
 
 // <primary-expr>
 fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
@@ -386,14 +393,120 @@ pub fn parse_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 
+
+
+
+// <item>
+pub fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItemType> {
+    print_toks("parse item", tokens);
+    match tokens {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                // "var" <ident>
+                Token::Var => {
+                    match rest {
+                        [ref next_tok, rest..] => {
+                            match next_tok.token{
+                                Token::Ident(ref id) => {
+                                    Result::Ok(StmtItemType::Var(id.clone()), rest)
+                                }
+                                _ => Result::Err(format!(
+                                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
+                                    next_tok.line + 1,
+                                    next_tok.col + 1,
+                                    next_tok.token,
+                                    next_tok.line_string,
+                                    get_caret_string(next_tok.col)
+                                ))
+                            }
+                        }
+                        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
+                    }
+                }
+                // "def" <expr>
+                Token::Def => {
+                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+                    Result::Ok(StmtItemType::Def(Box::new(parsed_expr)), tokens_after_expr)
+                }
+                // <expr>
+                _ => {
+                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(tokens));
+                    Result::Ok(StmtItemType::Bare(Box::new(parsed_expr)), tokens_after_expr)
+                }
+            }
+        }
+        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
+    }
+}
+
+// <item-list>
+pub fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItemList> {
+    print_toks("parse item list", tokens);
+    let (parsed_item, tokens_after_item) = get_parsed!(parse_item(tokens));
+    match tokens_after_item {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                // ... "," ...
+                Token::Comma => {
+                    let (parsed_list, tokens_after_list) = get_parsed!(parse_item_list(rest));
+                    Result::Ok(StmtItemList::Item(Box::new(parsed_item), Box::new(parsed_list)), tokens_after_list)
+                }
+                // EPS
+                _ => Result::Ok(StmtItemList::Item(Box::new(parsed_item), Box::new(StmtItemList::None)), tokens_after_item)
+            }
+        }
+        _ => Result::Ok(StmtItemList::Item(Box::new(parsed_item), Box::new(StmtItemList::None)), tokens_after_item)
+    }
+}
+
+// <stmt-items>
+pub fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
+    let (parsed_items, tokens_after_items) = get_parsed!(parse_item_list(tokens));
+    match tokens_after_items {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                // ... ":" ...
+                Token::Assign => {
+                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+                    Result::Ok(Stmt::Assignment(Box::new(parsed_items), Box::new(parsed_expr)), tokens_after_expr)
+                }
+                // EPS
+                _ => Result::Ok(Stmt::Bare(Box::new(parsed_items)), tokens_after_items)
+            }
+        }
+        _ => Result::Ok(Stmt::Bare(Box::new(parsed_items)), tokens_after_items)
+    }
+}
+
+// <stmt>
+pub fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
+    print_toks("parse stmt", tokens);
+    match tokens {
+        [ref first_tok, _..] => {
+            match first_tok.token {
+                // "{" ...
+                Token::OpenCurly => panic!("Not implemented yet: {:?}", first_tok.token),
+                // "fn" ...
+                Token::Fn => panic!("Not implemented yet: {:?}", first_tok.token),
+                // "if" ...
+                Token::If => panic!("Not implemented yet: {:?}", first_tok.token),
+                // <stmt-items>
+                _ => parse_stmt_items(tokens)
+            }
+        }
+        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
+    }
+}
+
 // <stmt-list>
-// pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<(StmtList, &'a[Tok<'a>]), String> {
-//     match tokens {
-//         [..] => {
-//             let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-//             let (parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
-//             Result::Ok(StmtList::List(parsed_stmt, parsed_list), ))
-//         }
-//         _ => Result::Ok(StmtList::None, tokens))
-//     }
-// }
+pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, StmtList> {
+    print_toks("parse base statements", tokens);
+    match tokens {
+        [_, _..] => {
+            let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
+            let (parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
+            Result::Ok(StmtList::Item(Box::new(parsed_stmt), Box::new(parsed_list)), tokens_after_list)
+        }
+        _ => Result::Ok(StmtList::None, tokens)
+    }
+}

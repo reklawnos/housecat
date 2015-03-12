@@ -88,26 +88,18 @@ Expressions
 Statements
 ----------
 
-    <item-continuation> ::=
-        | "." <ident> <postfix-continuation>
-        | "[" <expr> "]" <postfix-continuation>
-        | ""
-
-    <item-ident> ::=
-        | <ident> <item-continuation>
-
-    <item-types> ::=
+    <item> ::=
         | "var" <ident>
-        | "def" <item-ident>
-        | <item-ident>
+        | "def" <expr>
+        | <expr>
 
-    <items> ::=
-        | <item-types>
-        | <item-types> "," <items>
+    <item-list> ::=
+        | <item>
+        | <item> "," <item-list>
 
     <stmt-items> ::=
-        | <items>
-        | <items> ":" <expr>
+        | <item-list>
+        | <item-list> ":" <expr>
 
     <stmt> ::=
         | <stmt-items>

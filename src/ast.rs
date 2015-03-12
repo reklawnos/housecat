@@ -69,29 +69,22 @@ pub mod ast {
     //Statement
     #[derive(Debug)]
     pub enum Stmt {
-        Assignment(Box<StmtItem>, Box<Expr>),
-        Bare(Box<StmtItem>)
-    }
-
-    //Statement item
-    #[derive(Debug)]
-    pub enum StmtItem {
-        Single(Box<StmtItemType>),
-        Tuple(Box<StmtItemList>)
+        Assignment(Box<StmtItemList>, Box<Expr>),
+        Bare(Box<StmtItemList>)
     }
 
     //Statement item tuple list
     #[derive(Debug)]
     pub enum StmtItemList {
-        Item(Box<StmtItemType>),
+        Item(Box<StmtItemType>, Box<StmtItemList>),
         None
     }
 
     //Statement item types
     #[derive(Debug)]
     pub enum StmtItemType {
-        Bare(Box<String>, Box<Postfix>), // <Ident> <Postfix>
-        Def(Box<String>, Box<Postfix>),  // def <Ident> <Postfix>
+        Bare(Box<Expr>), // <Ident> <Postfix>
+        Def(Box<Expr>),  // def <Ident> <Postfix>
         Var(Box<String>)                 // var <Ident>
     }
 
