@@ -8,10 +8,10 @@ pub enum Token {
     Return,             // `return`
     In,                 // `in`
     If,                 // `if`
-    Then,               // `then`
     Else,               // `else`
+    While,              // `while`
     End,                // `end`
-    
+
     // Symbols
     //Eof,                // End of file
     Assign,             // `:`

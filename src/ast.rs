@@ -17,24 +17,16 @@ pub mod ast {
         BinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
         Literal(Literal),                   // <Literal>
         Ident(Box<String>),                 // <Ident>
-        Postfix(Box<Expr>, Box<Postfix>),   // <Expr> <Postfix>
-        Tuple(Box<ExprList>)                // (<Expr>, <Expr>, ...)
+        Postfix(Box<Expr>, Box<Vec<Postfix>>),   // <Expr> <Postfix>
+        Tuple(Box<Vec<Expr>>)                // (<Expr>, <Expr>, ...)
     }
 
     //Postfix Operations
     #[derive(Debug)]
     pub enum Postfix {
-        Play(Box<ExprList>, Box<Postfix>), // ... ( <Args> ) <Postfix>
-        Index(Box<Expr>, Box<Postfix>),    // ... [ <Expr> ] <Postfix>
-        Access(Box<String>, Box<Postfix>), // ... . <Ident> <Postfix>
-        None                               // EPS
-    }
-
-    //Lists of expressions
-    #[derive(Debug)]
-    pub enum ExprList {
-        Item(Box<Expr>, Box<ExprList>), // <Expr> , <ExprList>
-        None                            // EPS
+        Play(Box<Vec<Expr>>), // ... ( <Args> ) <Postfix>
+        Index(Box<Expr>),     // ... [ <Expr> ] <Postfix>
+        Access(Box<String>),  // ... . <Ident> <Postfix>
     }
 
     //Unary Operators
@@ -69,29 +61,16 @@ pub mod ast {
     //Statement
     #[derive(Debug)]
     pub enum Stmt {
-        Assignment(Box<StmtItemList>, Box<Expr>),
-        Bare(Box<StmtItemList>)
-    }
-
-    //Statement item tuple list
-    #[derive(Debug)]
-    pub enum StmtItemList {
-        Item(Box<StmtItemType>, Box<StmtItemList>),
-        None
+        Assignment(Box<Vec<StmtItem>>, Box<Expr>),
+        Bare(Box<Vec<StmtItem>>),
+        If(Box<Expr>, Box<Vec<Stmt>>, Box<Vec<Stmt>>)
     }
 
     //Statement item types
     #[derive(Debug)]
-    pub enum StmtItemType {
+    pub enum StmtItem {
         Bare(Box<Expr>), // <Ident> <Postfix>
         Def(Box<Expr>),  // def <Ident> <Postfix>
-        Var(Box<String>)                 // var <Ident>
-    }
-
-    //List of statements
-    #[derive(Debug)]
-    pub enum StmtList {
-        Item(Box<Stmt>, Box<StmtList>),
-        None
+        Var(Box<String>) // var <Ident>
     }
 }

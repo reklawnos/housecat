@@ -6,7 +6,7 @@ Control Flow
 ### If statements
 If-then-else statements can be used like so:
 
-    if x = 3 then
+    if x = 3
         print("x is 3!")
     else
         print("x is not 3...")
@@ -14,14 +14,14 @@ If-then-else statements can be used like so:
 
 The else statement can be dropped:
     
-    if x = 3 then
+    if x = 3
         print("x is 3!")
     end
 
 Defining something inside of an if statement will define it for the parent scope, while vars are constrained to the if statement's scope.
 
     def my_clip: {
-        if true then
+        if true
             def x: 10
             var y: 20
         end
@@ -35,7 +35,7 @@ While loops are written as:
     
     # prints out numbers 1 through 15
     var x: 0
-    while x < 15 do
+    while x < 15
         x: x + 1
         print(x) 
     end
@@ -206,7 +206,7 @@ Clips can also return multiple values in the form of a tuple:
 You can break out of a clip's playback using `return`.
 
     def process_input: fn(input) -> (result, error) {
-        if !is_valid(input) then
+        if !is_valid(input)
             result: nil
             error: "input is invalid!"
             return 

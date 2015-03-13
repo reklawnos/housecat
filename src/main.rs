@@ -49,7 +49,11 @@ fn main() {
                     println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                 }
                 match parser::parse_base_statements(&toks[..]) {
-                    parser::Result::Ok(exp, _) => println!("{:?}", exp),
+                    parser::Result::Ok(vec, _) => {
+                        for st in vec.iter() {
+                            println!("{:?}", st)
+                        }
+                    }
                     parser::Result::Err(s) => println!("{}", s)
                 }
             }

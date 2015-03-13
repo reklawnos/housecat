@@ -103,10 +103,8 @@ Statements
 
     <stmt> ::=
         | <stmt-items>
-        | "{" <clip-block>
-        | "fn" <clip-def>
-        | "if" <expr> "then" <if-statements>
-        | "while" <expr> "do" <block-statements>
+        | "if" <expr> <if-statements>
+        | "while" <expr> <block-statements>
 
     <if-statements> ::=
         | <stmt> <if-statements>

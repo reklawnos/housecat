@@ -95,6 +95,9 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
         //Capture keywords and idents
         ParseType::PtName => {
             match tok_string {
+                "if" => Token::If,
+                "else" => Token::Else,
+                "end" => Token::End,
                 "def" => Token::Def,
                 "var" => Token::Var,
                 "nil" => Token::Nil,
