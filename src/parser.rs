@@ -1,5 +1,3 @@
-
-
 macro_rules! get_parsed(
     ($parsed:expr) => ({
         match $parsed {
@@ -103,12 +101,12 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
                 // "{" <clip-statements>
                 Token::OpenCurly => {
                     let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(rest));
-                    Result::Ok(Expr::Literal(Literal::Clip(Box::new(vec![]), Box::new(vec![]), Box::new(parsed_list))), tokens_after_list)
+                    Result::Ok(Expr::Literal(Literal::Clip(vec![], vec![], parsed_list)), tokens_after_list)
                 }
                 // "fn" <clip-def>
                 Token::Fn => {
                     let ((parsed_params, parsed_returns, parsed_statements), tokens_after_list) = get_parsed!(parse_clip_def(rest));
-                    Result::Ok(Expr::Literal(Literal::Clip(Box::new(parsed_params), Box::new(parsed_returns), Box::new(parsed_statements))), tokens_after_list)
+                    Result::Ok(Expr::Literal(Literal::Clip(parsed_params, parsed_returns, parsed_statements)), tokens_after_list)
                 }
                 // <bool>
                 Token::Bool(b) => Result::Ok(Expr::Literal(Literal::Bool(b)), rest),
@@ -143,7 +141,7 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
             match first_tok.token {
                 Token::OpenParen | Token::Dot | Token::OpenBrac => {
                     let (parsed_postfix, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_expr));
-                    Result::Ok(Expr::Postfix(Box::new(parsed_expr), Box::new(parsed_postfix)), tokens_after_postfix)
+                    Result::Ok(Expr::Postfix(Box::new(parsed_expr), parsed_postfix), tokens_after_postfix)
                 },
                 _ => Result::Ok(parsed_expr, tokens_after_expr)
             }
@@ -162,7 +160,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix>> 
                 Token::OpenParen => {
                     let (parsed_args, tokens_after_args) = get_parsed!(parse_expr_list(rest));
                     let (mut postfix_list, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_args));
-                    postfix_list.insert(0, Postfix::Play(Box::new(parsed_args)));
+                    postfix_list.insert(0, Postfix::Play(parsed_args));
                     Result::Ok(postfix_list, tokens_after_postfix)
                 },
                 // ... "[" ...
@@ -481,13 +479,13 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
                 // ... ":" <expr>
                 Token::Assign => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    Result::Ok(Stmt::Assignment(Box::new(parsed_items), Box::new(parsed_expr)), tokens_after_expr)
+                    Result::Ok(Stmt::Assignment(parsed_items, Box::new(parsed_expr)), tokens_after_expr)
                 }
                 // EPS
-                _ => Result::Ok(Stmt::Bare(Box::new(parsed_items)), tokens_after_items)
+                _ => Result::Ok(Stmt::Bare(parsed_items), tokens_after_items)
             }
         }
-        _ => Result::Ok(Stmt::Bare(Box::new(parsed_items)), tokens_after_items)
+        _ => Result::Ok(Stmt::Bare(parsed_items), tokens_after_items)
     }
 }
 
@@ -500,13 +498,13 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
                 Token::If => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     let ((if_list, else_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr));
-                    Result::Ok(Stmt::If(Box::new(parsed_expr), Box::new(if_list), Box::new(else_list)), tokens_after_if)
+                    Result::Ok(Stmt::If(Box::new(parsed_expr), if_list, else_list), tokens_after_if)
                 }
                 // "while" <expr> <block-statements>
                 Token::While => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     let (stmt_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_expr));
-                    Result::Ok(Stmt::While(Box::new(parsed_expr), Box::new(stmt_list)), tokens_after_list)
+                    Result::Ok(Stmt::While(Box::new(parsed_expr), stmt_list), tokens_after_list)
 
                 }
                 // "return"

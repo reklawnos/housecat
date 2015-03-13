@@ -7,7 +7,7 @@ pub mod ast {
         Int(i64),                                                 // <int>
         Float(f64),                                               // <float>
         String(Box<String>),                                      // <string>
-        Clip(Box<Vec<Box<String>>>, Box<Vec<Box<String>>>, Box<Vec<Stmt>>), // <clip>
+        Clip(Vec<Box<String>>, Vec<Box<String>>, Vec<Stmt>), // <clip>
         Nil,                                                      // 'nil'
     }
 
@@ -18,14 +18,14 @@ pub mod ast {
         BinOp(BinOp, Box<Expr>, Box<Expr>),      // <Expr> <BinOp> <Expr>
         Literal(Literal),                        // <Literal>
         Ident(Box<String>),                      // <Ident>
-        Postfix(Box<Expr>, Box<Vec<Postfix>>),   // <Expr> <Postfix>
+        Postfix(Box<Expr>, Vec<Postfix>),   // <Expr> <Postfix>
         Tuple(Box<Vec<Expr>>)                    // (<Expr>, <Expr>, ...)
     }
 
     //Postfix Operations
     #[derive(Debug)]
     pub enum Postfix {
-        Play(Box<Vec<Expr>>), // ... ( <Args> ) <Postfix>
+        Play(Vec<Expr>), // ... ( <Args> ) <Postfix>
         Index(Box<Expr>),     // ... [ <Expr> ] <Postfix>
         Access(Box<String>),  // ... . <Ident> <Postfix>
     }
@@ -62,10 +62,10 @@ pub mod ast {
     //Statement
     #[derive(Debug)]
     pub enum Stmt {
-        Assignment(Box<Vec<StmtItem>>, Box<Expr>),
-        Bare(Box<Vec<StmtItem>>),
-        If(Box<Expr>, Box<Vec<Stmt>>, Box<Vec<Stmt>>),
-        While(Box<Expr>, Box<Vec<Stmt>>),
+        Assignment(Vec<StmtItem>, Box<Expr>),
+        Bare(Vec<StmtItem>),
+        If(Box<Expr>, Vec<Stmt>, Vec<Stmt>),
+        While(Box<Expr>, Vec<Stmt>),
         Return
     }
 

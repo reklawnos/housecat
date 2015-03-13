@@ -61,7 +61,6 @@ fn main() {
     }
 }
 
-
 fn do_file_parse<'a>(lines: &'a Vec<String>, result_vec: & mut Vec<token::Tok<'a>>) -> Result<(), String> {
     for (line_index, l) in lines.iter().enumerate() {
         let res = lexer::parse_line(&l, line_index, result_vec);
