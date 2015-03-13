@@ -63,7 +63,9 @@ pub mod ast {
     pub enum Stmt {
         Assignment(Box<Vec<StmtItem>>, Box<Expr>),
         Bare(Box<Vec<StmtItem>>),
-        If(Box<Expr>, Box<Vec<Stmt>>, Box<Vec<Stmt>>)
+        If(Box<Expr>, Box<Vec<Stmt>>, Box<Vec<Stmt>>),
+        While(Box<Expr>, Box<Vec<Stmt>>),
+        Return
     }
 
     //Statement item types

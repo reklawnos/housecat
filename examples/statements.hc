@@ -11,5 +11,11 @@ print(x + y)
 if x + y = 10
     var z: x + 10
     z: z + 1
+    return
+    x: x + 1
+end
+while x < 3
+    x: x + 1
+    y: y + 1
 end
 var x, def x: get("x", y)

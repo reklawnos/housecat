@@ -105,6 +105,7 @@ Statements
         | <stmt-items>
         | "if" <expr> <if-statements>
         | "while" <expr> <block-statements>
+        | "return"
 
     <if-statements> ::=
         | <stmt> <if-statements>

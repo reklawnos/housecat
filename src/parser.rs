@@ -490,12 +490,21 @@ pub fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
-                // "if" ...
+                // "if" <expr> <if-statements>
                 Token::If => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     let ((if_list, else_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr));
                     Result::Ok(Stmt::If(Box::new(parsed_expr), Box::new(if_list), Box::new(else_list)), tokens_after_if)
                 }
+                // "while" <expr> <block-statements>
+                Token::While => {
+                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+                    let (stmt_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_expr));
+                    Result::Ok(Stmt::While(Box::new(parsed_expr), Box::new(stmt_list)), tokens_after_list)
+
+                }
+                // "return"
+                Token::Return => Result::Ok(Stmt::Return, rest),
                 // <stmt-items>
                 _ => parse_stmt_items(tokens)
             }
@@ -510,11 +519,14 @@ pub fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt>, Vec<S
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
+                // "else" <block-statements>
                 Token::Else => {
                     let (parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(rest));
                     Result::Ok((vec![], parsed_list), tokens_after_list)
                 }
+                // "end"
                 Token::End => Result::Ok((vec![], vec![]), rest),
+                // <stmt> <if-statements>
                 _ => {
                     let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
                     let ((mut if_list, else_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_stmt));
@@ -533,7 +545,9 @@ pub fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
+                // "end"
                 Token::End => Result::Ok(vec![], rest),
+                // <stmt> <block-statements>
                 _ => {
                     let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
                     let (mut parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_stmt));
@@ -552,7 +566,9 @@ pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
+                // "}"
                 Token::CloseCurly => Result::Ok(vec![], rest),
+                // <stmt> <clip-statements>
                 _ => {
                     let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
                     let (mut parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
@@ -569,12 +585,14 @@ pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
 pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
     print_toks("parse base statements", tokens);
     match tokens {
+        // <stmt> <base-statements>
         [_, _..] => {
             let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
             let (mut parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
             parsed_list.insert(0, parsed_stmt);
             Result::Ok(parsed_list, tokens_after_list)
         }
+        // ""
         _ => Result::Ok(vec![], tokens)
     }
 }
