@@ -1,7 +1,7 @@
 #![feature(plugin)]
 #![plugin(regex_macros)]
-#![feature(io)] 
-#![feature(fs)] 
+#![feature(io)]
+#![feature(collections)]
 #![feature(path)]
 
 extern crate regex;

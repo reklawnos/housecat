@@ -10,5 +10,5 @@ name = "housecat"
 path = "src/main.rs"
 
 [dependencies]
-regex = "0.1.18"
-regex_macros = "0.1.11"
+regex = "0.1.19"
+regex_macros = "0.1.12"
