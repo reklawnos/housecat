@@ -49,6 +49,7 @@ pub enum Result<'a, T> {
     Err(String)
 }
 
+#[allow(dead_code)]
 fn print_toks<'a>(func: &str, tokens: &'a[Tok]) {
     print!("{}: ", func);
     for t in tokens.iter() {
@@ -72,7 +73,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
                             match next_tok.token {
                                 // ... ")"
                                 Token::CloseParen => Result::Ok(parsed_expr, next_rest),
-                                // ... "," ...
+                                // ... "," <expr-list>
                                 Token::Comma => {
                                     let (mut parsed_list, tokens_after_list) = get_parsed!(parse_expr_list(next_rest));
                                     parsed_list.insert(0, parsed_expr);
@@ -99,6 +100,16 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
                         ))
                     }
                 },
+                // "{" <clip-statements>
+                Token::OpenCurly => {
+                    let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(rest));
+                    Result::Ok(Expr::Literal(Literal::Clip(Box::new(vec![]), Box::new(vec![]), Box::new(parsed_list))), tokens_after_list)
+                }
+                // "fn" <clip-def>
+                Token::Fn => {
+                    let ((parsed_params, parsed_returns, parsed_statements), tokens_after_list) = get_parsed!(parse_clip_def(rest));
+                    Result::Ok(Expr::Literal(Literal::Clip(Box::new(parsed_params), Box::new(parsed_returns), Box::new(parsed_statements))), tokens_after_list)
+                }
                 // <bool>
                 Token::Bool(b) => Result::Ok(Expr::Literal(Literal::Bool(b)), rest),
                 // <int>
@@ -393,17 +404,14 @@ fn parse_or_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <expr>
-pub fn parse_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
     parse_or_expr(tokens)
 }
 
 
 
-
-
 // <item>
-pub fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem> {
-    print_toks("parse item", tokens);
+fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -445,8 +453,7 @@ pub fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem> {
 }
 
 // <item-list>
-pub fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem>> {
-    print_toks("parse item list", tokens);
+fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem>> {
     let (parsed_item, tokens_after_item) = get_parsed!(parse_item(tokens));
     match tokens_after_item {
         [ref first_tok, rest..] => {
@@ -466,7 +473,7 @@ pub fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem>> {
 }
 
 // <stmt-items>
-pub fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
+fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
     let (parsed_items, tokens_after_items) = get_parsed!(parse_item_list(tokens));
     match tokens_after_items {
         [ref first_tok, rest..] => {
@@ -485,8 +492,7 @@ pub fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
 }
 
 // <stmt>
-pub fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
-    print_toks("parse stmt", tokens);
+fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -513,9 +519,164 @@ pub fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
     }
 }
 
+// <ident-list>
+fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
+    match tokens {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                // <ident> ...
+                Token::Ident(ref id) => {
+                    match rest {
+                        [ref next_tok, next_rest..] => {
+                            match next_tok.token {
+                                // ... ")"
+                                Token::CloseParen => Result::Ok(vec![id.clone()], next_rest),
+                                // ... "," <ident-list>
+                                Token::Comma => {
+                                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_ident_list(next_rest));
+                                    parsed_list.insert(0, id.clone());
+                                    Result::Ok(parsed_list, tokens_after_list)
+                                }
+                                _ => Result::Err(format!(
+                                    "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
+                                    next_tok.line + 1,
+                                    next_tok.col + 1,
+                                    next_tok.token,
+                                    next_tok.line_string,
+                                    get_caret_string(next_tok.col)
+                                ))
+                            }
+                        }
+                        [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected ')' or ','"))
+                    }
+                }
+                _ => Result::Err(format!(
+                                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
+                                    first_tok.line + 1,
+                                    first_tok.col + 1,
+                                    first_tok.token,
+                                    first_tok.line_string,
+                                    get_caret_string(first_tok.col)
+                                ))
+            }
+        }
+        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+    }
+}
+
+// <params>
+fn parse_params<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
+    match tokens {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                //  ")"
+                Token::CloseParen => Result::Ok(vec![], rest),
+                // <ident-list>
+                _ => parse_ident_list(tokens)
+            }
+        }
+        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or ')'"))
+    }
+}
+
+// <rets>
+fn parse_rets<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
+    match tokens {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                // "(" <ident-list>
+                Token::OpenParen => parse_ident_list(rest),
+                // <ident>
+                Token::Ident(ref id) => Result::Ok(vec![id.clone()], rest),
+                _ => Result::Err(format!(
+                                    "PARSING FAILURE at {},{}: Expected Ident or '(' but found {:?}\n{}\n{}",
+                                    first_tok.line + 1,
+                                    first_tok.col + 1,
+                                    first_tok.token,
+                                    first_tok.line_string,
+                                    get_caret_string(first_tok.col)
+                                ))
+            }
+        }
+        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or '('"))
+    }
+}
+
+// <clip-def>
+fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Box<String>>, Vec<Box<String>>, Vec<Stmt>)> {
+    match tokens {
+        [ref first_tok, rest..] => {
+            match first_tok.token {
+                // "(" <params> ...
+                Token::OpenParen => {
+                    let (parsed_params, tokens_after_params) = get_parsed!(parse_params(rest));
+                    match tokens_after_params {
+                        [ref next_tok, next_rest..] => {
+                            match next_tok.token {
+                                // ... "{" <clip-statements>
+                                Token::OpenCurly => {
+                                    let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(next_rest));
+                                    Result::Ok((parsed_params, vec![], parsed_list), tokens_after_list)
+                                }
+                                // ... "->" ...
+                                Token::Ret => {
+                                    let (parsed_rets, tokens_after_rets) = get_parsed!(parse_rets(next_rest));
+                                    match tokens_after_rets {
+                                        [ref brac_tok, tok_rest..] => {
+                                            match brac_tok.token {
+                                                Token::OpenCurly => {
+                                                    let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tok_rest));
+                                                    Result::Ok((parsed_params, parsed_rets, parsed_list), tokens_after_list)
+                                                }
+                                                _ => Result::Err(format!(
+                                                                    "PARSING FAILURE at {},{}: Found {:?} but expected '{{'\n{}\n{}",
+                                                                    brac_tok.line + 1,
+                                                                    brac_tok.col + 1,
+                                                                    brac_tok.token,
+                                                                    brac_tok.line_string,
+                                                                    get_caret_string(brac_tok.col)
+                                                                ))  
+                                            }
+                                            
+                                        }
+                                        _ => Result::Err(format!("PARSING FAILURE: Reached end of file, but expected '{{'"))
+                                    }  
+                                }
+                                _ => Result::Err(format!(
+                                                    "PARSING FAILURE at {},{}: Found {:?} but expected '{{' or '->'\n{}\n{}",
+                                                    next_tok.line + 1,
+                                                    next_tok.col + 1,
+                                                    next_tok.token,
+                                                    next_tok.line_string,
+                                                    get_caret_string(next_tok.col)
+                                                ))
+                            }
+                        }
+                        _ => Result::Err(format!(
+                            "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
+                            first_tok.line + 1,
+                            first_tok.col + 1,
+                            first_tok.line_string,
+                            get_caret_string(first_tok.col)
+                        ))
+                    }
+                },
+                _ => Result::Err(format!(
+                        "PARSING FAILURE at {},{}: Found {:?} but expected '('\n{}\n{}",
+                        first_tok.line + 1,
+                        first_tok.col + 1,
+                        first_tok.token,
+                        first_tok.line_string,
+                        get_caret_string(first_tok.col)
+                    ))
+            }
+        }
+        _ => Result::Err(format!("PARSING FAILURE: Reached end of file, but expected '('"))
+    }
+}
+
 // <if-statements>
-pub fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt>, Vec<Stmt>)> {
-    print_toks("parse if statements", tokens);
+fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt>, Vec<Stmt>)> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -540,8 +701,7 @@ pub fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt>, Vec<S
 }
 
 // <block-statements>
-pub fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
-    print_toks("parse block statements", tokens);
+fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -561,8 +721,7 @@ pub fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
 }
 
 // <clip-statements>
-pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
-    print_toks("parse clip statements", tokens);
+fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -571,7 +730,7 @@ pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
                 // <stmt> <clip-statements>
                 _ => {
                     let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
+                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tokens_after_stmt));
                     parsed_list.insert(0, parsed_stmt);
                     Result::Ok(parsed_list, tokens_after_list)
                 }
@@ -583,7 +742,6 @@ pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
 
 // <base-statements>
 pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
-    print_toks("parse base statements", tokens);
     match tokens {
         // <stmt> <base-statements>
         [_, _..] => {

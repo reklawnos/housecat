@@ -8,6 +8,23 @@ def person: {
     speak()
     name: "Joe"
 }
+
+def test: fn() -> (iden) {
+    print("abc")
+}
+
+def foo : {
+    print("this is a clip!")
+    def bar: fn() -> bagels {
+        def bagels: "test"
+        print("woo!")
+    }
+    bar: fn(param1, param2) -> (bagel, butter) {
+        def bagel: "woo" + param1
+        def butter: "hoo!" + param2
+    }
+}
+
 def get_somethings: fn() -> (retval1, retval2, retval3) {
     def retval1: "return 1"
     def retval2: "return 2"

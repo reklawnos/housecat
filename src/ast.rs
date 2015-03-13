@@ -3,22 +3,23 @@ pub mod ast {
     //Literals
     #[derive(Debug)]
     pub enum Literal {
-        Bool(bool),          // <bool>
-        Int(i64),            // <int>
-        Float(f64),          // <float>
-        String(Box<String>), // <string>
-        Nil,                 // 'nil'
+        Bool(bool),                                               // <bool>
+        Int(i64),                                                 // <int>
+        Float(f64),                                               // <float>
+        String(Box<String>),                                      // <string>
+        Clip(Box<Vec<Box<String>>>, Box<Vec<Box<String>>>, Box<Vec<Stmt>>), // <clip>
+        Nil,                                                      // 'nil'
     }
 
     //Expressions
     #[derive(Debug)]
     pub enum Expr {
-        UnOp(UnOp, Box<Expr>),              // <UnOp> <Expr>
-        BinOp(BinOp, Box<Expr>, Box<Expr>), // <Expr> <BinOp> <Expr>
-        Literal(Literal),                   // <Literal>
-        Ident(Box<String>),                 // <Ident>
+        UnOp(UnOp, Box<Expr>),                   // <UnOp> <Expr>
+        BinOp(BinOp, Box<Expr>, Box<Expr>),      // <Expr> <BinOp> <Expr>
+        Literal(Literal),                        // <Literal>
+        Ident(Box<String>),                      // <Ident>
         Postfix(Box<Expr>, Box<Vec<Postfix>>),   // <Expr> <Postfix>
-        Tuple(Box<Vec<Expr>>)                // (<Expr>, <Expr>, ...)
+        Tuple(Box<Vec<Expr>>)                    // (<Expr>, <Expr>, ...)
     }
 
     //Postfix Operations

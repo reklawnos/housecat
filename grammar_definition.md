@@ -128,14 +128,17 @@ Clips
 -----
 
     <params> ::=
-        | <params-list> ")"
+        | <ident-list>
         | ")"
 
-    <params-list> ::=
+    <rets> ::=
+        | "(" <ident-list>
         | <ident>
+
+    <ident-list> ::=
+        | <ident> ")"
         | <ident> "," <params-list>
 
     <clip-def> ::=
         | "(" <params> "{" <clip-statements>
-        | "(" <params> "->" <ident> <clip-statements>
-        | "(" <params> "->" "(" <params> <clip-statements>
+        | "(" <params> "->" <rets> <clip-statements>
