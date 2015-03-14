@@ -16,9 +16,11 @@ use std::path::Path;
 
 mod token;
 mod ast;
+mod values;
 mod parser;
 mod lexer;
 mod utils;
+mod evaluator;
 
 fn main() {
     let command_args : Vec<String> = env::args().collect();
@@ -51,8 +53,13 @@ fn main() {
                 match parser::parse_base_statements(&toks[..]) {
                     parser::Result::Ok(vec, _) => {
                         for st in vec.iter() {
-                            println!("{:?}", st)
+                            println!("{:?}", st);
                         }
+                        match evaluator::eval_file_stmts(&vec) {
+                            evaluator::Result::Ok(r) => println!("result: {:?}", r),
+                            evaluator::Result::Err(e) => println!("{}", e)
+                        }
+                        
                     }
                     parser::Result::Err(s) => println!("{}", s)
                 }

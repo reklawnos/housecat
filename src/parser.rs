@@ -39,7 +39,7 @@ macro_rules! parse_expr_binary_op(
 );
 
 use token::{Token, Tok};
-use ast::ast::*;
+use ast::*;
 use utils::*;
 
 pub enum Result<'a, T> {

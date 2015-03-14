@@ -1,5 +1,6 @@
 Housecat Language
 ===================
+Influences: Lua, Python, Matlab, JavaScript, Rust
 
 Control Flow
 -------------------
