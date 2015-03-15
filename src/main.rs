@@ -6,7 +6,6 @@
 
 extern crate regex;
 
-use std::io::BufReader;
 use std::io::prelude::*;
 use std::fs::File;
 use std::env;
@@ -29,19 +28,19 @@ fn main() {
         println!("No .hcat file provided!");
     } else {
         let path = &Path::new(&command_args[1][..]);
-        let file = match File::open(path) {
+        let mut file = match File::open(path) {
             Err(err) => {
                  panic!("couldn't open {}: {}", path.display(), err);
             },
             Ok(file) => file,
         };
-        let br = BufReader::new(file);
-        let mut file_lines: Vec<String> = Vec::new();
-        for line in br.lines() {
-            file_lines.push(line.unwrap());
+        let mut file_string: String = String::new();
+        match file.read_to_string(&mut file_string) {
+            Err(why) => panic!("couldn't read {}: {}", path.display(), why.description()),
+            Ok(_) => {}
         }
         let mut toks: Vec<token::Tok> = Vec::new();
-        let result = do_file_parse(&file_lines, & mut toks);
+        let result = do_file_parse(&file_string, & mut toks);
         match result {
             Err(s) => {
                 println!("{}", s);
@@ -68,9 +67,9 @@ fn main() {
     }
 }
 
-fn do_file_parse<'a>(lines: &'a Vec<String>, result_vec: & mut Vec<token::Tok<'a>>) -> Result<(), String> {
-    for (line_index, l) in lines.iter().enumerate() {
-        let res = lexer::parse_line(&l, line_index, result_vec);
+fn do_file_parse<'a>(lines: &'a String, result_vec: & mut Vec<token::Tok<'a>>) -> Result<(), String> {
+    for (line_index, l) in lines[..].split("\n").enumerate() {
+        let res = lexer::lex_line(l, line_index, result_vec);
         match res {
             Ok(()) => {},
             Err(col) => {

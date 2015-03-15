@@ -1,31 +1,31 @@
 //Literals
 #[derive(Debug)]
-pub enum Literal {
-    Bool(bool),                                               // <bool>
-    Int(i64),                                                 // <int>
-    Float(f64),                                               // <float>
-    String(Box<String>),                                      // <string>
-    Clip(Vec<Box<String>>, Vec<Box<String>>, Vec<Stmt>),      // <clip>
-    Nil,                                                      // 'nil'
+pub enum Literal<'a> {
+    Bool(bool),                                      // <bool>
+    Int(i64),                                        // <int>
+    Float(f64),                                      // <float>
+    String(&'a str),                                 // <string>
+    Clip(Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>), // <clip>
+    Nil,                                             // 'nil'
 }
 
 //Expressions
 #[derive(Debug)]
-pub enum Expr {
-    UnOp(UnOp, Box<Expr>),                   // <UnOp> <Expr>
-    BinOp(BinOp, Box<Expr>, Box<Expr>),      // <Expr> <BinOp> <Expr>
-    Literal(Literal),                        // <Literal>
-    Ident(Box<String>),                      // <Ident>
-    Postfix(Box<Expr>, Vec<Postfix>),        // <Expr> <Postfix>
-    Tuple(Box<Vec<Expr>>)                    // (<Expr>, <Expr>, ...)
+pub enum Expr<'a> {
+    UnOp(UnOp, Box<Expr<'a>>),                  // <UnOp> <Expr>
+    BinOp(BinOp, Box<Expr<'a>>, Box<Expr<'a>>), // <Expr> <BinOp> <Expr>
+    Literal(Literal<'a>),                       // <Literal>
+    Ident(&'a str),                             // <Ident>
+    Postfix(Box<Expr<'a>>, Vec<Postfix<'a>>),   // <Expr> <Postfix>
+    Tuple(Box<Vec<Expr<'a>>>)                   // (<Expr>, <Expr>, ...)
 }
 
 //Postfix Operations
 #[derive(Debug)]
-pub enum Postfix {
-    Play(Vec<Expr>), // ... ( <Args> ) <Postfix>
-    Index(Box<Expr>),     // ... [ <Expr> ] <Postfix>
-    Access(Box<String>),  // ... . <Ident> <Postfix>
+pub enum Postfix<'a> {
+    Play(Vec<Expr<'a>>),  // ... ( <Args> ) <Postfix>
+    Index(Box<Expr<'a>>), // ... [ <Expr> ] <Postfix>
+    Access(&'a str),      // ... . <Ident> <Postfix>
 }
 
 //Unary Operators
@@ -59,18 +59,18 @@ pub enum BinOp {
 
 //Statement
 #[derive(Debug)]
-pub enum Stmt {
-    Assignment(Vec<StmtItem>, Box<Expr>),
-    Bare(Vec<StmtItem>),
-    If(Box<Expr>, Vec<Stmt>, Vec<Stmt>),
-    While(Box<Expr>, Vec<Stmt>),
+pub enum Stmt<'a> {
+    Assignment(Vec<StmtItem<'a>>, Box<Expr<'a>>),
+    Bare(Vec<StmtItem<'a>>),
+    If(Box<Expr<'a>>, Vec<Stmt<'a>>, Vec<Stmt<'a>>),
+    While(Box<Expr<'a>>, Vec<Stmt<'a>>),
     Return
 }
 
 //Statement item types
 #[derive(Debug)]
-pub enum StmtItem {
-    Bare(Box<Expr>), // <Ident> <Postfix>
-    Def(Box<Expr>),  // def <Ident> <Postfix>
-    Var(Box<String>) // var <Ident>
+pub enum StmtItem<'a> {
+    Bare(Box<Expr<'a>>), // <Ident> <Postfix>
+    Def(Box<Expr<'a>>),  // def <Ident> <Postfix>
+    Var(&'a str)         // var <Ident>
 }

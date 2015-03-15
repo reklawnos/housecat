@@ -57,12 +57,12 @@ fn print_toks<'a>(func: &str, tokens: &'a[Tok]) {
 }
 
 // <primary-expr>
-fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
                 // <ident>
-                Token::Ident(ref id) => Result::Ok(Expr::Ident(id.clone()), rest),
+                Token::Ident(id) => Result::Ok(Expr::Ident(id), rest),
                 // "(" <expr> ...
                 Token::OpenParen => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
@@ -115,7 +115,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
                 // <float>
                 Token::Float(f) => Result::Ok(Expr::Literal(Literal::Float(f)), rest),
                 // <string>
-                Token::String(ref s) => Result::Ok(Expr::Literal(Literal::String(s.clone())), rest),
+                Token::String(ref s) => Result::Ok(Expr::Literal(Literal::String(&s[..])), rest),
                 // "nil"
                 Token::Nil => Result::Ok(Expr::Literal(Literal::Nil), rest),
                 _ => Result::Err(format!(
@@ -133,7 +133,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <postfix-expr>
-fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     // <primary-expr> ...
     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_primary_expr(tokens));
     match tokens_after_expr {
@@ -152,7 +152,7 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
     //parse_primary_expr(tokens)
 }
 
-fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix>> {
+fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix<'a>>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -202,9 +202,9 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix>> 
                         [ref next_tok, next_rest..] => {
                             match next_tok.token {
                                 // <ident>
-                                Token::Ident(ref i) => {
+                                Token::Ident(i) => {
                                     let (mut postfix_list, tokens_after_next) = get_parsed!(parse_postfix_continuation(next_rest));
-                                    postfix_list.insert(0, Postfix::Access(i.clone()));
+                                    postfix_list.insert(0, Postfix::Access(i));
                                     Result::Ok(postfix_list, tokens_after_next)
                                 },
                                 _ => Result::Err(format!(
@@ -230,7 +230,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix>> 
 }
 
 // <args>
-fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Expr>> {
+fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Expr<'a>>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -274,7 +274,7 @@ fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Expr>> {
 }
 
 // <unary-expr>
-fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -297,7 +297,7 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <exponential-expr>
-fn parse_exponential_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_exponential_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_unary_expr,
@@ -309,7 +309,7 @@ fn parse_exponential_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <multiplicative-expr>
-fn parse_multiplicative_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_multiplicative_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_exponential_expr,
@@ -323,7 +323,7 @@ fn parse_multiplicative_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <additive-expr>
-fn parse_additive_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_additive_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_multiplicative_expr,
@@ -336,7 +336,7 @@ fn parse_additive_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <in-expr>
-fn parse_in_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_in_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_additive_expr,
@@ -348,7 +348,7 @@ fn parse_in_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <relational-expr>
-fn parse_relational_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_relational_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_in_expr,
@@ -363,7 +363,7 @@ fn parse_relational_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <equality-expr>
-fn parse_equality_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_equality_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_relational_expr,
@@ -378,7 +378,7 @@ fn parse_equality_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <and-expr>
-fn parse_and_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_and_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_equality_expr,
@@ -390,7 +390,7 @@ fn parse_and_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <or-expr>
-fn parse_or_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_or_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_expr_binary_op!(
         tokens,
         parse_and_expr,
@@ -402,14 +402,14 @@ fn parse_or_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
 }
 
 // <expr>
-fn parse_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr> {
+fn parse_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     parse_or_expr(tokens)
 }
 
 
 
 // <item>
-fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem> {
+fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem<'a>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -418,8 +418,8 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem> {
                     match rest {
                         [ref next_tok, rest..] => {
                             match next_tok.token{
-                                Token::Ident(ref id) => {
-                                    Result::Ok(StmtItem::Var(id.clone()), rest)
+                                Token::Ident(id) => {
+                                    Result::Ok(StmtItem::Var(id), rest)
                                 }
                                 _ => Result::Err(format!(
                                     "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
@@ -451,7 +451,7 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem> {
 }
 
 // <item-list>
-fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem>> {
+fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem<'a>>> {
     let (parsed_item, tokens_after_item) = get_parsed!(parse_item(tokens));
     match tokens_after_item {
         [ref first_tok, rest..] => {
@@ -471,7 +471,7 @@ fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem>> {
 }
 
 // <stmt-items>
-fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
+fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
     let (parsed_items, tokens_after_items) = get_parsed!(parse_item_list(tokens));
     match tokens_after_items {
         [ref first_tok, rest..] => {
@@ -490,7 +490,7 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
 }
 
 // <stmt>
-fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
+fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -518,21 +518,21 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt> {
 }
 
 // <ident-list>
-fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
+fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
                 // <ident> ...
-                Token::Ident(ref id) => {
+                Token::Ident(id) => {
                     match rest {
                         [ref next_tok, next_rest..] => {
                             match next_tok.token {
                                 // ... ")"
-                                Token::CloseParen => Result::Ok(vec![id.clone()], next_rest),
+                                Token::CloseParen => Result::Ok(vec![id], next_rest),
                                 // ... "," <ident-list>
                                 Token::Comma => {
                                     let (mut parsed_list, tokens_after_list) = get_parsed!(parse_ident_list(next_rest));
-                                    parsed_list.insert(0, id.clone());
+                                    parsed_list.insert(0, id);
                                     Result::Ok(parsed_list, tokens_after_list)
                                 }
                                 _ => Result::Err(format!(
@@ -563,7 +563,7 @@ fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
 }
 
 // <params>
-fn parse_params<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
+fn parse_params<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -578,14 +578,14 @@ fn parse_params<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
 }
 
 // <rets>
-fn parse_rets<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
+fn parse_rets<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
                 // "(" <ident-list>
                 Token::OpenParen => parse_ident_list(rest),
                 // <ident>
-                Token::Ident(ref id) => Result::Ok(vec![id.clone()], rest),
+                Token::Ident(id) => Result::Ok(vec![id], rest),
                 _ => Result::Err(format!(
                                     "PARSING FAILURE at {},{}: Expected Ident or '(' but found {:?}\n{}\n{}",
                                     first_tok.line + 1,
@@ -601,7 +601,7 @@ fn parse_rets<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Box<String>>> {
 }
 
 // <clip-def>
-fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Box<String>>, Vec<Box<String>>, Vec<Stmt>)> {
+fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>)> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -674,7 +674,7 @@ fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Box<String>>, Vec<Box
 }
 
 // <if-statements>
-fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt>, Vec<Stmt>)> {
+fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt<'a>>, Vec<Stmt<'a>>)> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -699,7 +699,7 @@ fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt>, Vec<Stmt>
 }
 
 // <block-statements>
-fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
+fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -719,7 +719,7 @@ fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
 }
 
 // <clip-statements>
-fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
+fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
@@ -739,7 +739,7 @@ fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
 }
 
 // <base-statements>
-pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt>> {
+pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
     match tokens {
         // <stmt> <base-statements>
         [_, _..] => {

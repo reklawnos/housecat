@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum Token {
+pub enum Token<'a>{
     // Keywords
     Def,                // `def`
     Var,                // `var`
@@ -13,7 +13,7 @@ pub enum Token {
     End,                // `end`
 
     // Symbols
-    //Eof,                // End of file
+    //Eof,              // End of file
     Assign,             // `:`
     Dot,                // `.`
     OpenCurly,          // `{`
@@ -26,11 +26,11 @@ pub enum Token {
     Ret,                // `->`
 
     // User values
-    Bool(bool),         // `true` or `false`
-    Int(i64),           // ex. `1324`, `-43`
-    Float(f64),         // ex. `1.3`, `-34.432e-4`
-    Ident(Box<String>), // ex. `foo`, `bar`
-    String(Box<String>),
+    Bool(bool),          // `true` or `false`
+    Int(i64),            // ex. `1324`, `-43`
+    Float(f64),          // ex. `1.3`, `-34.432e-4`
+    Ident(&'a str),      // ex. `foo`, `bar`
+    String(Box<String>), // ex. `"foo"`
     
     // Operators
     Not,                // `!`
@@ -54,8 +54,8 @@ pub enum Token {
 }
 
 pub struct Tok<'a> {
-    pub token: Token,
+    pub token: Token<'a>,
     pub line: usize,
-    pub line_string: &'a String, 
+    pub line_string: &'a str, 
     pub col: usize
 }

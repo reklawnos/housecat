@@ -43,8 +43,8 @@ static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (ParseType::PtComment, regex!(r"^#"))
 ];
 
-pub fn parse_line<'a>(line: &'a String, line_no: usize, token_vec: & mut Vec<Tok<'a>>) -> Result<(), usize> {
-    let mut line_slice = &line[..];
+pub fn lex_line<'a>(line: &'a str, line_no: usize, token_vec: & mut Vec<Tok<'a>>) -> Result<(), usize> {
+    let mut line_slice = line;
     let mut col = 0usize;
     while line_slice.len() > 0 {
         let mut found_token = false;
@@ -90,7 +90,7 @@ pub fn parse_line<'a>(line: &'a String, line_no: usize, token_vec: & mut Vec<Tok
     Ok(())
 }
 
-fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
+fn decide_token<'a>(parse_type: &ParseType, tok_string: &'a str) -> Token<'a> {
     match *parse_type {
         //Capture keywords and idents
         ParseType::PtName => {
@@ -106,7 +106,7 @@ fn decide_token(parse_type: &ParseType, tok_string: &str) -> Token {
                 "in"     => Token::In,
                 "return" => Token::Return,
                 s => {
-                    Token::Ident(Box::new(s.to_string()))
+                    Token::Ident(s)
                 }
             }
         }
