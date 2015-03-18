@@ -53,7 +53,7 @@ fn main() {
                         println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                     }
                 }
-                let parse_result = parser::parse_file_tokens(&toks[..], &mut statements);
+                let parse_result = parser::parse_base_statements(&toks[..], &mut statements);
                 match parse_result {
                     parser::Result::Ok(vec, _) => {
                         if DEBUG {
