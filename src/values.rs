@@ -1,10 +1,10 @@
 #[derive(Debug, Clone)]
-pub enum Value {
+pub enum Value<'a> {
     Int(i64),
     Float(f64),
     Bool(bool),
-    String(Box<String>),
-    Tuple(Vec<Value>),
+    String(&'a str),
+    Tuple(Vec<Value<'a>>),
     Nil,
     Nothing //Type of function call with no returns
 }

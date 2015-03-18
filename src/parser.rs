@@ -739,16 +739,16 @@ fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
 }
 
 // <base-statements>
-pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
-    match tokens {
-        // <stmt> <base-statements>
-        [_, _..] => {
-            let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-            let (mut parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
-            parsed_list.insert(0, parsed_stmt);
-            Result::Ok(parsed_list, tokens_after_list)
-        }
-        // ""
-        _ => Result::Ok(vec![], tokens)
+fn parse_base_statements<'a>(tokens: &'a[Tok], cur_statements: &'a mut Vec<Stmt<'a>>) -> Result<'a, &'a Vec<Stmt<'a>>> {
+    let mut my_toks = tokens;
+    while my_toks.len() > 0 {
+        let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+        cur_statements.push(parsed_stmt);
+        my_toks = tokens_after_stmt;
     }
+    Result::Ok(cur_statements, my_toks)
+}
+
+pub fn parse_file_tokens<'a>(tokens: &'a[Tok], statements_vec: &'a mut Vec<Stmt<'a>>) -> Result<'a, &'a Vec<Stmt<'a>>> {
+    parse_base_statements(tokens, statements_vec)
 }

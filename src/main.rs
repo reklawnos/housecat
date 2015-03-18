@@ -11,8 +11,6 @@ use std::fs::File;
 use std::env;
 use std::path::Path;
 
-
-
 mod token;
 mod ast;
 mod values;
@@ -21,8 +19,10 @@ mod lexer;
 mod utils;
 mod evaluator;
 
+static DEBUG: bool = true;
+
 fn main() {
-    let command_args : Vec<String> = env::args().collect();
+    let command_args: Vec<String> = env::args().collect();
     //TODO: do_repl();
     if command_args.len() <= 1 {
         println!("No .hcat file provided!");
@@ -40,20 +40,29 @@ fn main() {
             Ok(_) => {}
         }
         let mut toks: Vec<token::Tok> = Vec::new();
+        let mut statements: Vec<ast::Stmt> = Vec::new();
         let result = do_file_parse(&file_string, & mut toks);
         match result {
             Err(s) => {
                 println!("{}", s);
             }
             Ok(()) => {
-                for t in toks.iter() {
-                    println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
+                if DEBUG {
+                    println!("Parsed tokens:");
+                    for t in toks.iter() {
+                        println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
+                    }
                 }
-                match parser::parse_base_statements(&toks[..]) {
+                let parse_result = parser::parse_file_tokens(&toks[..], &mut statements);
+                match parse_result {
                     parser::Result::Ok(vec, _) => {
-                        for st in vec.iter() {
-                            println!("{:?}", st);
+                        if DEBUG {
+                            println!("Parsed AST:");
+                            for st in vec.iter() {
+                                println!("{:?}", st);
+                            }
                         }
+                        
                         match evaluator::eval_file_stmts(&vec) {
                             evaluator::Result::Ok(r) => println!("result: {:?}", r),
                             evaluator::Result::Err(e) => println!("{}", e)
