@@ -47,8 +47,40 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) 
                 Some(v) => Result::Ok(vec![v]),
                 None => Result::Err(format!("EVAL FAILURE: {} is not in the current scope", s))
             }
+        },
+        &Expr::BinOp(ref op, ref lhs, ref rhs) => {
+            let lh_val = get_evald!(eval_expr(lhs, scopes));
+            let rh_val = get_evald!(eval_expr(rhs, scopes));
+            match op {
+                &BinOp::Gt => {
+                    match lh_val[0] {
+                        Value::Int(lh_i) => {
+                            match rh_val[0] {
+                                Value::Int(rh_i) => {
+                                    Result::Ok(vec![Value::Bool(lh_i > rh_i)])
+                                }
+                                _ => panic!("gt rhs not implemented yet")
+                            }
+                        }
+                        _ => panic!("gt lhs not implemented yet")
+                    }
+                }
+                &BinOp::Add => {
+                    match lh_val[0] {
+                        Value::Int(lh_i) => {
+                            match rh_val[0] {
+                                Value::Int(rh_i) => {
+                                    Result::Ok(vec![Value::Int(lh_i + rh_i)])
+                                }
+                                _ => panic!("add rhs not implemented yet")
+                            }
+                        }
+                        _ => panic!("add lhs not implemented yet")
+                    }
+                }
+                _ => panic!("bin op not implemented yet")
+            }
         }
-        
         _ => panic!("expr not implemented yet!")
     }
 }
@@ -85,11 +117,13 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
                 match i {
                     &StmtItem::Bare(ref e) => {
                         let ident = get_evald!(eval_expr_as_ident(e, scopes));
-                        if scopes[curr_scope].contains_key(ident) {
-                            scopes[curr_scope].insert(ident, expr_value);
-                        } else {
-                            return Result::Err(format!("EVAL FAILURE: '{}' is not declared in the current scope", ident));
+                        for scope in scopes.iter_mut().rev() {
+                            if scope.contains_key(ident) {
+                                scope.insert(ident, expr_value);
+                                return Result::Ok(vec![]);
+                            }
                         }
+                        return Result::Err(format!("EVAL FAILURE: '{}' is not declared in the current scope", ident));
                     },
                     &StmtItem::Var(ref s) => {
                         if scopes[curr_scope].contains_key(s) {
@@ -109,6 +143,28 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
                 }
             }
             Result::Ok(vec![])
+        }
+        &Stmt::While(ref e, ref stmt_list) => {
+            scopes.push(HashMap::new());
+            let mut result_vec = vec![];
+            loop {
+                let expr_val = get_evald!(eval_expr(e, scopes));
+                match expr_val[0] {
+                    Value::Bool(b) => {
+                        if !b {
+                            break;
+                        }
+                    }
+                    _ => {
+                        return Result::Err(format!("EVAL FAILUTRE: while loops must contain a boolean expression"));
+                    }
+                }
+                let vals = get_evald!(eval_stmt_list(stmt_list, scopes));
+                for val in vals.into_iter() {
+                    result_vec.push(val);
+                }
+            }
+            Result::Ok(result_vec)
         }
         _ => panic!("stmt not implemented yet!")
     }
