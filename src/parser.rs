@@ -19,11 +19,12 @@ macro_rules! parse_expr_binary_op(
                         $tok => {
                             let (parsed_rhs, tokens_after_term) = get_parsed!($parse_rhs(rest));
                             Result::Ok(
-                                Expr::BinOp(
-                                    $op,
-                                    Box::new(parsed_lhs),
-                                    Box::new(parsed_rhs)
-                                ),
+                                Expr::BinOp{
+                                    op: $op,
+                                    lhs: Box::new(parsed_lhs),
+                                    rhs: Box::new(parsed_rhs),
+                                    data: AstData{line: $tokens[0].line}
+                                },
                                 tokens_after_term
                             )
                         },
@@ -101,23 +102,39 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
                 // "{" <clip-statements>
                 Token::OpenCurly => {
                     let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(rest));
-                    Result::Ok(Expr::Literal(Literal::Clip(vec![], vec![], parsed_list)), tokens_after_list)
+                    Result::Ok(
+                        Expr::Literal(
+                            Literal::Clip{
+                                params:vec![],
+                                returns:vec![],
+                                statements:parsed_list,
+                                data:AstData{line: first_tok.line}
+                            }
+                        ), tokens_after_list)
                 }
                 // "fn" <clip-def>
                 Token::Fn => {
                     let ((parsed_params, parsed_returns, parsed_statements), tokens_after_list) = get_parsed!(parse_clip_def(rest));
-                    Result::Ok(Expr::Literal(Literal::Clip(parsed_params, parsed_returns, parsed_statements)), tokens_after_list)
+                    Result::Ok(
+                        Expr::Literal(
+                            Literal::Clip{
+                                params: parsed_params,
+                                returns: parsed_returns,
+                                statements: parsed_statements,
+                                data: AstData{line: first_tok.line}
+                            }
+                        ), tokens_after_list)
                 }
                 // <bool>
-                Token::Bool(b) => Result::Ok(Expr::Literal(Literal::Bool(b)), rest),
+                Token::Bool(b) => Result::Ok(Expr::Literal(Literal::Bool{value: b, data: AstData{line: first_tok.line}}), rest),
                 // <int>
-                Token::Int(i) => Result::Ok(Expr::Literal(Literal::Int(i)), rest),
+                Token::Int(i) => Result::Ok(Expr::Literal(Literal::Int{value: i, data: AstData{line: first_tok.line}}), rest),
                 // <float>
-                Token::Float(f) => Result::Ok(Expr::Literal(Literal::Float(f)), rest),
+                Token::Float(f) => Result::Ok(Expr::Literal(Literal::Float{value: f, data: AstData{line: first_tok.line}}), rest),
                 // <string>
-                Token::String(ref s) => Result::Ok(Expr::Literal(Literal::String(&s[..])), rest),
+                Token::String(ref s) => Result::Ok(Expr::Literal(Literal::String{value: &s[..], data: AstData{line: first_tok.line}}), rest),
                 // "nil"
-                Token::Nil => Result::Ok(Expr::Literal(Literal::Nil), rest),
+                Token::Nil => Result::Ok(Expr::Literal(Literal::Nil{data: AstData{line: first_tok.line}}), rest),
                 _ => Result::Err(format!(
                         "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
                         first_tok.line + 1,
@@ -281,12 +298,12 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
                 // "-" ...
                 Token::Sub => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
-                    Result::Ok(Expr::UnOp(UnOp::Neg, Box::new(parsed_expr)), tokens_after_expr)
+                    Result::Ok(Expr::UnOp{op: UnOp::Neg, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
                 },
                 // "!" ...
                 Token::Not => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
-                    Result::Ok(Expr::UnOp(UnOp::Not, Box::new(parsed_expr)), tokens_after_expr)
+                    Result::Ok(Expr::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
                 },
                 // <postfix-expr>
                 _ => parse_postfix_expr(tokens)

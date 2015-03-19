@@ -76,8 +76,9 @@ fn main() {
 }
 
 fn do_file_parse<'a>(lines: &'a String, result_vec: & mut Vec<token::Tok<'a>>) -> Result<(), String> {
+    let mut char_index = 0usize;
     for (line_index, l) in lines[..].split("\n").enumerate() {
-        let res = lexer::lex_line(l, line_index, result_vec);
+        let res = lexer::lex_line(l, line_index, &mut char_index, result_vec);
         match res {
             Ok(()) => {},
             Err(col) => {

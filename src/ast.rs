@@ -1,19 +1,54 @@
+#[derive(Debug)]
+pub struct AstData {
+    pub line: usize,
+    //pub start: usize,
+    //pub end: usize
+}
+
 //Literals
 #[derive(Debug)]
 pub enum Literal<'a> {
-    Bool(bool),                                      // <bool>
-    Int(i64),                                        // <int>
-    Float(f64),                                      // <float>
-    String(&'a str),                                 // <string>
-    Clip(Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>), // <clip>
-    Nil,                                             // 'nil'
+    Bool {
+        value: bool,
+        data: AstData
+    },
+    Int {
+        value: i64,
+        data: AstData
+    },
+    Float {
+        value: f64,
+        data: AstData
+    },
+    String {
+        value: &'a str,
+        data: AstData
+    },
+    Clip {
+        params: Vec<&'a str>,
+        returns: Vec<&'a str>,
+        statements: Vec<Stmt<'a>>,
+        data: AstData
+    },
+    Nil {
+        data: AstData
+    }
 }
 
 //Expressions
 #[derive(Debug)]
 pub enum Expr<'a> {
-    UnOp(UnOp, Box<Expr<'a>>),                  // <UnOp> <Expr>
-    BinOp(BinOp, Box<Expr<'a>>, Box<Expr<'a>>), // <Expr> <BinOp> <Expr>
+    UnOp {
+        op: UnOp,
+        expr: Box<Expr<'a>>,
+        data: AstData
+    },
+    BinOp {
+        op: BinOp,
+        lhs: Box<Expr<'a>>,
+        rhs: Box<Expr<'a>>,
+        data: AstData
+    },
     Literal(Literal<'a>),                       // <Literal>
     Ident(&'a str),                             // <Ident>
     Postfix(Box<Expr<'a>>, Vec<Postfix<'a>>),   // <Expr> <Postfix>

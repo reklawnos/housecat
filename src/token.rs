@@ -57,5 +57,6 @@ pub struct Tok<'a> {
     pub token: Token<'a>,
     pub line: usize,
     pub line_string: &'a str, 
-    pub col: usize
+    pub col: usize,
+    pub char_index: usize
 }

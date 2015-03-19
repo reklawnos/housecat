@@ -28,11 +28,11 @@ fn int_pow(lhs: i64, rhs: i64) -> i64 {
 
 fn eval_literal<'a>(literal: &'a Literal) -> Result<Value> {
     match literal {
-        &Literal::Bool(b)       => Result::Ok(Value::Bool(b)),
-        &Literal::Int(i)        => Result::Ok(Value::Int(i)),
-        &Literal::Float(f)      => Result::Ok(Value::Float(f)),
-        &Literal::String(s)     => Result::Ok(Value::String(Box::new(s.to_string()))),
-        &Literal::Nil           => Result::Ok(Value::Nil),
+        &Literal::Bool{value: b, data: _} => Result::Ok(Value::Bool(b)),
+        &Literal::Int{value: i, data: _} => Result::Ok(Value::Int(i)),
+        &Literal::Float{value: f, data: _} => Result::Ok(Value::Float(f)),
+        &Literal::String{value: s, data: _} => Result::Ok(Value::String(Box::new(s.to_string()))),
+        &Literal::Nil{data: _} => Result::Ok(Value::Nil),
         _ => panic!("literal not implemented yet!")
     }
 }
@@ -144,13 +144,20 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value>>) -> R
                 None => Result::Err(format!("EVAL FAILURE: {} is not in the current scope", s))
             }
         },
-        &Expr::BinOp(ref op, ref lhs, ref rhs) => {
+        &Expr::Tuple(ref exprs) => {
+            let mut result_vec = Vec::new();
+            for e in exprs.iter(){
+                result_vec.push(get_evald!(eval_expr(e, scopes)));
+            }
+            Result::Ok(Value::Tuple(result_vec))
+        }
+        &Expr::BinOp{ref op, ref lhs, ref rhs, ref data} => {
             let lh_val = get_evald!(eval_expr(lhs, scopes));
             let rh_val = get_evald!(eval_expr(rhs, scopes));
             match (&lh_val, &rh_val) {
                 (&Value::Tuple(ref lh_vec), &Value::Tuple(ref rh_vec)) => {
                     if lh_vec.len() != rh_vec.len() {
-                        return Result::Err(format!("EVAL FAILURE: tuples are not the same length"));
+                        return Result::Err(format!("EVAL FAILURE at line {}: tuples are not the same length", data.line));
                     }
                     let mut result_vec = Vec::new();
                     for (ref lh, ref rh) in lh_vec.iter().zip(rh_vec.iter()) {
@@ -158,7 +165,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value>>) -> R
                     }
                     Result::Ok(Value::Tuple(result_vec))
                 }
-                (&Value::Tuple(_), _) | (_, &Value::Tuple(_)) => Result::Err(format!("EVAL FAILURE: both sides must be tuples")),
+                (&Value::Tuple(_), _) | (_, &Value::Tuple(_)) => Result::Err(format!("EVAL FAILURE at line {}: both sides must be tuples", data.line)),
                 (ref lhs, ref rhs) => {
                     eval_bin_op(lhs, rhs, op)
                 }
