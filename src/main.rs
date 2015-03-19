@@ -1,8 +1,7 @@
 #![feature(plugin)]
 #![plugin(regex_macros)]
-#![feature(io)]
 #![feature(collections)]
-#![feature(path)]
+#![feature(core)]
 
 extern crate regex;
 
@@ -36,7 +35,7 @@ fn main() {
         };
         let mut file_string: String = String::new();
         match file.read_to_string(&mut file_string) {
-            Err(why) => panic!("couldn't read {}: {}", path.display(), why.description()),
+            Err(err) => panic!("couldn't read {}: {}", path.display(), err),
             Ok(_) => {}
         }
         let mut toks: Vec<token::Tok> = Vec::new();
