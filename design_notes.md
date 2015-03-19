@@ -160,7 +160,7 @@ Clips can take parameters that are passed into the scope of the clip.
 
 This is functionally equivalent to:
     
-    def print_saying: fn() {
+    def print_saying: {
         def greeting: nil
         def name: nil
         print(greeting + ", " + name)
