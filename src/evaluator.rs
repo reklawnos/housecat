@@ -225,22 +225,21 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value>>) -> R
         &Stmt::Assignment(ref items, ref expr) => {
             let expr_value = get_evald!(eval_expr(expr, scopes));
             let curr_scope = scopes.len() - 1;
-            match &expr_value {
-                //TODO: the values shouldn't be cloned here - they should be moved directly into the scope
-                &Value::Tuple(ref value_vec) => {
+            match expr_value {
+                Value::Tuple(value_vec) => {
                     if items.len() == value_vec.len() {
-                        for (i, e) in items.iter().zip(value_vec.iter()) {
-                            get_evald!(assign(i, e.clone(), scopes, curr_scope));
+                        for (i, e) in items.iter().zip(value_vec.into_iter()) {
+                            get_evald!(assign(i, e, scopes, curr_scope));
                         }
                     } else if items.len() == 1 {
-                        get_evald!(assign(&items[0], expr_value.clone(), scopes, curr_scope));
+                        get_evald!(assign(&items[0], Value::Tuple(value_vec), scopes, curr_scope));
                     } else {
                         return Result::Err(format!("EVAL FAILURE: wrong arity for this assignment"));
                     }
                 } 
                 _ => {
                     if items.len() == 1 {
-                        get_evald!(assign(&items[0], expr_value.clone(), scopes, curr_scope));
+                        get_evald!(assign(&items[0], expr_value, scopes, curr_scope));
                     } else {
                         return Result::Err(format!("EVAL FAILURE: too many idents to assign to"));
                     }
