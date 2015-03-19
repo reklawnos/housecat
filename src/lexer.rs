@@ -95,15 +95,16 @@ fn decide_token<'a>(parse_type: &ParseType, tok_string: &'a str) -> Token<'a> {
         //Capture keywords and idents
         ParseType::PtName => {
             match tok_string {
-                "if"     => Token::If,
-                "else"   => Token::Else,
-                "while"  => Token::While,
-                "end"    => Token::End,
-                "def"    => Token::Def,
-                "var"    => Token::Var,
-                "nil"    => Token::Nil,
-                "fn"     => Token::Fn,
-                "in"     => Token::In,
+                "if" => Token::If,
+                "else" => Token::Else,
+                "elif" => Token::Elif,
+                "while" => Token::While,
+                "end" => Token::End,
+                "def" => Token::Def,
+                "var" => Token::Var,
+                "nil" => Token::Nil,
+                "fn" => Token::Fn,
+                "in" => Token::In,
                 "return" => Token::Return,
                 s => {
                     Token::Ident(s)

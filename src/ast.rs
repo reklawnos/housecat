@@ -8,31 +8,16 @@ pub struct AstData {
 //Literals
 #[derive(Debug)]
 pub enum Literal<'a> {
-    Bool {
-        value: bool,
-        data: AstData
-    },
-    Int {
-        value: i64,
-        data: AstData
-    },
-    Float {
-        value: f64,
-        data: AstData
-    },
-    String {
-        value: &'a str,
-        data: AstData
-    },
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    String(&'a str),
     Clip {
         params: Vec<&'a str>,
         returns: Vec<&'a str>,
-        statements: Vec<Stmt<'a>>,
-        data: AstData
+        statements: Vec<Stmt<'a>>
     },
-    Nil {
-        data: AstData
-    }
+    Nil,
 }
 
 //Expressions
@@ -49,10 +34,23 @@ pub enum Expr<'a> {
         rhs: Box<Expr<'a>>,
         data: AstData
     },
-    Literal(Literal<'a>),                       // <Literal>
-    Ident(&'a str),                             // <Ident>
-    Postfix(Box<Expr<'a>>, Vec<Postfix<'a>>),   // <Expr> <Postfix>
-    Tuple(Box<Vec<Expr<'a>>>)                   // (<Expr>, <Expr>, ...)
+    Literal {
+        value: Literal<'a>,
+        data: AstData
+    },
+    Ident {
+        name: &'a str,
+        data: AstData
+    },
+    Postfix {
+        expr: Box<Expr<'a>>,
+        postfix: Vec<Postfix<'a>>,
+        data: AstData
+    },
+    Tuple {
+        values: Vec<Expr<'a>>,
+        data: AstData
+    }
 }
 
 //Postfix Operations
@@ -73,33 +71,59 @@ pub enum UnOp {
 //Binary Operators
 #[derive(Debug)]
 pub enum BinOp {
-    Add,   // '+'
-    Sub,   // '-'
-    Mul,   // '*'
-    Div,   // '/'
-    Mod,   // '%'
-    Exp,   // '^'
-    In,    // 'in'
-    Lt,    // '<'
-    Lte,   // '<='
-    Gt,    // '>'
-    Gte,   // '>='
-    Eq,    // '='
-    Neq,   // '!='
-    Same,  // '=='
-    Nsame, // '!=='
-    And,   // '&&'
-    Or,    // '||'
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Exp,
+    In,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+    Eq,
+    Neq,
+    Same,
+    Nsame,
+    And,
+    Or
 }
 
 //Statement
 #[derive(Debug)]
 pub enum Stmt<'a> {
-    Assignment(Vec<StmtItem<'a>>, Box<Expr<'a>>),
-    Bare(Vec<StmtItem<'a>>),
-    If(Box<Expr<'a>>, Vec<Stmt<'a>>, Vec<Stmt<'a>>),
-    While(Box<Expr<'a>>, Vec<Stmt<'a>>),
-    Return
+    Assignment {
+        items: Vec<StmtItem<'a>>,
+        expr: Box<Expr<'a>>,
+        data: AstData
+    },
+    Bare {
+        items: Vec<StmtItem<'a>>,
+        data: AstData
+    },
+    If {
+        clauses: Vec<IfClause<'a>>,
+        data: AstData
+    },
+    While {
+        condition: Box<Expr<'a>>,
+        statements: Vec<Stmt<'a>>,
+        data: AstData
+    },
+    Return {
+        data: AstData
+    }
+}
+
+//If statement clauses
+#[derive(Debug)]
+pub enum IfClause<'a> {
+    If {
+        condition: Box<Expr<'a>>,
+        statements: Vec<Stmt<'a>>
+    },
+    Else(Vec<Stmt<'a>>)
 }
 
 //Statement item types
