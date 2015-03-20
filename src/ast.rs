@@ -17,7 +17,7 @@ pub enum Literal<'a> {
         returns: Vec<&'a str>,
         statements: Vec<Stmt<'a>>
     },
-    Nil,
+    Nil
 }
 
 //Expressions
@@ -56,16 +56,16 @@ pub enum Expr<'a> {
 //Postfix Operations
 #[derive(Debug)]
 pub enum Postfix<'a> {
-    Play(Vec<Expr<'a>>),  // ... ( <Args> ) <Postfix>
-    Index(Box<Expr<'a>>), // ... [ <Expr> ] <Postfix>
-    Access(&'a str),      // ... . <Ident> <Postfix>
+    Play(Vec<Expr<'a>>),
+    Index(Box<Expr<'a>>),
+    Access(&'a str)
 }
 
 //Unary Operators
 #[derive(Debug)]
 pub enum UnOp {
-    Neg, // '-' (number negation)
-    Not, // '!' (boolean not)
+    Neg,
+    Not
 }
 
 //Binary Operators
@@ -129,7 +129,7 @@ pub enum IfClause<'a> {
 //Statement item types
 #[derive(Debug)]
 pub enum StmtItem<'a> {
-    Bare(Box<Expr<'a>>), // <Ident> <Postfix>
-    Def(Box<Expr<'a>>),  // def <Ident> <Postfix>
-    Var(&'a str)         // var <Ident>
+    Bare(Box<Expr<'a>>),
+    Def(Box<Expr<'a>>),
+    Var(&'a str)
 }

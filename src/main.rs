@@ -18,7 +18,7 @@ mod lexer;
 mod utils;
 mod evaluator;
 
-static DEBUG: bool = true;
+static DEBUG: bool = false;
 
 fn main() {
     let command_args: Vec<String> = env::args().collect();
@@ -61,7 +61,6 @@ fn main() {
                                 println!("{:?}", st);
                             }
                         }
-                        
                         match evaluator::eval_file_stmts(&vec) {
                             evaluator::Result::Ok(r) => println!("result: {:?}", r),
                             evaluator::Result::Err(e) => println!("{}", e)

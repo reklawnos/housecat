@@ -54,6 +54,7 @@ pub enum Token<'a>{
 
 }
 
+#[derive(Debug)]
 pub struct Tok<'a> {
     pub token: Token<'a>,
     pub line: usize,

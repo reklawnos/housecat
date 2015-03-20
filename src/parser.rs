@@ -725,42 +725,43 @@ fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt<'a>>, Vec<I
 
 // <block-statements>
 fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
-    match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "end"
-                Token::End => Result::Ok(vec![], rest),
-                // <stmt> <block-statements>
-                _ => {
-                    let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_stmt));
-                    parsed_list.insert(0, parsed_stmt);
-                    Result::Ok(parsed_list, tokens_after_list)
-                }
+    let mut statements = vec![];
+    let mut my_toks = tokens;
+    while my_toks.len() > 0 {
+        let tok = &my_toks[0];
+        match tok.token {
+            // "end"
+            Token::End => {return Result::Ok(statements, &my_toks[1..])}
+            // <stmt> <block-statements>
+            _ => {
+                let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+                statements.push(parsed_stmt);
+                my_toks = tokens_after_stmt;
             }
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected 'end'"))
     }
+    Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
 }
 
 // <clip-statements>
 fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
-    match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "}"
-                Token::CloseCurly => Result::Ok(vec![], rest),
-                // <stmt> <clip-statements>
-                _ => {
-                    let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tokens_after_stmt));
-                    parsed_list.insert(0, parsed_stmt);
-                    Result::Ok(parsed_list, tokens_after_list)
-                }
+    let mut statements = vec![];
+    let mut my_toks = tokens;
+    while my_toks.len() > 0 {
+        let tok = &my_toks[0];
+        match tok.token {
+            // "}"
+            Token::CloseCurly => {return Result::Ok(statements, &my_toks[1..])}
+            // <stmt> <clip-statements>
+            _ => {
+                let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+                //let (mut parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tokens_after_stmt));
+                statements.push(parsed_stmt);
+                my_toks = tokens_after_stmt;
             }
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
     }
+    Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
 }
 
 // <base-statements>
