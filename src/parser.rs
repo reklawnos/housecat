@@ -19,11 +19,12 @@ macro_rules! parse_expr_binary_op(
                         $tok => {
                             let (parsed_rhs, tokens_after_term) = get_parsed!($parse_rhs(rest));
                             Result::Ok(
-                                Expr::BinOp(
-                                    $op,
-                                    Box::new(parsed_lhs),
-                                    Box::new(parsed_rhs)
-                                ),
+                                Expr::BinOp{
+                                    op: $op,
+                                    lhs: Box::new(parsed_lhs),
+                                    rhs: Box::new(parsed_rhs),
+                                    data: AstData{line: $tokens[0].line}
+                                },
                                 tokens_after_term
                             )
                         },
@@ -39,7 +40,7 @@ macro_rules! parse_expr_binary_op(
 );
 
 use token::{Token, Tok};
-use ast::ast::*;
+use ast::*;
 use utils::*;
 
 pub enum Result<'a, T> {
@@ -62,7 +63,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
         [ref first_tok, rest..] => {
             match first_tok.token {
                 // <ident>
-                Token::Ident(id) => Result::Ok(Expr::Ident(id), rest),
+                Token::Ident(id) => Result::Ok(Expr::Ident{name: id, data: AstData{line: first_tok.line}}, rest),
                 // "(" <expr> ...
                 Token::OpenParen => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
@@ -75,7 +76,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
                                 Token::Comma => {
                                     let (mut parsed_list, tokens_after_list) = get_parsed!(parse_expr_list(next_rest));
                                     parsed_list.insert(0, parsed_expr);
-                                    Result::Ok(Expr::Tuple(Box::new(parsed_list)), tokens_after_list)
+                                    Result::Ok(Expr::Tuple{values: parsed_list, data: AstData{line: first_tok.line}}, tokens_after_list)
                                 }
                                 _ => Result::Err(format!(
                                         "PARSING FAILURE at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
@@ -101,23 +102,39 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
                 // "{" <clip-statements>
                 Token::OpenCurly => {
                     let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(rest));
-                    Result::Ok(Expr::Literal(Literal::Clip(vec![], vec![], parsed_list)), tokens_after_list)
+                    Result::Ok(
+                        Expr::Literal{
+                            value: Literal::Clip{
+                                params:vec![],
+                                returns:vec![],
+                                statements:parsed_list
+                            },
+                            data:AstData{line: first_tok.line}
+                        }, tokens_after_list)
                 }
                 // "fn" <clip-def>
                 Token::Fn => {
                     let ((parsed_params, parsed_returns, parsed_statements), tokens_after_list) = get_parsed!(parse_clip_def(rest));
-                    Result::Ok(Expr::Literal(Literal::Clip(parsed_params, parsed_returns, parsed_statements)), tokens_after_list)
+                    Result::Ok(
+                        Expr::Literal{
+                            value: Literal::Clip{
+                                params: parsed_params,
+                                returns: parsed_returns,
+                                statements: parsed_statements
+                            },
+                            data: AstData{line: first_tok.line}
+                        }, tokens_after_list)
                 }
                 // <bool>
-                Token::Bool(b) => Result::Ok(Expr::Literal(Literal::Bool(b)), rest),
+                Token::Bool(b) => Result::Ok(Expr::Literal{value: Literal::Bool(b), data: AstData{line: first_tok.line}}, rest),
                 // <int>
-                Token::Int(i) => Result::Ok(Expr::Literal(Literal::Int(i)), rest),
+                Token::Int(i) => Result::Ok(Expr::Literal{value: Literal::Int(i), data: AstData{line: first_tok.line}}, rest),
                 // <float>
-                Token::Float(f) => Result::Ok(Expr::Literal(Literal::Float(f)), rest),
+                Token::Float(f) => Result::Ok(Expr::Literal{value: Literal::Float(f), data: AstData{line: first_tok.line}}, rest),
                 // <string>
-                Token::String(ref s) => Result::Ok(Expr::Literal(Literal::String(&s[..])), rest),
+                Token::String(ref s) => Result::Ok(Expr::Literal{value: Literal::String(&s[..]), data: AstData{line: first_tok.line}}, rest),
                 // "nil"
-                Token::Nil => Result::Ok(Expr::Literal(Literal::Nil), rest),
+                Token::Nil => Result::Ok(Expr::Literal{value: Literal::Nil, data: AstData{line: first_tok.line}}, rest),
                 _ => Result::Err(format!(
                         "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
                         first_tok.line + 1,
@@ -141,7 +158,7 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
             match first_tok.token {
                 Token::OpenParen | Token::Dot | Token::OpenBrac => {
                     let (parsed_postfix, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_expr));
-                    Result::Ok(Expr::Postfix(Box::new(parsed_expr), parsed_postfix), tokens_after_postfix)
+                    Result::Ok(Expr::Postfix{expr: Box::new(parsed_expr), postfix: parsed_postfix, data: AstData{line: first_tok.line}}, tokens_after_postfix)
                 },
                 _ => Result::Ok(parsed_expr, tokens_after_expr)
             }
@@ -281,12 +298,12 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
                 // "-" ...
                 Token::Sub => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
-                    Result::Ok(Expr::UnOp(UnOp::Neg, Box::new(parsed_expr)), tokens_after_expr)
+                    Result::Ok(Expr::UnOp{op: UnOp::Neg, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
                 },
                 // "!" ...
                 Token::Not => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
-                    Result::Ok(Expr::UnOp(UnOp::Not, Box::new(parsed_expr)), tokens_after_expr)
+                    Result::Ok(Expr::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
                 },
                 // <postfix-expr>
                 _ => parse_postfix_expr(tokens)
@@ -479,13 +496,13 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
                 // ... ":" <expr>
                 Token::Assign => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    Result::Ok(Stmt::Assignment(parsed_items, Box::new(parsed_expr)), tokens_after_expr)
+                    Result::Ok(Stmt::Assignment{items: parsed_items, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
                 }
                 // EPS
-                _ => Result::Ok(Stmt::Bare(parsed_items), tokens_after_items)
+                _ => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: first_tok.line}}, tokens_after_items)
             }
         }
-        _ => Result::Ok(Stmt::Bare(parsed_items), tokens_after_items)
+        _ => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: -1}}, tokens_after_items)
     }
 }
 
@@ -497,18 +514,19 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
                 // "if" <expr> <if-statements>
                 Token::If => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    let ((if_list, else_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr));
-                    Result::Ok(Stmt::If(Box::new(parsed_expr), if_list, else_list), tokens_after_if)
+                    let ((if_list, mut clause_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr));
+                    clause_list.insert(0, IfClause::If{condition: Box::new(parsed_expr), statements: if_list});
+                    Result::Ok(Stmt::If{clauses: clause_list, data: AstData{line: first_tok.line}}, tokens_after_if)
                 }
                 // "while" <expr> <block-statements>
                 Token::While => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
                     let (stmt_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_expr));
-                    Result::Ok(Stmt::While(Box::new(parsed_expr), stmt_list), tokens_after_list)
+                    Result::Ok(Stmt::While{condition: Box::new(parsed_expr), statements: stmt_list, data: AstData{line: first_tok.line}}, tokens_after_list)
 
                 }
                 // "return"
-                Token::Return => Result::Ok(Stmt::Return, rest),
+                Token::Return => Result::Ok(Stmt::Return{data: AstData{line: first_tok.line}}, rest),
                 // <stmt-items>
                 _ => parse_stmt_items(tokens)
             }
@@ -674,14 +692,21 @@ fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a str
 }
 
 // <if-statements>
-fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt<'a>>, Vec<Stmt<'a>>)> {
+fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt<'a>>, Vec<IfClause<'a>>)> {
     match tokens {
         [ref first_tok, rest..] => {
             match first_tok.token {
                 // "else" <block-statements>
                 Token::Else => {
                     let (parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(rest));
-                    Result::Ok((vec![], parsed_list), tokens_after_list)
+                    Result::Ok((vec![], vec![IfClause::Else(parsed_list)]), tokens_after_list)
+                }
+                // "elif" <expr> <if-statements>
+                Token::Elif => {
+                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+                    let ((parsed_statements, mut parsed_clauses), tokens_after_statements) = get_parsed!(parse_if_statements(tokens_after_expr));
+                    parsed_clauses.insert(0, IfClause::If{condition: Box::new(parsed_expr), statements: parsed_statements});
+                    Result::Ok((vec![], parsed_clauses), tokens_after_statements)
                 }
                 // "end"
                 Token::End => Result::Ok((vec![], vec![]), rest),
@@ -700,55 +725,52 @@ fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt<'a>>, Vec<S
 
 // <block-statements>
 fn parse_block_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
-    match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "end"
-                Token::End => Result::Ok(vec![], rest),
-                // <stmt> <block-statements>
-                _ => {
-                    let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_stmt));
-                    parsed_list.insert(0, parsed_stmt);
-                    Result::Ok(parsed_list, tokens_after_list)
-                }
+    let mut statements = vec![];
+    let mut my_toks = tokens;
+    while my_toks.len() > 0 {
+        let tok = &my_toks[0];
+        match tok.token {
+            // "end"
+            Token::End => {return Result::Ok(statements, &my_toks[1..])}
+            // <stmt> <block-statements>
+            _ => {
+                let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+                statements.push(parsed_stmt);
+                my_toks = tokens_after_stmt;
             }
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected 'end'"))
     }
+    Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
 }
 
 // <clip-statements>
 fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
-    match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "}"
-                Token::CloseCurly => Result::Ok(vec![], rest),
-                // <stmt> <clip-statements>
-                _ => {
-                    let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tokens_after_stmt));
-                    parsed_list.insert(0, parsed_stmt);
-                    Result::Ok(parsed_list, tokens_after_list)
-                }
+    let mut statements = vec![];
+    let mut my_toks = tokens;
+    while my_toks.len() > 0 {
+        let tok = &my_toks[0];
+        match tok.token {
+            // "}"
+            Token::CloseCurly => {return Result::Ok(statements, &my_toks[1..])}
+            // <stmt> <clip-statements>
+            _ => {
+                let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+                //let (mut parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tokens_after_stmt));
+                statements.push(parsed_stmt);
+                my_toks = tokens_after_stmt;
             }
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
     }
+    Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
 }
 
 // <base-statements>
-pub fn parse_base_statements<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Stmt<'a>>> {
-    match tokens {
-        // <stmt> <base-statements>
-        [_, _..] => {
-            let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-            let (mut parsed_list, tokens_after_list) = get_parsed!(parse_base_statements(tokens_after_stmt));
-            parsed_list.insert(0, parsed_stmt);
-            Result::Ok(parsed_list, tokens_after_list)
-        }
-        // ""
-        _ => Result::Ok(vec![], tokens)
+pub fn parse_base_statements<'a>(tokens: &'a[Tok], cur_statements: &'a mut Vec<Stmt<'a>>) -> Result<'a, &'a Vec<Stmt<'a>>> {
+    let mut my_toks = tokens;
+    while my_toks.len() > 0 {
+        let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+        cur_statements.push(parsed_stmt);
+        my_toks = tokens_after_stmt;
     }
+    Result::Ok(cur_statements, my_toks)
 }

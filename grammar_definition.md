@@ -110,6 +110,7 @@ Statements
     <if-statements> ::=
         | <stmt> <if-statements>
         | "end"
+        | "elif" <expr> <if-statements>
         | "else" <block-statements>
 
     <block-statements> ::=

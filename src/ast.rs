@@ -1,79 +1,135 @@
-pub mod ast {
+#[derive(Debug)]
+pub struct AstData {
+    pub line: usize,
+    //pub start: usize,
+    //pub end: usize
+}
 
-    //Literals
-    #[derive(Debug)]
-    pub enum Literal<'a> {
-        Bool(bool),                                      // <bool>
-        Int(i64),                                        // <int>
-        Float(f64),                                      // <float>
-        String(&'a str),                                 // <string>
-        Clip(Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>), // <clip>
-        Nil,                                             // 'nil'
-    }
+//Literals
+#[derive(Debug)]
+pub enum Literal<'a> {
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    String(&'a str),
+    Clip {
+        params: Vec<&'a str>,
+        returns: Vec<&'a str>,
+        statements: Vec<Stmt<'a>>
+    },
+    Nil
+}
 
-    //Expressions
-    #[derive(Debug)]
-    pub enum Expr<'a> {
-        UnOp(UnOp, Box<Expr<'a>>),                  // <UnOp> <Expr>
-        BinOp(BinOp, Box<Expr<'a>>, Box<Expr<'a>>), // <Expr> <BinOp> <Expr>
-        Literal(Literal<'a>),                       // <Literal>
-        Ident(&'a str),                             // <Ident>
-        Postfix(Box<Expr<'a>>, Vec<Postfix<'a>>),   // <Expr> <Postfix>
-        Tuple(Box<Vec<Expr<'a>>>)                   // (<Expr>, <Expr>, ...)
+//Expressions
+#[derive(Debug)]
+pub enum Expr<'a> {
+    UnOp {
+        op: UnOp,
+        expr: Box<Expr<'a>>,
+        data: AstData
+    },
+    BinOp {
+        op: BinOp,
+        lhs: Box<Expr<'a>>,
+        rhs: Box<Expr<'a>>,
+        data: AstData
+    },
+    Literal {
+        value: Literal<'a>,
+        data: AstData
+    },
+    Ident {
+        name: &'a str,
+        data: AstData
+    },
+    Postfix {
+        expr: Box<Expr<'a>>,
+        postfix: Vec<Postfix<'a>>,
+        data: AstData
+    },
+    Tuple {
+        values: Vec<Expr<'a>>,
+        data: AstData
     }
+}
 
-    //Postfix Operations
-    #[derive(Debug)]
-    pub enum Postfix<'a> {
-        Play(Vec<Expr<'a>>),  // ... ( <Args> ) <Postfix>
-        Index(Box<Expr<'a>>), // ... [ <Expr> ] <Postfix>
-        Access(&'a str),      // ... . <Ident> <Postfix>
-    }
+//Postfix Operations
+#[derive(Debug)]
+pub enum Postfix<'a> {
+    Play(Vec<Expr<'a>>),
+    Index(Box<Expr<'a>>),
+    Access(&'a str)
+}
 
-    //Unary Operators
-    #[derive(Debug)]
-    pub enum UnOp {
-        Neg, // '-' (number negation)
-        Not, // '!' (boolean not)
-    }
+//Unary Operators
+#[derive(Debug)]
+pub enum UnOp {
+    Neg,
+    Not
+}
 
-    //Binary Operators
-    #[derive(Debug)]
-    pub enum BinOp {
-        Add,   // '+'
-        Sub,   // '-'
-        Mul,   // '*'
-        Div,   // '/'
-        Mod,   // '%'
-        Exp,   // '^'
-        In,    // 'in'
-        Lt,    // '<'
-        Lte,   // '<='
-        Gt,    // '>'
-        Gte,   // '>='
-        Eq,    // '='
-        Neq,   // '!='
-        Same,  // '=='
-        Nsame, // '!=='
-        And,   // '&&'
-        Or,    // '||'
-    }
+//Binary Operators
+#[derive(Debug)]
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Exp,
+    In,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+    Eq,
+    Neq,
+    Same,
+    Nsame,
+    And,
+    Or
+}
 
-    //Statement
-    #[derive(Debug)]
-    pub enum Stmt<'a> {
-        Assignment(Vec<StmtItem<'a>>, Box<Expr<'a>>),
-        Bare(Vec<StmtItem<'a>>),
-        If(Box<Expr<'a>>, Vec<Stmt<'a>>, Vec<Stmt<'a>>),
-        While(Box<Expr<'a>>, Vec<Stmt<'a>>),
-        Return
+//Statement
+#[derive(Debug)]
+pub enum Stmt<'a> {
+    Assignment {
+        items: Vec<StmtItem<'a>>,
+        expr: Box<Expr<'a>>,
+        data: AstData
+    },
+    Bare {
+        items: Vec<StmtItem<'a>>,
+        data: AstData
+    },
+    If {
+        clauses: Vec<IfClause<'a>>,
+        data: AstData
+    },
+    While {
+        condition: Box<Expr<'a>>,
+        statements: Vec<Stmt<'a>>,
+        data: AstData
+    },
+    Return {
+        data: AstData
     }
+}
 
-    //Statement item types
-    #[derive(Debug)]
-    pub enum StmtItem<'a> {
-        Bare(Box<Expr<'a>>), // <Ident> <Postfix>
-        Def(Box<Expr<'a>>),  // def <Ident> <Postfix>
-        Var(&'a str)         // var <Ident>
-    }
+//If statement clauses
+#[derive(Debug)]
+pub enum IfClause<'a> {
+    If {
+        condition: Box<Expr<'a>>,
+        statements: Vec<Stmt<'a>>
+    },
+    Else(Vec<Stmt<'a>>)
+}
+
+//Statement item types
+#[derive(Debug)]
+pub enum StmtItem<'a> {
+    Bare(Box<Expr<'a>>),
+    Def(Box<Expr<'a>>),
+    Var(&'a str)
 }

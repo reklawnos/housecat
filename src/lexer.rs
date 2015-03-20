@@ -43,14 +43,14 @@ static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (ParseType::PtComment, regex!(r"^#"))
 ];
 
-pub fn lex_line<'a>(line: &'a str, line_no: usize, token_vec: & mut Vec<Tok<'a>>) -> Result<(), usize> {
+pub fn lex_line<'a>(line: &'a str, line_no: usize, char_index: &mut usize, token_vec: & mut Vec<Tok<'a>>) -> Result<(), usize> {
     let mut line_slice = line;
     let mut col = 0usize;
     while line_slice.len() > 0 {
         let mut found_token = false;
         let mut found_comment = false;
         for &(ref parse_type, ref re) in TOKEN_SPECS.iter() {
-            let pos = match re.find(line_slice) {
+            let (start,end) = match re.find(line_slice) {
                 Some(range) => range,
                 None => continue
             };
@@ -62,18 +62,18 @@ pub fn lex_line<'a>(line: &'a str, line_no: usize, token_vec: & mut Vec<Tok<'a>>
                 },
                 _ => {}
             }
-            let (start,end) = pos;
-            let res = &line_slice[start..end];
+            let token_slice = &line_slice[start..end];
             //Skip over whitespace
             match *parse_type {
                 ParseType::PtSkip => {},
                 _ => {
-                    let new_token = decide_token(parse_type, res);
-                    token_vec.push(Tok{token: new_token, line: line_no, col: col, line_string: line});
+                    let new_token = decide_token(parse_type, token_slice);
+                    token_vec.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
                 }
             }
             //Push the column index to the end of what we just read
             col += end;
+            *char_index += end;
             line_slice = &line_slice[end..];
             found_token = true;
             break;
@@ -95,15 +95,16 @@ fn decide_token<'a>(parse_type: &ParseType, tok_string: &'a str) -> Token<'a> {
         //Capture keywords and idents
         ParseType::PtName => {
             match tok_string {
-                "if"     => Token::If,
-                "else"   => Token::Else,
-                "while"  => Token::While,
-                "end"    => Token::End,
-                "def"    => Token::Def,
-                "var"    => Token::Var,
-                "nil"    => Token::Nil,
-                "fn"     => Token::Fn,
-                "in"     => Token::In,
+                "if" => Token::If,
+                "else" => Token::Else,
+                "elif" => Token::Elif,
+                "while" => Token::While,
+                "end" => Token::End,
+                "def" => Token::Def,
+                "var" => Token::Var,
+                "nil" => Token::Nil,
+                "fn" => Token::Fn,
+                "in" => Token::In,
                 "return" => Token::Return,
                 s => {
                     Token::Ident(s)
