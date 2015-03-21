@@ -136,7 +136,7 @@ pub fn eval_bin_op<'a>(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>
 
 pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) -> Result<Value<'a>> {
     match expr {
-        &Expr::Literal{ref value, data:_} => Result::Ok(get_evald!(eval_literal(value))),
+        &Expr::Literal{ref value, ..} => Result::Ok(get_evald!(eval_literal(value))),
         &Expr::Ident{ref name, ref data} => {
             let val = get_value_from_scopes(scopes, &(**name));
             match val {
@@ -144,7 +144,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) 
                 None => Result::Err(format!("EVAL FAILURE at line {}: {} is not in the current scope", data.line + 1, name))
             }
         },
-        &Expr::Tuple{ref values, data: _} => {
+        &Expr::Tuple{ref values, ..} => {
             let mut result_vec = Vec::new();
             for e in values.iter(){
                 result_vec.push(get_evald!(eval_expr(e, scopes)));
@@ -177,7 +177,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) 
 
 fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<&'a str> {
     match expr {
-        &Expr::Ident{name, data: _} => Result::Ok(name),
+        &Expr::Ident{name, ..} => Result::Ok(name),
         _ => panic!("expr as ident not implemented yet!")
     }
 }
@@ -223,7 +223,7 @@ fn assign<'a>(stmt_item: &'a StmtItem, value: Value<'a>, scopes: &mut Vec<HashMa
 
 fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) -> Result<Vec<Value<'a>>> {
     match stmt {
-        &Stmt::Bare{ref items, data: _} => {
+        &Stmt::Bare{ref items, ..} => {
             let mut result_vec = vec![];
             for i in items.iter() {
                 result_vec.push(get_evald!(eval_bare_stmt_item(i, scopes)));

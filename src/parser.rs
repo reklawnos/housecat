@@ -514,9 +514,8 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
                 // "if" <expr> <if-statements>
                 Token::If => {
                     let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    let ((if_list, mut clause_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr));
-                    clause_list.insert(0, IfClause::If{condition: Box::new(parsed_expr), statements: if_list});
-                    Result::Ok(Stmt::If{clauses: clause_list, data: AstData{line: first_tok.line}}, tokens_after_if)
+                    let (clauses, tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr, parsed_expr));
+                    Result::Ok(Stmt::If{clauses: clauses, data: AstData{line: first_tok.line}}, tokens_after_if)
                 }
                 // "while" <expr> <block-statements>
                 Token::While => {
@@ -692,35 +691,43 @@ fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a str
 }
 
 // <if-statements>
-fn parse_if_statements<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<Stmt<'a>>, Vec<IfClause<'a>>)> {
-    match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "else" <block-statements>
-                Token::Else => {
-                    let (parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(rest));
-                    Result::Ok((vec![], vec![IfClause::Else(parsed_list)]), tokens_after_list)
-                }
-                // "elif" <expr> <if-statements>
-                Token::Elif => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    let ((parsed_statements, mut parsed_clauses), tokens_after_statements) = get_parsed!(parse_if_statements(tokens_after_expr));
-                    parsed_clauses.insert(0, IfClause::If{condition: Box::new(parsed_expr), statements: parsed_statements});
-                    Result::Ok((vec![], parsed_clauses), tokens_after_statements)
-                }
-                // "end"
-                Token::End => Result::Ok((vec![], vec![]), rest),
-                // <stmt> <if-statements>
-                _ => {
-                    let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(tokens));
-                    let ((mut if_list, else_list), tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_stmt));
-                    if_list.insert(0, parsed_stmt);
-                    Result::Ok((if_list, else_list), tokens_after_if)
-                }
+fn parse_if_statements<'a>(tokens: &'a[Tok], expr: Expr<'a>) -> Result<'a, Vec<IfClause<'a>>> {
+    let mut statements = vec![];
+    let mut clauses = vec![];
+    let mut my_toks = tokens;
+    let mut my_expr = expr;
+    while my_toks.len() > 0 {
+        let tok = &my_toks[0];
+        match tok.token {
+            // "else" <block-statements>
+            Token::Else => {
+                clauses.push(IfClause::If{condition: Box::new(my_expr), statements: statements});
+                let (parsed_list, tokens_after_list) = get_parsed!(parse_block_statements(&my_toks[1..]));
+                clauses.push(IfClause::Else(parsed_list));
+                return Result::Ok(clauses, tokens_after_list);
+            }
+            // "elif" <expr> <if-statements>
+            Token::Elif => {
+                clauses.push(IfClause::If{condition: Box::new(my_expr), statements: statements});
+                statements = Vec::new();
+                let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(&my_toks[1..]));
+                my_toks = tokens_after_expr;
+                my_expr = parsed_expr;
+            }
+            // "end"
+            Token::End => {
+                clauses.push(IfClause::If{condition: Box::new(my_expr), statements: statements});
+                return Result::Ok(clauses, &my_toks[1..])
+            }
+            // <stmt> <if-statements>
+            _ => {
+                let (parsed_stmt, tokens_after_stmt) = get_parsed!(parse_stmt(my_toks));
+                my_toks = tokens_after_stmt;
+                statements.push(parsed_stmt);
             }
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected 'end'"))
     }
+    Result::Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
 }
 
 // <block-statements>
