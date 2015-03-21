@@ -50,8 +50,7 @@ pub enum Token<'a>{
     Same,   // `==`
     Nsame,  // `!==`
     And,    // `&&`
-    Or,     // `||`     
-
+    Or,     // `||`
 }
 
 #[derive(Debug)]

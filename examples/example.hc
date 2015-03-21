@@ -31,7 +31,7 @@ def get_somethings: fn() -> (retval1, retval2, retval3) {
     def retval3: "return 3"
 } 
 
-def get_somethings: fn() -> (retval) {
+def get_something_2: fn() -> (retval) {
     def retval: "return"
 }
 

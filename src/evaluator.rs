@@ -2,6 +2,9 @@ use ast::*;
 use values::*;
 use std::collections::HashMap;
 use std::num::{Int, Float};
+use std::rc::Rc;
+use std::cell::RefCell;
+use eval_result::Result;
 
 macro_rules! get_evald(
     ($parsed:expr) => ({
@@ -12,9 +15,10 @@ macro_rules! get_evald(
     });
 );
 
-pub enum Result<T> {
-    Ok(T),
-    Err(String)
+fn init_builtins<'a>() -> HashMap<&'a str, Value<'a>> {
+    let mut map = HashMap::new();
+    map.insert("print", Value::Builtin(Builtin::Print));
+    map
 }
 
 fn int_pow(lhs: i64, rhs: i64) -> i64 {
@@ -26,19 +30,42 @@ fn int_pow(lhs: i64, rhs: i64) -> i64 {
 
 }
 
-fn eval_literal<'a>(literal: &'a Literal) -> Result<Value<'a>> {
+fn eval_literal<'a>(literal: &'a Literal, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, defs: &HashMap<&'a str, Value<'a>>) -> Result<Value<'a>> {
     match literal {
         &Literal::Bool(b) => Result::Ok(Value::Bool(b)),
         &Literal::Int(i) => Result::Ok(Value::Int(i)),
         &Literal::Float(f) => Result::Ok(Value::Float(f)),
         &Literal::String(s) => Result::Ok(Value::String(Box::new(s.to_string()))),
         &Literal::Nil => Result::Ok(Value::Nil),
-        _ => panic!("literal not implemented yet!")
+        &Literal::Clip{ref params, ref returns, ref statements} => {
+            let mut new_defs = HashMap::new();
+            scopes.push(HashMap::new());
+            eval_stmt_list(statements, scopes, &mut new_defs, false);
+            scopes.pop();
+            Result::Ok(
+                Value::Clip(
+                    Rc::new(
+                        RefCell::new(
+                            ClipStruct{
+                                params: params.clone(),
+                                returns: returns.clone(),
+                                statements: statements,
+                                defs: new_defs
+                            }
+                        )
+                    )
+                )
+            )
+        }
     }
 }
 
 
-fn get_value_from_scopes<'a>(scopes: &Vec<HashMap<&'a str, Value<'a>>>, name: &str) -> Option<Value<'a>>{
+fn get_value_from_scopes<'a>(scopes: &Vec<HashMap<&'a str, Value<'a>>>, defs: &HashMap<&'a str, Value<'a>>, name: &str) -> Option<Value<'a>>{
+    match defs.get(name) {
+        Some(v) => {return Some((*v).clone())},
+        None => {}
+    }
     for scope in scopes.iter().rev() {
         match scope.get(name) {
             Some(v) => {return Some((*v).clone())},
@@ -134,11 +161,11 @@ pub fn eval_bin_op<'a>(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>
     Result::Ok(result_val)
 }
 
-pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) -> Result<Value<'a>> {
+pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, defs: &mut HashMap<&'a str, Value<'a>>) -> Result<Value<'a>> {
     match expr {
-        &Expr::Literal{ref value, ..} => Result::Ok(get_evald!(eval_literal(value))),
+        &Expr::Literal{ref value, ..} => Result::Ok(get_evald!(eval_literal(value, scopes, defs))),
         &Expr::Ident{ref name, ref data} => {
-            let val = get_value_from_scopes(scopes, &(**name));
+            let val = get_value_from_scopes(scopes, defs, &(**name));
             match val {
                 Some(v) => Result::Ok(v),
                 None => Result::Err(format!("EVAL FAILURE at line {}: {} is not in the current scope", data.line + 1, name))
@@ -147,13 +174,13 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) 
         &Expr::Tuple{ref values, ..} => {
             let mut result_vec = Vec::new();
             for e in values.iter(){
-                result_vec.push(get_evald!(eval_expr(e, scopes)));
+                result_vec.push(get_evald!(eval_expr(e, scopes, defs)));
             }
             Result::Ok(Value::Tuple(result_vec))
         }
         &Expr::BinOp{ref op, ref lhs, ref rhs, ref data} => {
-            let lh_val = get_evald!(eval_expr(lhs, scopes));
-            let rh_val = get_evald!(eval_expr(rhs, scopes));
+            let lh_val = get_evald!(eval_expr(lhs, scopes, defs));
+            let rh_val = get_evald!(eval_expr(rhs, scopes, defs));
             match (&lh_val, &rh_val) {
                 (&Value::Tuple(ref lh_vec), &Value::Tuple(ref rh_vec)) => {
                     if lh_vec.len() != rh_vec.len() {
@@ -171,6 +198,48 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) 
                 }
             }
         }
+        &Expr::Postfix{ref expr, ref postfixes, ..} => {
+            let mut curr_val = get_evald!(eval_expr(expr, scopes, defs));
+            for postfix in postfixes.iter() {
+                match postfix {
+                    &Postfix::Play(ref args) => {
+                        let mut arg_values = Vec::new();
+                        for arg in args.iter() {
+                            arg_values.push(get_evald!(eval_expr(arg, scopes, defs)));
+                        }
+                        match curr_val {
+                            Value::Clip(ref c) => {
+                                //TODO: do return variables need to be defined, or just var'd?
+                                //TODO: set up return values and parameters
+                                let mut borrowed_clip = c.borrow_mut();
+                                scopes.push(HashMap::new());
+                                eval_stmt_list(borrowed_clip.statements, scopes, &mut borrowed_clip.defs, true);
+                                scopes.pop();
+                            }
+                            Value::Builtin(b) => {
+                                curr_val = get_evald!(b.call(&arg_values));
+                            }
+                            _ => {return Result::Err(format!("EVAL FAILURE: can only play clips and builtins"));}
+                        }
+                    }
+                    &Postfix::Access(s) => {
+                        match curr_val {
+                            Value::Clip(c) => {
+                                let borrowed_clip = c.borrow();
+                                let new_val = match borrowed_clip.defs.get(s) {
+                                    Some(v) => v.clone(),
+                                    None => {return Result::Err(format!("EVAL FAILURE: clip has no field '{}'", s));}
+                                };
+                                curr_val = new_val;
+                            }
+                            _ => panic!("cannot access a non-clip at this point")
+                        }
+                    }
+                    _ => panic!("postfix type not implemented yet")
+                }
+            }
+            Result::Ok(curr_val)
+        }
         _ => panic!("expr not implemented yet!")
     }
 }
@@ -178,25 +247,29 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &Vec<HashMap<&'a str, Value<'a>>>) 
 fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<&'a str> {
     match expr {
         &Expr::Ident{name, ..} => Result::Ok(name),
-        _ => panic!("expr as ident not implemented yet!")
+        _ => panic!("expr as ident not implemented yet! {:?}", expr)
     }
 }
 
-fn eval_bare_stmt_item<'a>(stmt_item: &'a StmtItem, scopes: &Vec<HashMap<&'a str, Value<'a>>>) -> Result<Value<'a>> {
+fn eval_bare_stmt_item<'a>(stmt_item: &'a StmtItem, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, defs: &mut HashMap<&'a str, Value<'a>>) -> Result<Value<'a>> {
     match stmt_item {
-        &StmtItem::Bare(ref expr) => eval_expr(expr, scopes),
+        &StmtItem::Bare(ref expr) => eval_expr(expr, scopes, defs),
         _ => Result::Err(format!("EVAL FAILURE: need a bare expression"))
     }
 }
 
-fn assign<'a>(stmt_item: &'a StmtItem, value: Value<'a>, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, curr_scope: usize) -> Result<()> {
+fn assign<'a>(stmt_item: &'a StmtItem, value: Value<'a>, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, curr_scope: usize, defs: &mut HashMap<&'a str, Value<'a>>, skip_defs: bool) -> Result<Value<'a>> {
     match stmt_item {
         &StmtItem::Bare(ref e) => {
             let ident = get_evald!(eval_expr_as_ident(e));
+            if defs.contains_key(ident) {
+                defs.insert(ident, value);
+                return Result::Ok(Value::Nothing);
+            }
             for scope in scopes.iter_mut().rev() {
                 if scope.contains_key(ident) {
                     scope.insert(ident, value);
-                    return Result::Ok(());
+                    return Result::Ok(Value::Nothing);
                 }
             }
             return Result::Err(format!("EVAL FAILURE: '{}' is not declared in the current scope", ident));
@@ -210,44 +283,46 @@ fn assign<'a>(stmt_item: &'a StmtItem, value: Value<'a>, scopes: &mut Vec<HashMa
         }
         //TODO: make defs work with clips
         &StmtItem::Def(ref e) => {
-            let ident = get_evald!(eval_expr_as_ident(e));
-            if scopes[curr_scope].contains_key(ident) {
-                return Result::Err(format!("EVAL FAILURE: '{}' is already defined in the current scope", ident));
-            } else {
-                scopes[curr_scope].insert(ident, value);
+            if !skip_defs {
+                let ident = get_evald!(eval_expr_as_ident(e));
+                if defs.contains_key(ident) {
+                    return Result::Err(format!("EVAL FAILURE: '{}' is already defined in the current clip", ident));
+                } else {
+                    defs.insert(ident, value);
+                }
             }
         } 
     }
-    Result::Ok(())
+    Result::Ok(Value::Nothing)
 }
 
-fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) -> Result<Vec<Value<'a>>> {
+fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, defs: &mut HashMap<&'a str, Value<'a>>, skip_defs: bool) -> Result<Vec<Value<'a>>> {
     match stmt {
         &Stmt::Bare{ref items, ..} => {
             let mut result_vec = vec![];
             for i in items.iter() {
-                result_vec.push(get_evald!(eval_bare_stmt_item(i, scopes)));
+                result_vec.push(get_evald!(eval_bare_stmt_item(i, scopes, defs)));
             }
             Result::Ok(result_vec)
         }
         &Stmt::Assignment{ref items, ref expr, ref data} => {
-            let expr_value = get_evald!(eval_expr(expr, scopes));
+            let expr_value = get_evald!(eval_expr(expr, scopes, defs));
             let curr_scope = scopes.len() - 1;
             match expr_value {
                 Value::Tuple(value_vec) => {
                     if items.len() == value_vec.len() {
                         for (i, e) in items.iter().zip(value_vec.into_iter()) {
-                            get_evald!(assign(i, e, scopes, curr_scope));
+                            get_evald!(assign(i, e, scopes, curr_scope, defs, skip_defs));
                         }
                     } else if items.len() == 1 {
-                        get_evald!(assign(&items[0], Value::Tuple(value_vec), scopes, curr_scope));
+                        get_evald!(assign(&items[0], Value::Tuple(value_vec), scopes, curr_scope, defs, skip_defs));
                     } else {
                         return Result::Err(format!("EVAL FAILURE at line {}: wrong arity for this assignment", data.line));
                     }
                 } 
                 _ => {
                     if items.len() == 1 {
-                        get_evald!(assign(&items[0], expr_value, scopes, curr_scope));
+                        get_evald!(assign(&items[0], expr_value, scopes, curr_scope, defs, skip_defs));
                     } else {
                         return Result::Err(format!("EVAL FAILURE at line {}: too many idents to assign to", data.line));
                     }
@@ -259,7 +334,7 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
             scopes.push(HashMap::new());
             let mut result_vec = vec![];
             loop {
-                let expr_val = get_evald!(eval_expr(condition, scopes));
+                let expr_val = get_evald!(eval_expr(condition, scopes, defs));
                 match expr_val {
                     Value::Bool(b) => {
                         if !b {
@@ -270,7 +345,7 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
                         return Result::Err(format!("EVAL FAILURE at line {}: while loops must contain a boolean expression", data.line));
                     }
                 }
-                let vals = get_evald!(eval_stmt_list(statements, scopes));
+                let vals = get_evald!(eval_stmt_list(statements, scopes, defs, skip_defs));
                 for val in vals.into_iter() {
                     result_vec.push(val);
                 }
@@ -278,12 +353,11 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
             Result::Ok(result_vec)
         }
         &Stmt::If{ref clauses, ref data} => {
-            scopes.push(HashMap::new());
             let mut result_vec = vec![];
             for clause in clauses.iter() {
                 match clause {
                     &IfClause::If{ref condition, ref statements} => {
-                        let expr_val = get_evald!(eval_expr(condition, scopes));
+                        let expr_val = get_evald!(eval_expr(condition, scopes, defs));
                         match expr_val {
                             Value::Bool(b) => {
                                 if !b {
@@ -291,20 +365,25 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
                                 }
                             }
                             _ => {
+                                scopes.pop();
                                 return Result::Err(format!("EVAL FAILURE at line {}: if statements must contain a boolean expression", data.line));
                             }
                         }
-                        let vals = get_evald!(eval_stmt_list(statements, scopes));
+                        scopes.push(HashMap::new());
+                        let vals = get_evald!(eval_stmt_list(statements, scopes, defs, skip_defs));
                         for val in vals.into_iter() {
                             result_vec.push(val);
                         }
+                        scopes.pop();
                         return Result::Ok(result_vec);
                     }
                     &IfClause::Else(ref statements) => {
-                        let vals = get_evald!(eval_stmt_list(statements, scopes));
+                        scopes.push(HashMap::new());
+                        let vals = get_evald!(eval_stmt_list(statements, scopes, defs, skip_defs));
                         for val in vals.into_iter() {
                             result_vec.push(val);
                         }
+                        scopes.pop();
                         return Result::Ok(result_vec);
                     }
                 }
@@ -315,10 +394,10 @@ fn eval_stmt<'a>(stmt: &'a Stmt, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) 
     }
 }
 
-fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>) -> Result<Vec<Value<'a>>> {
+fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &mut Vec<HashMap<&'a str, Value<'a>>>, defs: &mut HashMap<&'a str, Value<'a>>, skip_defs: bool) -> Result<Vec<Value<'a>>> {
     let mut ret_list = vec![];
     for st in stmt_list.iter() {
-        let mut values = get_evald!(eval_stmt(st, scopes));
+        let mut values = get_evald!(eval_stmt(st, scopes, defs, skip_defs));
         ret_list.append(&mut values);
     }
     Result::Ok(ret_list)
@@ -326,7 +405,7 @@ fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &mut Vec<HashMap<&'a str
 
 
 pub fn eval_file_stmts<'a>(stmt_list: &'a Vec<Stmt>) -> Result<Vec<Value<'a>>> {
-    let mut scopes = vec![HashMap::new()];
-    //let mut defs = HashMap::new();
-    eval_stmt_list(stmt_list, &mut scopes)
+    let mut scopes = vec![init_builtins(), HashMap::new()];
+    let mut defs = HashMap::new();
+    eval_stmt_list(stmt_list, &mut scopes, &mut defs, false)
 }

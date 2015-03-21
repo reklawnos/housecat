@@ -105,8 +105,8 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
         [ref first_tok, ..] => {
             match first_tok.token {
                 Token::OpenParen | Token::Dot | Token::OpenBrac => {
-                    let (parsed_postfix, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_expr));
-                    Result::Ok(Expr::Postfix{expr: Box::new(parsed_expr), postfix: parsed_postfix, data: AstData{line: first_tok.line}}, tokens_after_postfix)
+                    let (parsed_postfixes, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_expr));
+                    Result::Ok(Expr::Postfix{expr: Box::new(parsed_expr), postfixes: parsed_postfixes, data: AstData{line: first_tok.line}}, tokens_after_postfix)
                 },
                 _ => Result::Ok(parsed_expr, tokens_after_expr)
             }
@@ -123,9 +123,9 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix<'a
             match first_tok.token {
                 // ... "(" ...
                 Token::OpenParen => {
-                    let (parsed_args, tokens_after_args) = get_parsed!(parse_expr_list(rest));
-                    let (mut postfix_list, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_args));
-                    postfix_list.insert(0, Postfix::Play(parsed_args));
+                    let (parsed_params, tokens_after_params) = get_parsed!(parse_expr_list(rest));
+                    let (mut postfix_list, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_params));
+                    postfix_list.insert(0, Postfix::Play(parsed_params));
                     Result::Ok(postfix_list, tokens_after_postfix)
                 },
                 // ... "[" ...
@@ -194,7 +194,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix<'a
     }
 }
 
-// <args>
+// <params>
 fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Expr<'a>>> {
     match tokens {
         [ref first_tok, rest..] => {
@@ -215,9 +215,9 @@ fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Expr<'a>>> {
                                 },
                                 // ... "," ...
                                 Token::Comma => {
-                                    let (mut parsed_list, tokens_after_arg) = get_parsed!(parse_expr_list(rest));
+                                    let (mut parsed_list, tokens_after_params) = get_parsed!(parse_expr_list(rest));
                                     parsed_list.insert(0, parsed_expr);
-                                    Result::Ok(parsed_list, tokens_after_arg)
+                                    Result::Ok(parsed_list, tokens_after_params)
                                 }
                                 _ => Result::Err(format!(
                                     "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",

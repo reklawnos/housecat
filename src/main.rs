@@ -17,6 +17,7 @@ mod parser;
 mod lexer;
 mod utils;
 mod evaluator;
+mod eval_result;
 
 static DEBUG: bool = false;
 
@@ -62,8 +63,8 @@ fn main() {
                             }
                         }
                         match evaluator::eval_file_stmts(&vec) {
-                            evaluator::Result::Ok(r) => println!("result: {:?}", r),
-                            evaluator::Result::Err(e) => println!("{}", e)
+                            eval_result::Result::Ok(r) => println!("result: {:?}", r),
+                            eval_result::Result::Err(e) => println!("{}", e)
                         }
                         
                     }

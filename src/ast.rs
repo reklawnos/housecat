@@ -44,7 +44,7 @@ pub enum Expr<'a> {
     },
     Postfix {
         expr: Box<Expr<'a>>,
-        postfix: Vec<Postfix<'a>>,
+        postfixes: Vec<Postfix<'a>>,
         data: AstData
     },
     Tuple {

@@ -22,18 +22,18 @@ Expressions
         | <primary-expr> <postfix-continuation>
 
     <postfix-continuation> ::=
-        | "(" <args> <postfix-continuation>
+        | "(" <params> <postfix-continuation>
         | "." <ident> <postfix-continuation>
         | "[" <expr> "]" <postfix-continuation>
         | ""
 
-    <args> ::=
+    <params> ::=
         | <expr-list>
         | ")"
 
     <expr-list> ::=
         | <expr> ")"
-        | <expr> "," <args-list>
+        | <expr> "," <expr-list>
 
     <unary-expr> ::=
         | <postfix-expr>
@@ -138,7 +138,7 @@ Clips
 
     <ident-list> ::=
         | <ident> ")"
-        | <ident> "," <params-list>
+        | <ident> "," <ident-list>
 
     <clip-def> ::=
         | "(" <params> "{" <clip-statements>
