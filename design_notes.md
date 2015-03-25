@@ -1,3 +1,7 @@
+TODO: the issue here is that defs are weird unless you call the clip, but calling a clip returns nothing by default
+can return "self" for objects?
+
+
 Housecat Language
 ===================
 Influences: Lua, Python, Matlab, JavaScript, Rust
@@ -33,7 +37,7 @@ Defining something inside of an if statement will define it for the parent scope
 
 ### While statements
 While loops are written as:
-    
+
     # prints out numbers 1 through 15
     var x: 0
     while x < 15
@@ -43,7 +47,7 @@ While loops are written as:
 
 Clips
 -------------------
-Clips are defined using `[fn(<params>)]? [-> <return value>]? {...}`. Clips have their own scope.
+Clips are defined using `[fn(<params>) [-> <return value>]? ]?  {...}`. Clips have their own scope.
 
     var x: 3
     {
@@ -144,7 +148,7 @@ All non-clip types are passed by value, while clips are passed by reference. A n
 ### Using clips like functions
 Clips can return values if they are specified in the clip definition.
 
-    def get_bob: fn() -> bob {
+    def get_bob: $fn() -> bob {
         bob: {
             def name: "Bob"
         }

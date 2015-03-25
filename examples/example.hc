@@ -1,4 +1,4 @@
-def person: {
+def person: ${
     def name: "Jensen"
     def speak: {
         print(name)
@@ -7,6 +7,7 @@ def person: {
     name: "Bagelman"
     speak()
     name: "Joe"
+    self.something
 }
 
 def test: fn() -> (iden) {
@@ -26,13 +27,15 @@ def foo : {
 }
 
 def get_somethings: fn() -> (retval1, retval2, retval3) {
-    def retval1: "return 1"
-    def retval2: "return 2"
-    def retval3: "return 3"
-} 
+    retval1: "return 1"
+    retval2: "return 2"
+    retval3: "return 3"
+}
+
+x, y, z = get_somethings(
 
 def get_something_2: fn() -> (retval) {
-    def retval: "return"
+    retval: "return"
 }
 
 print(person.name)    # prints "Joe"

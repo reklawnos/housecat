@@ -52,14 +52,10 @@ fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
 // <params>
 fn parse_params<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                //  ")"
-                Token::CloseParen => Result::Ok(vec![], rest),
-                // <ident-list>
-                _ => parse_ident_list(tokens)
-            }
-        }
+        //  ")"
+        [Tok{token: Token::CloseParen, ..}, rest..] => Result::Ok(vec![], rest),
+        // <ident-list>
+        [Tok{token: _, ..}, ..] => parse_ident_list(tokens),
         _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or ')'"))
     }
 }

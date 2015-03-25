@@ -24,10 +24,10 @@ pub enum ParseType {
 
 static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (ParseType::PtBool, regex!(r"^(?:true|false)")),
-    (ParseType::PtName, regex!(r"^[:alpha:][:word:]*")),
+    (ParseType::PtName, regex!(r"^[A-Za-z_][0-9A-Za-z_]*")),
     (ParseType::PtRet, regex!(r"^->")),
-    (ParseType::PtFloat, regex!(r"^-?[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
-    (ParseType::PtInt, regex!(r"^-?[0-9]+")),
+    (ParseType::PtFloat, regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
+    (ParseType::PtInt, regex!(r"^[0-9]+")),
     (ParseType::PtString, regex!(r#"^"(?:[^"\\]|\\.)*""#)),
     (ParseType::PtColon, regex!(r"^:")),
     (ParseType::PtDot, regex!(r"^\.")),

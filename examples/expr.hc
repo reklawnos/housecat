@@ -14,7 +14,7 @@ def my_clip: {
     var z: 10
     while z > 0
         print("hello!")
-        z: z - 1
+        z: z -1
     end
 }
 print(my_clip.mything)
@@ -22,7 +22,8 @@ var q: (1, 2, 3)
 var p: (4, 5, 6)
 print(q + p)
 while x > 0
-    x: x - 1
+    x: x - --1
     y: y + " and on"
 end 
 print(y)
+var p, var q: (1, 2)

@@ -39,9 +39,10 @@ fn eval_literal<'a>(literal: &'a Literal, scopes: &mut Vec<HashMap<&'a str, Valu
         &Literal::Nil => Result::Ok(Value::Nil),
         &Literal::Clip{ref params, ref returns, ref statements} => {
             let mut new_defs = HashMap::new();
-            scopes.push(HashMap::new());
+            //TODO: fix scoping here: the defs from the containing scope need to be available
+            //scopes.push(defs);
             eval_stmt_list(statements, scopes, &mut new_defs, false);
-            scopes.pop();
+            //scopes.pop();
             Result::Ok(
                 Value::Clip(
                     Rc::new(
@@ -198,6 +199,24 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut Vec<HashMap<&'a str, Value<'a>
                 }
             }
         }
+        &Expr::UnOp{ref op, ref expr, ref data} => {
+            let val = get_evald!(eval_expr(expr, scopes, defs));
+            match op {
+                &UnOp::Neg => {
+                    match &val {
+                        &Value::Int(i) => Result::Ok(Value::Int(-i)),
+                        &Value::Float(f) => Result::Ok(Value::Float(-f)),
+                        _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-number type", data.line))
+                    }
+                },
+                &UnOp::Not => {
+                    match &val {
+                        &Value::Bool(b) => Result::Ok(Value::Bool(!b)),
+                        _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-boolean type", data.line))
+                    }
+                }
+            }
+        }
         &Expr::Postfix{ref expr, ref postfixes, ..} => {
             let mut curr_val = get_evald!(eval_expr(expr, scopes, defs));
             for postfix in postfixes.iter() {
@@ -240,7 +259,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut Vec<HashMap<&'a str, Value<'a>
             }
             Result::Ok(curr_val)
         }
-        _ => panic!("expr not implemented yet!")
+        //_ => panic!("expr not implemented yet!")
     }
 }
 
