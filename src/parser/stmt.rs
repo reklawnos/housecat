@@ -7,42 +7,34 @@ use parser::Result;
 // <item>
 fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem<'a>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "var" <ident>
-                Token::Var => {
-                    match rest {
-                        [ref next_tok, rest..] => {
-                            match next_tok.token{
-                                Token::Ident(id) => {
-                                    Result::Ok(StmtItem::Var(id), rest)
-                                }
-                                _ => Result::Err(format!(
-                                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
-                                    next_tok.line + 1,
-                                    next_tok.col + 1,
-                                    next_tok.token,
-                                    next_tok.line_string,
-                                    get_caret_string(next_tok.col)
-                                ))
-                            }
-                        }
-                        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
-                    }
+        // "var" <ident>
+        [Tok{token: Token::Var, ..}, rest..] => {
+            match rest {
+                [Tok{token: Token::Ident(id), ..}, rest..]=> {
+                    Result::Ok(StmtItem::Var(id), rest)
                 }
-                // "def" <expr>
-                Token::Def => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    Result::Ok(StmtItem::Def(Box::new(parsed_expr)), tokens_after_expr)
-                }
-                // <expr>
-                _ => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(tokens));
-                    Result::Ok(StmtItem::Bare(Box::new(parsed_expr)), tokens_after_expr)
-                }
+                [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
             }
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
+        // "def" <expr>
+        [Tok{token: Token::Def, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+            Result::Ok(StmtItem::Def(Box::new(parsed_expr)), tokens_after_expr)
+        }
+        // <expr>
+        [Tok{token: _, ..}, ..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(tokens));
+            Result::Ok(StmtItem::Bare(Box::new(parsed_expr)), tokens_after_expr)
+        }
+        [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
     }
 }
 
@@ -50,18 +42,13 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> Result<'a, StmtItem<'a>> {
 fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem<'a>>> {
     let (parsed_item, tokens_after_item) = get_parsed!(parse_item(tokens));
     match tokens_after_item {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // ... "," <item-list>
-                Token::Comma => {
-                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_item_list(rest));
-                    parsed_list.insert(0, parsed_item);
-                    Result::Ok(parsed_list, tokens_after_list)
-                }
-                // EPS
-                _ => Result::Ok(vec![parsed_item], tokens_after_item)
-            }
+        // ... "," <item-list>
+        [Tok{token: Token::Comma, ..}, rest..] => {
+            let (mut parsed_list, tokens_after_list) = get_parsed!(parse_item_list(rest));
+            parsed_list.insert(0, parsed_item);
+            Result::Ok(parsed_list, tokens_after_list)
         }
+        // EPS
         _ => Result::Ok(vec![parsed_item], tokens_after_item)
     }
 }
@@ -70,46 +57,38 @@ fn parse_item_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<StmtItem<'a>>> {
 fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
     let (parsed_items, tokens_after_items) = get_parsed!(parse_item_list(tokens));
     match tokens_after_items {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // ... ":" <expr>
-                Token::Assign => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    Result::Ok(Stmt::Assignment{items: parsed_items, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
-                }
-                // EPS
-                _ => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: first_tok.line}}, tokens_after_items)
-            }
+        // ... ":" <expr>
+        [Tok{token: Token::Assign, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+            Result::Ok(Stmt::Assignment{items: parsed_items, expr: Box::new(parsed_expr), data: AstData{line: line}}, tokens_after_expr)
         }
-        _ => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: -1}}, tokens_after_items)
+        // EPS
+        [Tok{line, ..}, ..] => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: line}}, tokens_after_items),
+        [] => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: -1}}, tokens_after_items)
     }
 }
 
 // <stmt>
 fn parse_stmt<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "if" <expr> <if-statements>
-                Token::If => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    let (clauses, tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr, parsed_expr));
-                    Result::Ok(Stmt::If{clauses: clauses, data: AstData{line: first_tok.line}}, tokens_after_if)
-                }
-                // "while" <expr> <block-statements>
-                Token::While => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    let (stmt_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_expr));
-                    Result::Ok(Stmt::While{condition: Box::new(parsed_expr), statements: stmt_list, data: AstData{line: first_tok.line}}, tokens_after_list)
-
-                }
-                // "return"
-                Token::Return => Result::Ok(Stmt::Return{data: AstData{line: first_tok.line}}, rest),
-                // <stmt-items>
-                _ => parse_stmt_items(tokens)
-            }
+        // "if" <expr> <if-statements>
+        [Tok{token: Token::If, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+            let (clauses, tokens_after_if) = get_parsed!(parse_if_statements(tokens_after_expr, parsed_expr));
+            Result::Ok(Stmt::If{clauses: clauses, data: AstData{line: line}}, tokens_after_if)
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
+        // "while" <expr> <block-statements>
+        [Tok{token: Token::While, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+            let (stmt_list, tokens_after_list) = get_parsed!(parse_block_statements(tokens_after_expr));
+            Result::Ok(Stmt::While{condition: Box::new(parsed_expr), statements: stmt_list, data: AstData{line: line}}, tokens_after_list)
+
+        }
+        // "return"
+        [Tok{token: Token::Return, line, ..}, rest..] => Result::Ok(Stmt::Return{data: AstData{line: line}}, rest),
+        // <stmt-items>
+        [_, ..] => parse_stmt_items(tokens),
+        [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
     }
 }
 

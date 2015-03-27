@@ -14,29 +14,25 @@ macro_rules! parse_expr_binary_op(
         // <LHS> ...
         let (parsed_lhs, tokens_after_lhs) = get_parsed!($parse_lhs($tokens));
         match tokens_after_lhs {
-            [ref next_tok, rest..] => {
-                match next_tok.token {
-                    $(
-                        // ... <op> <RHS>
-                        $tok => {
-                            let (parsed_rhs, tokens_after_term) = get_parsed!($parse_rhs(rest));
-                            Result::Ok(
-                                Expr::BinOp{
-                                    op: $op,
-                                    lhs: Box::new(parsed_lhs),
-                                    rhs: Box::new(parsed_rhs),
-                                    data: AstData{line: $tokens[0].line}
-                                },
-                                tokens_after_term
-                            )
+            $(
+                // ... <op> <RHS>
+                [Tok{token: $tok, ..}, rest..] => {
+                    let (parsed_rhs, tokens_after_term) = get_parsed!($parse_rhs(rest));
+                    Result::Ok(
+                        Expr::BinOp{
+                            op: $op,
+                            lhs: Box::new(parsed_lhs),
+                            rhs: Box::new(parsed_rhs),
+                            data: AstData{line: $tokens[0].line}
                         },
-                    )+
-                    // <LHS>
-                    _ => Result::Ok(parsed_lhs, tokens_after_lhs),
+                        tokens_after_term
+                    )
                 }
-            }
+            )+
             // <LHS>
-            _ => Result::Ok(parsed_lhs, tokens_after_lhs),
+            [Tok{token: _, ..}, ..] => Result::Ok(parsed_lhs, tokens_after_lhs),
+            // <LHS>
+            [] => Result::Ok(parsed_lhs, tokens_after_lhs),
         }
     });
 );

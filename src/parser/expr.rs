@@ -8,92 +8,84 @@ use parser::Result;
 // <primary-expr>
 fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // <ident>
-                Token::Ident(id) => Result::Ok(Expr::Ident{name: id, data: AstData{line: first_tok.line}}, rest),
-                // "(" <expr> ...
-                Token::OpenParen => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    match tokens_after_expr {
-                        [ref next_tok, next_rest..] => {
-                            match next_tok.token {
-                                // ... ")"
-                                Token::CloseParen => Result::Ok(parsed_expr, next_rest),
-                                // ... "," <expr-list>
-                                Token::Comma => {
-                                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_expr_list(next_rest));
-                                    parsed_list.insert(0, parsed_expr);
-                                    Result::Ok(Expr::Tuple{values: parsed_list, data: AstData{line: first_tok.line}}, tokens_after_list)
-                                }
-                                _ => Result::Err(format!(
-                                        "PARSING FAILURE at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
-                                        next_tok.line + 1,
-                                        next_tok.col + 1,
-                                        next_tok.token,
-                                        first_tok.line + 1,
-                                        first_tok.col + 1,
-                                        next_tok.line_string,
-                                        get_caret_string(next_tok.col)
-                                    ))
-                            }
-                        }
-                        _ => Result::Err(format!(
-                            "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
-                            first_tok.line + 1,
-                            first_tok.col + 1,
-                            first_tok.line_string,
-                            get_caret_string(first_tok.col)
-                        ))
-                    }
-                },
-                // "{" <clip-statements>
-                Token::OpenCurly => {
-                    let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(rest));
-                    Result::Ok(
-                        Expr::Literal{
-                            value: Literal::Clip{
-                                params:vec![],
-                                returns:vec![],
-                                statements:parsed_list
-                            },
-                            data:AstData{line: first_tok.line}
-                        }, tokens_after_list)
+        // <ident>
+        [Tok{token: Token::Ident(id), line, ..}, rest..] => Result::Ok(Expr::Ident{name: id, data: AstData{line: line}}, rest),
+        // "(" <expr> ...
+        [Tok{token: Token::OpenParen, line, col, line_string, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+            match tokens_after_expr {
+                // ... ")"
+                [Tok{token: Token::CloseParen, ..}, rest..] => Result::Ok(parsed_expr, rest),
+                // ... "," <expr-list>
+                [Tok{token: Token::Comma, ..}, rest..] => {
+                    let (mut parsed_list, tokens_after_list) = get_parsed!(parse_expr_list(rest));
+                    parsed_list.insert(0, parsed_expr);
+                    Result::Ok(Expr::Tuple{values: parsed_list, data: AstData{line: line}}, tokens_after_list)
                 }
-                // "fn" <clip-def>
-                Token::Fn => {
-                    let ((parsed_params, parsed_returns, parsed_statements), tokens_after_list) = get_parsed!(parse_clip_def(rest));
-                    Result::Ok(
-                        Expr::Literal{
-                            value: Literal::Clip{
-                                params: parsed_params,
-                                returns: parsed_returns,
-                                statements: parsed_statements
-                            },
-                            data: AstData{line: first_tok.line}
-                        }, tokens_after_list)
-                }
-                // <bool>
-                Token::Bool(b) => Result::Ok(Expr::Literal{value: Literal::Bool(b), data: AstData{line: first_tok.line}}, rest),
-                // <int>
-                Token::Int(i) => Result::Ok(Expr::Literal{value: Literal::Int(i), data: AstData{line: first_tok.line}}, rest),
-                // <float>
-                Token::Float(f) => Result::Ok(Expr::Literal{value: Literal::Float(f), data: AstData{line: first_tok.line}}, rest),
-                // <string>
-                Token::String(ref s) => Result::Ok(Expr::Literal{value: Literal::String(&s[..]), data: AstData{line: first_tok.line}}, rest),
-                // "nil"
-                Token::Nil => Result::Ok(Expr::Literal{value: Literal::Nil, data: AstData{line: first_tok.line}}, rest),
-                _ => Result::Err(format!(
-                        "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
-                        first_tok.line + 1,
-                        first_tok.col + 1,
-                        first_tok.token,
-                        first_tok.line_string,
-                        get_caret_string(first_tok.col)
-                    ))
+                [Tok{token: ref next_token, line: next_line, col: next_col, line_string: next_line_string, ..}, ..] => Result::Err(format!(
+                        "PARSING FAILURE at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
+                        next_line + 1,
+                        next_col + 1,
+                        next_token,
+                        line + 1,
+                        col + 1,
+                        next_line_string,
+                        get_caret_string(next_col)
+                    )),
+                [] => Result::Err(format!(
+                    "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    line_string,
+                    get_caret_string(col)
+                ))
             }
+        },
+        // "{" <clip-statements>
+        [Tok{token: Token::OpenCurly, line, ..}, rest..] => {
+            let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(rest));
+            Result::Ok(
+                Expr::Literal{
+                    value: Literal::Clip{
+                        params:vec![],
+                        returns:vec![],
+                        statements:parsed_list
+                    },
+                    data:AstData{line: line}
+                }, tokens_after_list)
         }
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file, but expected Ident or (Expression)"))
+        // "fn" <clip-def>
+        [Tok{token: Token::Fn, line, ..}, rest..] => {
+            let ((parsed_params, parsed_returns, parsed_statements), tokens_after_list) = get_parsed!(parse_clip_def(rest));
+            Result::Ok(
+                Expr::Literal{
+                    value: Literal::Clip{
+                        params: parsed_params,
+                        returns: parsed_returns,
+                        statements: parsed_statements
+                    },
+                    data: AstData{line: line}
+                }, tokens_after_list)
+        }
+        // <bool>
+        [Tok{token: Token::Bool(b), line, ..}, rest..] => Result::Ok(Expr::Literal{value: Literal::Bool(b), data: AstData{line: line}}, rest),
+        // <int>
+        [Tok{token: Token::Int(i), line, ..}, rest..] => Result::Ok(Expr::Literal{value: Literal::Int(i), data: AstData{line: line}}, rest),
+        // <float>
+        [Tok{token: Token::Float(f), line, ..}, rest..] => Result::Ok(Expr::Literal{value: Literal::Float(f), data: AstData{line: line}}, rest),
+        // <string>
+        [Tok{token: Token::String(ref s), line, ..}, rest..] => Result::Ok(Expr::Literal{value: Literal::String(&s[..]), data: AstData{line: line}}, rest),
+        // "nil"
+        [Tok{token: Token::Nil, line, ..}, rest..] => Result::Ok(Expr::Literal{value: Literal::Nil, data: AstData{line: line}}, rest),
+        [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+            "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
+            line + 1,
+            col + 1,
+            token,
+            line_string,
+            get_caret_string(col)
+        )),
+        [] => Result::Err(format!("PARSING FAILURE: Reached end of file, but expected Ident or (Expression)"))
     }
 }
 
@@ -111,7 +103,7 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
                 _ => Result::Ok(parsed_expr, tokens_after_expr)
             }
         },
-        _ => Result::Ok(parsed_expr, tokens_after_expr)
+        [] => Result::Ok(parsed_expr, tokens_after_expr)
     }
     
     //parse_primary_expr(tokens)
@@ -119,77 +111,63 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
 
 fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix<'a>>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // ... "(" ...
-                Token::OpenParen => {
-                    let (parsed_params, tokens_after_params) = get_parsed!(parse_expr_list(rest));
-                    let (mut postfix_list, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_params));
-                    postfix_list.insert(0, Postfix::Play(parsed_params));
-                    Result::Ok(postfix_list, tokens_after_postfix)
+        // ... "(" ...
+        [Tok{token: Token::OpenParen, ..}, rest..] => {
+            let (parsed_params, tokens_after_params) = get_parsed!(parse_expr_list(rest));
+            let (mut postfix_list, tokens_after_postfix) = get_parsed!(parse_postfix_continuation(tokens_after_params));
+            postfix_list.insert(0, Postfix::Play(parsed_params));
+            Result::Ok(postfix_list, tokens_after_postfix)
+        },
+        // ... "[" ...
+        [Tok{token: Token::OpenBrac, line, col, line_string, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
+            match tokens_after_expr {
+                // ... "]"
+                [Tok{token: Token::CloseBrac, ..}, rest..] => {
+                    let (mut postfix_list, tokens_after_next) = get_parsed!(parse_postfix_continuation(rest));
+                    postfix_list.insert(0, Postfix::Index(Box::new(parsed_expr)));
+                    Result::Ok(postfix_list, tokens_after_next)
                 },
-                // ... "[" ...
-                Token::OpenBrac => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(rest));
-                    match tokens_after_expr {
-                        [ref next_tok, next_rest..] => {
-                            match next_tok.token {
-                                // ... "]"
-                                Token::CloseBrac => {
-                                    let (mut postfix_list, tokens_after_next) = get_parsed!(parse_postfix_continuation(next_rest));
-                                    postfix_list.insert(0, Postfix::Index(Box::new(parsed_expr)));
-                                    Result::Ok(postfix_list, tokens_after_next)
-                                },
-                                _ => Result::Err(format!(
-                                    "PARSING FAILURE at {},{}: Found {:?} but expected ']' to match '[' at {},{}\n{}\n{}",
-                                    next_tok.line + 1,
-                                    next_tok.col + 1,
-                                    next_tok.token,
-                                    first_tok.line + 1,
-                                    first_tok.col + 1,
-                                    next_tok.line_string,
-                                    get_caret_string(next_tok.col)
-                                ))
-                            }
-                        }
-                        _ => Result::Err(format!(
-                            "PARSING FAILURE: Reached end of file, but '[' at {},{} is unmatched\n{}\n{}",
-                            first_tok.line + 1,
-                            first_tok.col + 1,
-                            first_tok.line_string,
-                            get_caret_string(first_tok.col)
-                        ))
-                    }
-                },
-                // ... . ...
-                Token::Dot => {
-                    match rest {
-                        [ref next_tok, next_rest..] => {
-                            match next_tok.token {
-                                // <ident>
-                                Token::Ident(i) => {
-                                    let (mut postfix_list, tokens_after_next) = get_parsed!(parse_postfix_continuation(next_rest));
-                                    postfix_list.insert(0, Postfix::Access(i));
-                                    Result::Ok(postfix_list, tokens_after_next)
-                                },
-                                _ => Result::Err(format!(
-                                    "PARSING FAILURE at {},{}: Found {:?} but expected an Ident\n{}\n{}",
-                                    next_tok.line + 1,
-                                    next_tok.col + 1,
-                                    next_tok.token,
-                                    next_tok.line_string,
-                                    get_caret_string(next_tok.col)
-                                ))
-                            }
-                        },
-                        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
-                    }
-                },
-                // EPS 
-                _ => Result::Ok(vec![], tokens)
+                [Tok{token: ref next_token, line: next_line, col: next_col, line_string: next_line_string, ..}, ..] => Result::Err(format!(
+                    "PARSING FAILURE at {},{}: Found {:?} but expected ']' to match '[' at {},{}\n{}\n{}",
+                    next_line + 1,
+                    next_col + 1,
+                    next_token,
+                    line + 1,
+                    col + 1,
+                    next_line_string,
+                    get_caret_string(next_col)
+                )),
+                [] => Result::Err(format!(
+                    "PARSING FAILURE: Reached end of file, but '[' at {},{} is unmatched\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    line_string,
+                    get_caret_string(col)
+                ))
             }
-        }
-        // EOF
+        },
+        // ... . ...
+        [Tok{token: Token::Dot, ..}, rest..] => {
+            match rest {
+                // <ident>
+                [Tok{token: Token::Ident(i), ..}, rest..] => {
+                    let (mut postfix_list, tokens_after_next) = get_parsed!(parse_postfix_continuation(rest));
+                    postfix_list.insert(0, Postfix::Access(i));
+                    Result::Ok(postfix_list, tokens_after_next)
+                },
+                [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+                    "PARSING FAILURE at {},{}: Found {:?} but expected an Ident\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+            }
+        },
+        // EPS 
         _ => Result::Ok(vec![], tokens)
     }
 }
@@ -197,67 +175,54 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Postfix<'a
 // <params>
 fn parse_expr_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<Expr<'a>>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // )
-                Token::CloseParen => {
-                    Result::Ok(vec![], rest)
+        // )
+        [Tok{token: Token::CloseParen, ..}, rest..] => {
+            Result::Ok(vec![], rest)
+        }
+        // <expr> ...
+        [Tok{token: _, ..}, ..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(tokens));
+            match tokens_after_expr {
+                // ... ")"
+                [Tok{token: Token::CloseParen, ..}, rest..] => {
+                    Result::Ok(vec![parsed_expr], rest)
+                },
+                // ... "," ...
+                [Tok{token: Token::Comma, ..}, rest..] => {
+                    let (mut parsed_list, tokens_after_params) = get_parsed!(parse_expr_list(rest));
+                    parsed_list.insert(0, parsed_expr);
+                    Result::Ok(parsed_list, tokens_after_params)
                 }
-                // <expr> ...
-                _ => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_expr(tokens));
-                    match tokens_after_expr {
-                        [ref next_tok, rest..] => {
-                            match next_tok.token {
-                                // ... ")"
-                                Token::CloseParen => {
-                                    Result::Ok(vec![parsed_expr], rest)
-                                },
-                                // ... "," ...
-                                Token::Comma => {
-                                    let (mut parsed_list, tokens_after_params) = get_parsed!(parse_expr_list(rest));
-                                    parsed_list.insert(0, parsed_expr);
-                                    Result::Ok(parsed_list, tokens_after_params)
-                                }
-                                _ => Result::Err(format!(
-                                    "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
-                                    next_tok.line + 1,
-                                    next_tok.col + 1,
-                                    next_tok.token,
-                                    next_tok.line_string,
-                                    get_caret_string(next_tok.col)
-                                ))
-                            }
-                        },
-                        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
-                    }
-                }
+                [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+                    "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
             }
-        },
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
+        }
+        [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
     }
 }
 
 // <unary-expr>
 fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
     match tokens {
-        [ref first_tok, rest..] => {
-            match first_tok.token {
-                // "-" ...
-                Token::Sub => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
-                    Result::Ok(Expr::UnOp{op: UnOp::Neg, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
-                },
-                // "!" ...
-                Token::Not => {
-                    let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
-                    Result::Ok(Expr::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr), data: AstData{line: first_tok.line}}, tokens_after_expr)
-                },
-                // <postfix-expr>
-                _ => parse_postfix_expr(tokens)
-            }
+        // "-" ...
+        [Tok{token: Token::Sub, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
+            Result::Ok(Expr::UnOp{op: UnOp::Neg, expr: Box::new(parsed_expr), data: AstData{line: line}}, tokens_after_expr)
         }
-        _ => Result::Err(format!("Expected expression"))
+        // "!" ...
+        [Tok{token: Token::Not, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
+            Result::Ok(Expr::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr), data: AstData{line: line}}, tokens_after_expr)
+        }
+        // <postfix-expr>
+        _ => parse_postfix_expr(tokens)
     }
 }
 
