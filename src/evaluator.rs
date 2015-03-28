@@ -135,7 +135,7 @@ pub fn eval_bin_op<'a>(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>
             match *rhs {
                 Value::String(ref rh_s) => {
                     match op {
-                        &BinOp::Add => Value::String(lh_s.clone() + rh_s.as_slice()),
+                        &BinOp::Add => Value::String(lh_s.clone() + &rh_s[..]),
                         &BinOp::Eq => Value::Bool(lh_s == rh_s),
                         &BinOp::Neq => Value::Bool(lh_s != rh_s),
                         &BinOp::Same => Value::Bool(lh_s == rh_s),

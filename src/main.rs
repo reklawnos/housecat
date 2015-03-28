@@ -87,7 +87,7 @@ fn do_file_parse<'a>(lines: &'a String, result_vec: & mut Vec<token::Tok<'a>>) -
                         "LEXING FAILURE at {},{}: invalid character {}\n{}\n{}",
                         line_index + 1,
                         col + 1,
-                        l[..].char_at(col),
+                        l.chars().nth(col).unwrap(),
                         l,
                         utils::get_caret_string(col)
                     )
