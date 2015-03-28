@@ -35,6 +35,7 @@ pub enum Token<'a>{
     
     // Operators
     Not,    // `!`
+    Get,    // `$`
     Exp,    // `^`
     Mul,    // `*`
     Div,    // `/`

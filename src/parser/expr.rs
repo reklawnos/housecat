@@ -221,6 +221,11 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> Result<'a, Expr<'a>> {
             let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
             Result::Ok(Expr::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr), data: AstData{line: line}}, tokens_after_expr)
         }
+        // "$" ...
+        [Tok{token: Token::Get, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = get_parsed!(parse_unary_expr(rest));
+            Result::Ok(Expr::UnOp{op: UnOp::Get, expr: Box::new(parsed_expr), data: AstData{line: line}}, tokens_after_expr)
+        }
         // <postfix-expr>
         _ => parse_postfix_expr(tokens)
     }

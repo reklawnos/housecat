@@ -38,7 +38,7 @@ static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
     (ParseType::PtCloseCurly, regex!(r"^\}")),
     (ParseType::PtOpenParen, regex!(r"^\(")),
     (ParseType::PtCloseParen, regex!(r"^\)")),
-    (ParseType::PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/])")),
+    (ParseType::PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/$])")),
     (ParseType::PtSkip, regex!(r"^\s")),
     (ParseType::PtComment, regex!(r"^#"))
 ];
@@ -149,6 +149,7 @@ fn decide_token<'a>(parse_type: &ParseType, tok_string: &'a str) -> Token<'a> {
                 "!==" => Token::Nsame,
                 "&&"  => Token::And,
                 "||"  => Token::Or,
+                "$"   => Token::Get,
                 _ => panic!("Unknown binary op")
             }
         }

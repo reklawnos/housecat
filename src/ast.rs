@@ -65,7 +65,8 @@ pub enum Postfix<'a> {
 #[derive(Debug)]
 pub enum UnOp {
     Neg,
-    Not
+    Not,
+    Get
 }
 
 //Binary Operators

@@ -9,18 +9,17 @@ pub enum Value<'a> {
     Int(i64),
     Float(f64),
     Bool(bool),
-    String(Box<String>),
+    String(String),
     Tuple(Vec<Value<'a>>),
     Clip(Rc<RefCell<ClipStruct<'a>>>),
     Builtin(Builtin),
-    Nil,
-    Nothing //Type of function call with no returns
+    Nil
 }
 
 #[derive(Debug)]
 pub struct ClipStruct<'a> {
-    pub params: Vec<&'a str>,
-    pub returns: Vec<&'a str>,
+    pub params: &'a Vec<&'a str>,
+    pub returns: &'a Vec<&'a str>,
     pub statements: &'a Vec<Stmt<'a>>,
     pub defs: HashMap<&'a str, Value<'a>>
 }
@@ -36,7 +35,7 @@ impl Builtin {
             &Builtin::Print => {
                 if args.len() == 1 {
                     println!("{:?}", args[0]);
-                    Result::Ok(Value::Nothing)
+                    Result::Ok(Value::Nil)
                 } else {
                     Result::Err("EVAL FAILURE: wrong number of args for `print`".to_string())
                 }

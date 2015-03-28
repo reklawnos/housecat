@@ -39,6 +39,7 @@ Expressions
         | <postfix-expr>
         | "-" <unary-expr>
         | "!" <unary-expr>
+        | "$" <unary-expr>
 
     <exponential-expr> ::=
         | <unary-expr>
