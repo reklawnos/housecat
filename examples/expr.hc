@@ -32,9 +32,10 @@ var andonify: fn(s, i, b) -> res {
         res: res + " and on"
     end
 }
+print("test")
+y: andonify(y, 10, false)
+print(y)
 print(my_clip.mything)
 var q: (1, 2, 3)
 var p: (4, 5, 6)
 print(q + p)
-y: andonify(y, 10, false) 
-print(y)

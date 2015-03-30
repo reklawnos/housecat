@@ -55,15 +55,17 @@ fn main() {
                 }
                 let parse_result = parser::parse_tokens(&toks[..], &mut statements);
                 match parse_result {
-                    parser::Result::Ok(vec, _) => {
+                    parser::Result::Ok(statement_vec, _) => {
                         if DEBUG {
                             println!("Parsed AST:");
-                            for st in vec.iter() {
+                            for st in statement_vec.iter() {
                                 println!("{:?}", st);
                             }
                         }
-                        match evaluator::eval_file_stmts(&vec) {
-                            eval_result::Result::Ok(r) => println!("result: {:?}", r),
+                        let params = vec![];
+                        let returns = vec![];
+                        match evaluator::eval_file_stmts(&statement_vec, &params, &returns) {
+                            eval_result::Result::Ok(r) => (), //println!("result: {:?}", r),
                             eval_result::Result::Err(e) => println!("{}", e)
                         }
                         

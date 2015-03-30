@@ -4,23 +4,18 @@ def person: ${
         print(name)
     }
     speak()
-    name: "Bagelman"
-    speak()
-    name: "Joe"
-    self.something
 }
 
-def test: fn() -> (iden) {
+def test: fn() {
     print("abc")
 }
 
-def foo : {
-    print("this is a clip!")
-    def bar: fn() -> bagels {
+def foo: ${
+    def bar1: fn() -> bagels {
         def bagels: "test"
         print("woo!")
     }
-    bar: fn(param1, param2) -> (bagel, butter) {
+    def bar2: fn(param1, param2) -> (bagel, butter) {
         def bagel: "woo" + param1
         def butter: "hoo!" + param2
     }
@@ -32,14 +27,20 @@ def get_somethings: fn() -> (retval1, retval2, retval3) {
     retval3: "return 3"
 }
 
-x, y, z = get_somethings(
+var x, var y, var z: get_somethings()
 
 def get_something_2: fn() -> (retval) {
     retval: "return"
 }
 
-print(person.name)    # prints "Joe"
-person()              # prints "Jensen", then "Bagelman", then "Joe"
-person.name: "Alfred" # changes def of name
-print(person.name)    # prints "Joe"
-person()              # prints "Alfred", then "Bagelman", then "Joe"
+test()
+print(person.name)
+person.name: "Alfred"
+print(person.name)
+person.speak()
+print("bagel")
+#print(person.name)    # prints "Jensen"
+#person.speak()
+#person.name: "Alfred" # changes def of name
+#print(person.name)    # prints "Alfred"
+#person.speak()
