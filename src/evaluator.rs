@@ -27,7 +27,6 @@ fn int_pow(lhs: i64, rhs: i64) -> i64 {
     } else {
         0
     }
-
 }
 
 fn eval_literal<'a>(literal: &'a Literal) -> Result<Value<'a>> {
@@ -48,17 +47,6 @@ fn eval_literal<'a>(literal: &'a Literal) -> Result<Value<'a>> {
             Result::Ok(Value::Clip(Rc::new(RefCell::new(new_clip))))
         }
     }
-}
-
-
-fn get_value_from_scopes<'a>(scopes: &'a mut Vec<ScopeType<'a>>, name: &'a str) -> Option<Value<'a>>{
-    for scope in scopes.iter_mut().rev() {
-        match scope.as_mut().get(name) {
-            Some(&VarType::Var(ref v)) | Some(&VarType::Def(ref v)) => {return Some(v.clone())},
-            None => {}
-        }
-    }
-    None
 }
 
 pub fn eval_bin_op<'a>(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>> {
@@ -147,11 +135,11 @@ pub fn eval_bin_op<'a>(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>
     Result::Ok(result_val)
 }
 
-pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Result<Value<'a>> {
+pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Value<'a>> {
     match expr {
         &Expr::Literal{ref value, ..} => Result::Ok(get_evald!(eval_literal(value))),
         &Expr::Ident{ref name, ref data} => {
-            let val = get_value_from_scopes(scopes, &(**name));
+            let val = scopes.get(&(**name));
             match val {
                 Some(v) => Result::Ok(v),
                 None => Result::Err(format!("EVAL FAILURE at line {}: {} is not in the current scope", data.line + 1, name))
@@ -191,13 +179,13 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Resu
                     match &val {
                         &Value::Int(i) => Result::Ok(Value::Int(-i)),
                         &Value::Float(f) => Result::Ok(Value::Float(-f)),
-                        _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-number type", data.line))
+                        _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-number type", data.line + 1))
                     }
                 },
                 &UnOp::Not => {
                     match &val {
                         &Value::Bool(b) => Result::Ok(Value::Bool(!b)),
-                        _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-boolean type", data.line))
+                        _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-boolean type", data.line + 1))
                     }
                 }
                 &UnOp::Get => {
@@ -212,19 +200,20 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Resu
                                 for key in borrowed_clip.returns.iter() {
                                     borrowed_clip.defs.insert(*key, VarType::Var(Value::Nil));
                                 }
-                                scopes.push(ScopeType::Clip(c.clone()));
+                                scopes.push(&mut borrowed_clip.defs);
                                 get_evald!(eval_stmt_list(borrowed_clip.statements, scopes));
                                 scopes.pop();
                             }
                             Result::Ok(Value::Clip(c))
                         }
-                        _ => Result::Err(format!("EVAL FAILURE at line {}: get operator only valid on clip values", data.line))
+                        _ => Result::Err(format!("EVAL FAILURE at line {}: get operator only valid on clip values", data.line + 1))
                     }
                 }
             }
         }
         &Expr::Postfix{ref expr, ref postfixes, ref data} => {
             let mut curr_val = get_evald!(eval_expr(expr, scopes));
+            let mut scopes_to_pop = 0;
             for postfix in postfixes.iter() {
                 match postfix {
                     &Postfix::Play(ref args) => {
@@ -236,7 +225,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Resu
                             Value::Clip(c) => {
                                 let mut borrowed_clip = c.borrow_mut();
                                 if borrowed_clip.params.len() != arg_values.len() {
-                                    return Result::Err(format!("EVAL FAILURE at line {}: clip expects a different number of params", data.line));
+                                    return Result::Err(format!("EVAL FAILURE at line {}: clip expects a different number of params", data.line + 1));
                                 }
                                 //Add params to the incoming scope
                                 for (key, value) in borrowed_clip.params.iter().zip(arg_values.into_iter()) {
@@ -245,7 +234,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Resu
                                 for key in borrowed_clip.returns.iter() {
                                     borrowed_clip.defs.insert(*key, VarType::Var(Value::Nil));
                                 }
-                                scopes.push(ScopeType::Clip(c.clone()));
+                                scopes.push(&mut borrowed_clip.defs);
                                 get_evald!(eval_stmt_list(borrowed_clip.statements, scopes));
                                 scopes.pop();
                                 match borrowed_clip.returns.len() {
@@ -264,32 +253,34 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Resu
                                         curr_val = Value::Tuple(result_vec);
                                     }
                                 }
+                                for _ in 0..scopes_to_pop {
+                                    scopes.pop()
+                                }
+                                scopes_to_pop = 0;
                             }
                             Value::Builtin(b) => {
                                 curr_val = get_evald!(b.call(&arg_values));
                             }
-                            _ => {return Result::Err(format!("EVAL FAILURE at line {}: can only play clips and builtins", data.line));}
+                            _ => {return Result::Err(format!("EVAL FAILURE at line {}: can only play clips and builtins", data.line + 1));}
                         }
                     }
                     &Postfix::Access(s) => {
-                        println!("trying access: {}", s);
                         match curr_val {
                             Value::Clip(c) => {
-                                let borrowed_clip = c.borrow();
+                                let mut borrowed_clip = c.borrow_mut();
                                 let new_val = match borrowed_clip.defs.get(s) {
-                                    Some(v) => v.unwrap().clone(),
+                                    Some(v) => (*v.as_ref()).clone(),
                                     None => {
-                                        println!("returning error here");
-                                        return Result::Err(format!("EVAL FAILURE at line {}: clip has no field '{}'", data.line, s));
+                                        return Result::Err(format!("EVAL FAILURE at line {}: clip has no field '{}'", data.line + 1, s));
                                     }
                                 };
-                                println!("assigning val: {:?}", new_val);
+                                scopes.push(&mut borrowed_clip.defs);
+                                scopes_to_pop += 1;
                                 curr_val = new_val;
                             }
                             //TODO: maybe add fields to other types?
                             _ => {
-                                println!("returning error");
-                                return Result::Err(format!("EVAL FAILURE at line {}: cannot access non-clip field", data.line));
+                                return Result::Err(format!("EVAL FAILURE at line {}: cannot access non-clip field", data.line + 1));
                             }
                         }
                     }
@@ -302,133 +293,14 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &'a mut Vec<ScopeType<'a>>) -> Resu
     }
 }
 
-fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>> {
-    match expr {
-        &Expr::Ident{name, ..} => Result::Ok(vec![name]),
-        //TODO: implement idents for defining interior values
-        &Expr::Postfix{ref expr, ref postfixes, ref data} => {
-            let mut result_vec = Vec::new();
-            match **expr {
-                Expr::Ident{name, ..} => {
-                    result_vec.push(name);
-                }
-                _ => {return Result::Err(format!("EVAL FAILURE: cannot assign to a non-ident"))}
-            }
-            for postfix in postfixes.iter() {
-                match postfix {
-                    &Postfix::Access(s) => {
-                        result_vec.push(s);
-                    }
-                    //TODO: need to do this for index types, too
-                    _ => {return Result::Err(format!("EVAL FAILURE: cannot assign to a non-ident"))}
-                }
-            }
-            Result::Ok(result_vec)
-        }
-        _ => Result::Err(format!("EVAL FAILURE: cannot assign to a non-ident"))
-    }
-}
-
-fn eval_bare_stmt_item<'a>(stmt_item: &'a StmtItem, scopes: &'a mut Vec<ScopeType<'a>>) -> Result<Value<'a>> {
+fn eval_bare_stmt_item<'a>(stmt_item: &'a StmtItem, scopes: &mut ScopeStack<'a>) -> Result<Value<'a>> {
     match stmt_item {
         &StmtItem::Bare(ref expr) => eval_expr(expr, scopes),
         _ => Result::Err(format!("EVAL FAILURE: need a bare expression"))
     }
 }
 
-fn get_def_from_idents<'a>(idents: &[&'a str], curr_defs: &'a mut HashMap<&'a str, VarType<'a>>, value: Value<'a>) -> Result<Value<'a>> {
-    match idents {
-        [s] => {
-            if curr_defs.contains_key(s) {
-                curr_defs.insert(s, VarType::Def(value));
-                Result::Ok(Value::Nil)
-            } else {
-                Result::Err(format!("EVAL FAILURE: '{}' is not declared in the current scope", s))
-            }
-        }
-        [s, rest..] => {
-            match curr_defs.get(s) {
-                Some(var) => {
-                    match var.as_ref() {
-                        &Value::Clip(ref c) => {
-                            let clone = c.clone();
-                            let mut def = &mut clone.borrow_mut().defs;
-                            get_def_from_idents(rest, def, value)
-                        }
-                        _ => {
-                            Result::Err(format!("EVAL FAILURE: cannot assign values to a non-clip"))
-                        }
-                    }
-                }
-                None => {
-                    Result::Err(format!("EVAL FAILURE: ident not found"))
-                }
-            }
-            
-        }
-        [] => Result::Err(format!("EVAL FAILURE: missing an ident here"))
-    }
-}
-
-fn assign<'a>(stmt_item: &'a StmtItem, value: Value<'a>, scopes: &'a Vec<ScopeType<'a>>, curr_scope: usize) -> Result<Value<'a>> {
-    match stmt_item {
-        &StmtItem::Bare(ref e) => {
-            let idents = get_evald!(eval_expr_as_ident(e));
-            for scope in scopes.iter_mut().rev() {
-                if idents.len() == 1 {
-                    match scope.as_mut().get(idents[0]) {
-                        Some(&VarType::Var(_)) => {
-                            scope.as_mut().insert(idents[0], VarType::Var(value));
-                            return Result::Ok(Value::Nil);
-                        }
-                        Some(&VarType::Def(_)) => {
-                            scope.as_mut().insert(idents[0], VarType::Def(value));
-                            return Result::Ok(Value::Nil);
-                        }
-                        None => ()
-                    }
-                } else {
-                    match scope.as_mut().get(idents[0]) {
-                        Some(v) => {
-                            match v.as_ref() {
-                                &Value::Clip(ref c) => {
-                                    let def = &mut c.borrow_mut().defs;
-                                    let retval = get_def_from_idents(&idents[1..], def, value);
-                                    return retval;
-                                }
-                                _ => {
-                                    return Result::Err(format!("EVAL FAILURE: cannot assign values to a non-clip"));
-                                }
-                            }
-                        }
-                        None => {
-                            continue;
-                        }
-                    }
-                }
-            }
-            return Result::Err(format!("EVAL FAILURE: '{}' was not found in any scope", idents[0]));
-        },
-        &StmtItem::Var(ref s) => {
-            if scopes[curr_scope].as_mut().contains_key(s) {
-                return Result::Err(format!("EVAL FAILURE: '{}' is already declared in the current scope", s));
-            } else {
-                scopes[curr_scope].as_mut().insert(s, VarType::Var(value));
-            }
-        }
-        //TODO: Allow inserting defs into a clip
-        &StmtItem::Def(ref e) => {
-            let idents = get_evald!(eval_expr_as_ident(e));
-            //Only define if it's not yet defined
-            if !scopes[0].as_mut().contains_key(idents[0]) {
-                scopes[0].as_mut().insert(idents[0], VarType::Def(value));
-            }
-        } 
-    }
-    Result::Ok(Value::Nil)
-}
-
-fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &'a mut Vec<ScopeType<'a>>) -> Result<Vec<Value<'a>>> {
+fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &mut ScopeStack<'a>) -> Result<Vec<Value<'a>>> {
     let mut ret_list = vec![];
     for st in stmt_list.iter() {
         let mut values = get_evald!(match st {
@@ -440,25 +312,24 @@ fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &'a mut Vec<ScopeType<'a
                 Result::Ok(result_vec)
             }
             &Stmt::Assignment{ref items, ref expr, ref data} => {
-                let curr_scope = scopes.len() - 1;
                 let expr_value = get_evald!(eval_expr(expr, scopes));
                 match expr_value {
                     Value::Tuple(value_vec) => {
                         if items.len() == value_vec.len() {
                             for (i, e) in items.iter().zip(value_vec.into_iter()) {
-                                get_evald!(assign(i, e, scopes, curr_scope));
+                                scopes.assign(i, e);
                             }
                         } else if items.len() == 1 {
-                            get_evald!(assign(&items[0], Value::Tuple(value_vec), scopes, curr_scope));
+                            get_evald!(scopes.assign(&items[0], Value::Tuple(value_vec)));
                         } else {
-                            return Result::Err(format!("EVAL FAILURE at line {}: wrong arity for this assignment", data.line));
+                            return Result::Err(format!("EVAL FAILURE at line {}: wrong arity for this assignment", data.line + 1));
                         }
                     } 
                     _ => {
                         if items.len() == 1 {
-                            get_evald!(assign(&items[0], expr_value, scopes, curr_scope));
+                            get_evald!(scopes.assign(&items[0], expr_value));
                         } else {
-                            return Result::Err(format!("EVAL FAILURE at line {}: too many idents to assign to", data.line));
+                            return Result::Err(format!("EVAL FAILURE at line {}: too many idents to assign to", data.line + 1));
                         }
                     }
                 }
@@ -475,11 +346,11 @@ fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &'a mut Vec<ScopeType<'a
                             }
                         }
                         _ => {
-                            return Result::Err(format!("EVAL FAILURE at line {}: while loops must contain a boolean expression", data.line));
+                            return Result::Err(format!("EVAL FAILURE at line {}: while loops must contain a boolean expression", data.line + 1));
                         }
                     }
                     let mut new_scope = HashMap::new();
-                    scopes.push(ScopeType::Block(new_scope));
+                    scopes.push(&mut new_scope);
                     let vals = get_evald!(eval_stmt_list(statements, scopes));
                     for val in vals.into_iter() {
                         result_vec.push(val);
@@ -501,11 +372,11 @@ fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &'a mut Vec<ScopeType<'a
                                     }
                                 }
                                 _ => {
-                                    return Result::Err(format!("EVAL FAILURE at line {}: if statements must contain a boolean expression", data.line));
+                                    return Result::Err(format!("EVAL FAILURE at line {}: if statements must contain a boolean expression", data.line + 1));
                                 }
                             }
                             let mut new_scope = HashMap::new();
-                            scopes.push(ScopeType::Block(new_scope));
+                            scopes.push(&mut new_scope);
                             let vals = get_evald!(eval_stmt_list(statements, scopes));
                             for val in vals.into_iter() {
                                 result_vec.push(val);
@@ -515,7 +386,7 @@ fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &'a mut Vec<ScopeType<'a
                         }
                         &IfClause::Else(ref statements) => {
                             let mut new_scope = HashMap::new();
-                            scopes.push(ScopeType::Block(new_scope));
+                            scopes.push(&mut new_scope);
                             let vals = get_evald!(eval_stmt_list(statements, scopes));
                             for val in vals.into_iter() {
                                 result_vec.push(val);
@@ -549,7 +420,9 @@ pub fn eval_file_stmts<'a>(stmt_list: &'a Vec<Stmt<'a>>, params: &'a Vec<&'a str
     {
         let mut borrowed_clip = file_pointer.borrow_mut();
         let mut builtins = init_builtins();
-        let mut scopes = vec![ScopeType::Block(builtins), ScopeType::Clip(file_pointer.clone())];
+        let mut scopes = ScopeStack::new();
+        scopes.push(&mut builtins);
+        scopes.push(&mut borrowed_clip.defs);
         get_evald!(eval_stmt_list(borrowed_clip.statements, &mut scopes));
     }
     Result::Ok(file_pointer)

@@ -65,7 +65,8 @@ fn main() {
                         let params = vec![];
                         let returns = vec![];
                         match evaluator::eval_file_stmts(&statement_vec, &params, &returns) {
-                            eval_result::Result::Ok(r) => (), //println!("result: {:?}", r),
+                            //TODO: we get a clip back, we can use this for stuff.
+                            eval_result::Result::Ok(_) => (),
                             eval_result::Result::Err(e) => println!("{}", e)
                         }
                         
