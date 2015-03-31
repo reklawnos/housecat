@@ -91,7 +91,9 @@ fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>> {
     }
 }
 
-fn get_def_from_idents<'a>(idents: &[&'a str], curr_defs: *mut HashMap<&'a str, VarType<'a>>, value: Value<'a>) -> Result<Value<'a>> {
+fn get_def_from_idents<'a>(idents: &[&'a str],
+                           curr_defs: *mut HashMap<&'a str, VarType<'a>>,
+                           value: Value<'a>) -> Result<Value<'a>> {
     match idents {
         [s] => {
             unsafe {
@@ -230,18 +232,12 @@ pub struct RustClip<'a> {
 
 impl<'a> RustClip<'a> {
     pub fn call(&self, args: &Vec<Value<'a>>) -> Result<Value<'a>> {
-            // if args.len() == 1 {
-            //     println!("{:?}", args[0]);
-            //     Result::Ok(Value::Nil)
-            // } else {
-            //     Result::Err("EVAL FAILURE: wrong number of args for `print`".to_string())
-            // }
         (*self.func)(args)
     }
 }
 
 impl<'a> Debug for RustClip<'a> {
     fn fmt(&self, formatter: &mut Formatter) -> FmtResult<(), Error> {
-        formatter.write_str("<RustClip Function>")
+        formatter.write_str("<RustClip>")
     }
 }

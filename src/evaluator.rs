@@ -303,14 +303,16 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Valu
     }
 }
 
-fn eval_bare_stmt_item<'a>(stmt_item: &'a StmtItem, scopes: &mut ScopeStack<'a>) -> Result<Value<'a>> {
+fn eval_bare_stmt_item<'a>(stmt_item: &'a StmtItem,
+                           scopes: &mut ScopeStack<'a>) -> Result<Value<'a>> {
     match stmt_item {
         &StmtItem::Bare(ref expr) => eval_expr(expr, scopes),
         _ => Result::Err(format!("EVAL FAILURE: need a bare expression"))
     }
 }
 
-fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &mut ScopeStack<'a>) -> Result<Vec<Value<'a>>> {
+fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>,
+                      scopes: &mut ScopeStack<'a>) -> Result<Vec<Value<'a>>> {
     let mut ret_list = vec![];
     for st in stmt_list.iter() {
         let mut values = get_evald!(match st {
@@ -426,11 +428,16 @@ impl<'a> Evaluator<'a> {
         Evaluator{rust_clips: HashMap::new()}
     }
 
-    pub fn add_rust_clip(&mut self, name: &'a str, func: &'a Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) {
+    pub fn add_rust_clip(&mut self,
+                         name: &'a str,
+                         func: &'a Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) {
         self.rust_clips.insert(name, VarType::Var(Value::RustClip(RustClip{func: func})));
     }
 
-    pub fn eval_file_stmts(&mut self, stmt_list: &'a Vec<Stmt<'a>>, params: &'a Vec<&'a str>, returns: &'a Vec<&'a str>) -> Result<Rc<RefCell<ClipStruct<'a>>>> {
+    pub fn eval_file_stmts(&mut self,
+                           stmt_list: &'a Vec<Stmt<'a>>,
+                           params: &'a Vec<&'a str>,
+                           returns: &'a Vec<&'a str>) -> Result<Rc<RefCell<ClipStruct<'a>>>> {
         let file_defs = HashMap::new();
         let file_clip = ClipStruct {
             params: params,
