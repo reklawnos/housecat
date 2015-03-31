@@ -15,11 +15,21 @@ macro_rules! get_evald(
     });
 );
 
-fn init_builtins<'a>() -> HashMap<&'a str, VarType<'a>> {
-    let mut map = HashMap::new();
-    map.insert("print", VarType::Var(Value::Builtin(Builtin::Print)));
-    map
+pub fn printfunc<'a>(args: &Vec<Value<'a>>) -> Result<Value<'a>> {
+    if args.len() == 1 {
+        println!("{:?}", args[0]);
+        Result::Ok(Value::Nil)
+    } else {
+        Result::Err("EVAL FAILURE: wrong number of args for `print`".to_string())
+    }
 }
+
+// fn init_RustClips<'a>() -> HashMap<&'a str, VarType<'a>> {
+//     let mut map = HashMap::new();
+//     //map.insert("print", VarType::Var(Value::RustClip(RustClip::Print)));
+//     map.insert("print", VarType::Var(Value::RustClip(RustClip{func: &printfunc})));
+//     map
+// }
 
 fn int_pow(lhs: i64, rhs: i64) -> i64 {
     if rhs >= 0 {
@@ -258,10 +268,10 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Valu
                                 }
                                 scopes_to_pop = 0;
                             }
-                            Value::Builtin(b) => {
+                            Value::RustClip(b) => {
                                 curr_val = get_evald!(b.call(&arg_values));
                             }
-                            _ => {return Result::Err(format!("EVAL FAILURE at line {}: can only play clips and builtins", data.line + 1));}
+                            _ => {return Result::Err(format!("EVAL FAILURE at line {}: can only play clips and RustClips", data.line + 1));}
                         }
                     }
                     &Postfix::Access(s) => {
@@ -407,23 +417,35 @@ fn eval_stmt_list<'a>(stmt_list: &'a Vec<Stmt>, scopes: &mut ScopeStack<'a>) -> 
     Result::Ok(ret_list)
 }
 
+pub struct Evaluator<'a> {
+    rust_clips: HashMap<&'a str, VarType<'a>>
+}
 
-pub fn eval_file_stmts<'a>(stmt_list: &'a Vec<Stmt<'a>>, params: &'a Vec<&'a str>, returns: &'a Vec<&'a str>) -> Result<Rc<RefCell<ClipStruct<'a>>>> {
-    let file_defs = HashMap::new();
-    let file_clip = ClipStruct {
-        params: params,
-        returns: returns,
-        statements: stmt_list,
-        defs: file_defs
-    };
-    let file_pointer = Rc::new(RefCell::new(file_clip));
-    {
-        let mut borrowed_clip = file_pointer.borrow_mut();
-        let mut builtins = init_builtins();
-        let mut scopes = ScopeStack::new();
-        scopes.push(&mut builtins);
-        scopes.push(&mut borrowed_clip.defs);
-        get_evald!(eval_stmt_list(borrowed_clip.statements, &mut scopes));
+impl<'a> Evaluator<'a> {
+    pub fn new() -> Evaluator<'a> {
+        Evaluator{rust_clips: HashMap::new()}
     }
-    Result::Ok(file_pointer)
+
+    pub fn add_rust_clip(&mut self, name: &'a str, func: &'a Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) {
+        self.rust_clips.insert(name, VarType::Var(Value::RustClip(RustClip{func: func})));
+    }
+
+    pub fn eval_file_stmts(&mut self, stmt_list: &'a Vec<Stmt<'a>>, params: &'a Vec<&'a str>, returns: &'a Vec<&'a str>) -> Result<Rc<RefCell<ClipStruct<'a>>>> {
+        let file_defs = HashMap::new();
+        let file_clip = ClipStruct {
+            params: params,
+            returns: returns,
+            statements: stmt_list,
+            defs: file_defs
+        };
+        let file_pointer = Rc::new(RefCell::new(file_clip));
+        {
+            let mut borrowed_clip = file_pointer.borrow_mut();
+            let mut scopes = ScopeStack::new();
+            scopes.push(&mut self.rust_clips);
+            scopes.push(&mut borrowed_clip.defs);
+            get_evald!(eval_stmt_list(borrowed_clip.statements, &mut scopes));
+        }
+        Result::Ok(file_pointer)
+    }
 }

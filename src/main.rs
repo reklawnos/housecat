@@ -21,27 +21,39 @@ mod eval_result;
 
 static DEBUG: bool = false;
 
-fn main() {
-    let command_args: Vec<String> = env::args().collect();
-    //TODO: do_repl();
-    if command_args.len() <= 1 {
-        println!("No .hcat file provided!");
-    } else {
-        let path = &Path::new(&command_args[1][..]);
-        let mut file = match File::open(path) {
+pub struct FileRunner<'a> {
+    toks: Vec<token::Tok<'a>>,
+    statements: Vec<ast::Stmt<'a>>,
+    file_string: String,
+    pub evaluator: evaluator::Evaluator<'a>,
+    params: Vec<&'a str>,
+    returns: Vec<&'a str>
+}
+
+impl<'a> FileRunner<'a> {
+    pub fn new() -> FileRunner<'a> {
+        FileRunner {
+            toks: Vec::new(),
+            statements: Vec::new(),
+            file_string: String::new(),
+            evaluator: evaluator::Evaluator::new(),
+            params: Vec::new(),
+            returns: Vec::new()
+        }
+    }
+
+    pub fn run(&'a mut self, file_path: &Path) {
+        let mut file = match File::open(file_path) {
             Err(err) => {
-                 panic!("couldn't open {}: {}", path.display(), err);
+                 panic!("couldn't open {}: {}", file_path.display(), err);
             },
             Ok(file) => file,
         };
-        let mut file_string: String = String::new();
-        match file.read_to_string(&mut file_string) {
-            Err(err) => panic!("couldn't read {}: {}", path.display(), err),
+        match file.read_to_string(&mut self.file_string) {
+            Err(err) => panic!("couldn't read {}: {}", file_path.display(), err),
             Ok(_) => {}
         }
-        let mut toks: Vec<token::Tok> = Vec::new();
-        let mut statements: Vec<ast::Stmt> = Vec::new();
-        let result = do_file_parse(&file_string, & mut toks);
+        let result = do_file_parse(&self.file_string, & mut self.toks);
         match result {
             Err(s) => {
                 println!("{}", s);
@@ -49,11 +61,11 @@ fn main() {
             Ok(()) => {
                 if DEBUG {
                     println!("Parsed tokens:");
-                    for t in toks.iter() {
+                    for t in self.toks.iter() {
                         println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                     }
                 }
-                let parse_result = parser::parse_tokens(&toks[..], &mut statements);
+                let parse_result = parser::parse_tokens(&self.toks[..], &mut self.statements);
                 match parse_result {
                     parser::Result::Ok(statement_vec, _) => {
                         if DEBUG {
@@ -62,9 +74,7 @@ fn main() {
                                 println!("{:?}", st);
                             }
                         }
-                        let params = vec![];
-                        let returns = vec![];
-                        match evaluator::eval_file_stmts(&statement_vec, &params, &returns) {
+                        match self.evaluator.eval_file_stmts(&statement_vec, &self.params, &self.returns) {
                             //TODO: we get a clip back, we can use this for stuff.
                             eval_result::Result::Ok(_) => (),
                             eval_result::Result::Err(e) => println!("{}", e)
@@ -75,6 +85,21 @@ fn main() {
                 }
             }
         }
+    }
+}
+
+fn main() {
+    let command_args: Vec<String> = env::args().collect();
+    if command_args.len() <= 1 {
+        println!("No .hcat file provided!");
+    } else {
+        let funcs_to_add = vec![evaluator::printfunc];
+        let mut runner = FileRunner::new();
+        for func in funcs_to_add.iter() {
+            runner.evaluator.add_rust_clip("print", func);
+        }
+        let path = &Path::new(&command_args[1][..]);
+        runner.run(path);
     }
 }
 

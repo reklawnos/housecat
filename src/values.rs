@@ -2,6 +2,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use ast::*;
+use std::fmt::{Debug, Formatter, Error};
+use std::result::Result as FmtResult;
 use eval_result::Result;
 
 macro_rules! get_evald(
@@ -21,9 +23,11 @@ pub enum Value<'a> {
     String(String),
     Tuple(Vec<Value<'a>>),
     Clip(Rc<RefCell<ClipStruct<'a>>>),
-    Builtin(Builtin),
+    RustClip(RustClip<'a>),
     Nil
 }
+
+
 
 #[derive(Debug)]
 pub struct ClipStruct<'a> {
@@ -219,22 +223,25 @@ impl<'a> ScopeStack<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Builtin {
-    Print
+#[derive(Clone)]
+pub struct RustClip<'a> {
+    pub func: &'a Fn(&Vec<Value<'a>>) -> Result<Value<'a>>
 }
 
-impl Builtin {
-    pub fn call<'a>(&self, args: &Vec<Value<'a>>) -> Result<Value<'a>>{
-        match self {
-            &Builtin::Print => {
-                if args.len() == 1 {
-                    println!("{:?}", args[0]);
-                    Result::Ok(Value::Nil)
-                } else {
-                    Result::Err("EVAL FAILURE: wrong number of args for `print`".to_string())
-                }
-            }
-        }
+impl<'a> RustClip<'a> {
+    pub fn call(&self, args: &Vec<Value<'a>>) -> Result<Value<'a>> {
+            // if args.len() == 1 {
+            //     println!("{:?}", args[0]);
+            //     Result::Ok(Value::Nil)
+            // } else {
+            //     Result::Err("EVAL FAILURE: wrong number of args for `print`".to_string())
+            // }
+        (*self.func)(args)
+    }
+}
+
+impl<'a> Debug for RustClip<'a> {
+    fn fmt(&self, formatter: &mut Formatter) -> FmtResult<(), Error> {
+        formatter.write_str("<RustClip Function>")
     }
 }
