@@ -223,18 +223,20 @@ impl<'a> ScopeStack<'a> {
     }
 }
 
+use evaluator::Evaluator;
+
 pub struct RustClip<'a> {
-    func: Box<Fn(&Vec<Value<'a>>) -> Result<Value<'a>>>,
+    func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>>>,
     pub defs: HashMap<&'a str, VarType<'a>>
 }
 
 impl<'a> RustClip<'a> {
-    pub fn new(func: Box<Fn(&Vec<Value<'a>>) -> Result<Value<'a>>>,
+    pub fn new(func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>>>,
                defs: HashMap<&'a str, VarType<'a>>) -> RustClip<'a> {
         RustClip{func: func, defs: defs}
     }
-    pub fn call(&self, args: &Vec<Value<'a>>) -> Result<Value<'a>> {
-        (*self.func)(args)
+    pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>> {
+        (*self.func)(args, eval)
     }
 }
 

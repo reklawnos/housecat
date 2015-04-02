@@ -9,10 +9,10 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::env;
 use std::path::Path;
+use evaluator::Evaluator;
 
 mod token;
 mod ast;
-mod values;
 mod parser;
 mod lexer;
 mod utils;
@@ -26,7 +26,7 @@ pub struct FileRunner<'a> {
     toks: Vec<token::Tok<'a>>,
     statements: Vec<ast::Stmt<'a>>,
     file_string: String,
-    pub evaluator: evaluator::Evaluator<'a>,
+    pub evaluator: evaluator::ast_evaluator::AstEvaluator<'a>,
     params: Vec<&'a str>,
     returns: Vec<&'a str>
 }
@@ -37,7 +37,7 @@ impl<'a> FileRunner<'a> {
             toks: Vec::new(),
             statements: Vec::new(),
             file_string: String::new(),
-            evaluator: evaluator::Evaluator::new(),
+            evaluator: evaluator::ast_evaluator::AstEvaluator::new(),
             params: Vec::new(),
             returns: Vec::new()
         }
