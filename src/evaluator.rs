@@ -15,22 +15,6 @@ macro_rules! get_evald(
     });
 );
 
-pub fn printfunc<'a>(args: &Vec<Value<'a>>) -> Result<Value<'a>> {
-    if args.len() == 1 {
-        println!("{:?}", args[0]);
-        Result::Ok(Value::Nil)
-    } else {
-        Result::Err("EVAL FAILURE: wrong number of args for `print`".to_string())
-    }
-}
-
-// fn init_RustClips<'a>() -> HashMap<&'a str, VarType<'a>> {
-//     let mut map = HashMap::new();
-//     //map.insert("print", VarType::Var(Value::RustClip(RustClip::Print)));
-//     map.insert("print", VarType::Var(Value::RustClip(RustClip{func: &printfunc})));
-//     map
-// }
-
 fn int_pow(lhs: i64, rhs: i64) -> i64 {
     if rhs >= 0 {
         lhs.pow(rhs as u32)
@@ -430,8 +414,8 @@ impl<'a> Evaluator<'a> {
 
     pub fn add_rust_clip(&mut self,
                          name: &'a str,
-                         func: &'a Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) {
-        self.rust_clips.insert(name, VarType::Var(Value::RustClip(RustClip{func: func})));
+                         func: & Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) {
+        self.rust_clips.insert(name, VarType::Var(Value::RustClip(RustClip::new(func))));
     }
 
     pub fn eval_file_stmts(&mut self,

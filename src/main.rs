@@ -18,6 +18,7 @@ mod lexer;
 mod utils;
 mod evaluator;
 mod eval_result;
+mod libhc;
 
 static DEBUG: bool = false;
 
@@ -93,11 +94,8 @@ fn main() {
     if command_args.len() <= 1 {
         println!("No .hcat file provided!");
     } else {
-        let funcs_to_add = vec![evaluator::printfunc];
         let mut runner = FileRunner::new();
-        for func in funcs_to_add.iter() {
-            runner.evaluator.add_rust_clip("print", func);
-        }
+        libhc::open_libs(&mut runner.evaluator);
         let path = &Path::new(&command_args[1][..]);
         runner.run(path);
     }

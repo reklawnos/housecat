@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use ast::*;
 use std::fmt::{Debug, Formatter, Error};
 use std::result::Result as FmtResult;
+use std::mem::transmute;
 use eval_result::Result;
 
 macro_rules! get_evald(
@@ -27,8 +28,6 @@ pub enum Value<'a> {
     Nil
 }
 
-
-
 #[derive(Debug)]
 pub struct ClipStruct<'a> {
     pub params: &'a Vec<&'a str>,
@@ -37,7 +36,7 @@ pub struct ClipStruct<'a> {
     pub defs: HashMap<&'a str, VarType<'a>>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum VarType<'a> {
     Var(Value<'a>),
     Def(Value<'a>)
@@ -225,19 +224,37 @@ impl<'a> ScopeStack<'a> {
     }
 }
 
-#[derive(Clone)]
 pub struct RustClip<'a> {
-    pub func: &'a Fn(&Vec<Value<'a>>) -> Result<Value<'a>>
+    func: *const Fn(&Vec<Value<'a>>) -> Result<Value<'a>>,
+    defs: HashMap<&'a str, VarType<'a>>
 }
 
 impl<'a> RustClip<'a> {
+    pub fn new(func: &Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) -> RustClip<'a> {
+        unsafe {
+            RustClip{func: transmute(func), defs: HashMap::new()}
+        }
+    }
     pub fn call(&self, args: &Vec<Value<'a>>) -> Result<Value<'a>> {
-        (*self.func)(args)
+        unsafe{
+            (*self.func)(args)
+        } 
     }
 }
 
 impl<'a> Debug for RustClip<'a> {
     fn fmt(&self, formatter: &mut Formatter) -> FmtResult<(), Error> {
         formatter.write_str("<RustClip>")
+    }
+}
+
+impl<'a> Clone for RustClip<'a> {
+    fn clone(&self) -> RustClip<'a> {
+        RustClip{func: self.func, defs: self.defs.clone()}
+    }
+
+    fn clone_from(&mut self, source: &RustClip<'a>) {
+        self.func = source.func;
+        self.defs.clone_from(&source.defs);
     }
 }
