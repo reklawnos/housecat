@@ -1,6 +1,7 @@
 use values::*;
 use evaluator::Evaluator;
 use eval_result::Result;
+use std::collections::HashMap;
 
 fn print<'a>(args: &Vec<Value<'a>>) -> Result<Value<'a>> {
     if args.len() == 1 {
@@ -12,5 +13,5 @@ fn print<'a>(args: &Vec<Value<'a>>) -> Result<Value<'a>> {
 }
 
 pub fn open_io<'a>(eval: &mut Evaluator<'a>) {
-    eval.add_rust_clip("print", &print);
+    eval.add_rust_clip("print", Box::new(print), HashMap::new());
 }

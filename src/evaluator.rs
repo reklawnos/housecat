@@ -253,7 +253,7 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Valu
                                 scopes_to_pop = 0;
                             }
                             Value::RustClip(b) => {
-                                curr_val = get_evald!(b.call(&arg_values));
+                                curr_val = get_evald!(b.borrow().call(&arg_values));
                             }
                             _ => {return Result::Err(format!("EVAL FAILURE at line {}: can only play clips and RustClips", data.line + 1));}
                         }
@@ -266,6 +266,18 @@ pub fn eval_expr<'a>(expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Valu
                                     Some(v) => (*v.as_ref()).clone(),
                                     None => {
                                         return Result::Err(format!("EVAL FAILURE at line {}: clip has no field '{}'", data.line + 1, s));
+                                    }
+                                };
+                                scopes.push(&mut borrowed_clip.defs);
+                                scopes_to_pop += 1;
+                                curr_val = new_val;
+                            }
+                            Value::RustClip(c) => {
+                                let mut borrowed_clip = c.borrow_mut();
+                                let new_val = match borrowed_clip.defs.get(s) {
+                                    Some(v) => (*v.as_ref()).clone(),
+                                    None => {
+                                        return Result::Err(format!("EVAL FAILURE at line {}: rust clip has no field '{}'", data.line + 1, s));
                                     }
                                 };
                                 scopes.push(&mut borrowed_clip.defs);
@@ -414,8 +426,10 @@ impl<'a> Evaluator<'a> {
 
     pub fn add_rust_clip(&mut self,
                          name: &'a str,
-                         func: & Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) {
-        self.rust_clips.insert(name, VarType::Var(Value::RustClip(RustClip::new(func))));
+                         func: Box<Fn(&Vec<Value<'a>>) -> Result<Value<'a>>>,
+                         defs: HashMap<&'a str, VarType<'a>>) {
+        let new_clip = RustClip::new(func, defs);
+        self.rust_clips.insert(name, VarType::Var(Value::RustClip(Rc::new(RefCell::new(new_clip)))));
     }
 
     pub fn eval_file_stmts(&mut self,

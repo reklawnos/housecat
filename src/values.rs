@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use ast::*;
 use std::fmt::{Debug, Formatter, Error};
 use std::result::Result as FmtResult;
-use std::mem::transmute;
 use eval_result::Result;
 
 macro_rules! get_evald(
@@ -24,7 +23,7 @@ pub enum Value<'a> {
     String(String),
     Tuple(Vec<Value<'a>>),
     Clip(Rc<RefCell<ClipStruct<'a>>>),
-    RustClip(RustClip<'a>),
+    RustClip(Rc<RefCell<RustClip<'a>>>),
     Nil
 }
 
@@ -225,36 +224,22 @@ impl<'a> ScopeStack<'a> {
 }
 
 pub struct RustClip<'a> {
-    func: *const Fn(&Vec<Value<'a>>) -> Result<Value<'a>>,
-    defs: HashMap<&'a str, VarType<'a>>
+    func: Box<Fn(&Vec<Value<'a>>) -> Result<Value<'a>>>,
+    pub defs: HashMap<&'a str, VarType<'a>>
 }
 
 impl<'a> RustClip<'a> {
-    pub fn new(func: &Fn(&Vec<Value<'a>>) -> Result<Value<'a>>) -> RustClip<'a> {
-        unsafe {
-            RustClip{func: transmute(func), defs: HashMap::new()}
-        }
+    pub fn new(func: Box<Fn(&Vec<Value<'a>>) -> Result<Value<'a>>>,
+               defs: HashMap<&'a str, VarType<'a>>) -> RustClip<'a> {
+        RustClip{func: func, defs: defs}
     }
     pub fn call(&self, args: &Vec<Value<'a>>) -> Result<Value<'a>> {
-        unsafe{
-            (*self.func)(args)
-        } 
+        (*self.func)(args)
     }
 }
 
 impl<'a> Debug for RustClip<'a> {
     fn fmt(&self, formatter: &mut Formatter) -> FmtResult<(), Error> {
         formatter.write_str("<RustClip>")
-    }
-}
-
-impl<'a> Clone for RustClip<'a> {
-    fn clone(&self) -> RustClip<'a> {
-        RustClip{func: self.func, defs: self.defs.clone()}
-    }
-
-    fn clone_from(&mut self, source: &RustClip<'a>) {
-        self.func = source.func;
-        self.defs.clone_from(&source.defs);
     }
 }
