@@ -2,8 +2,8 @@
 macro_rules! get_parsed(
     ($parsed:expr) => ({
         match $parsed {
-            Result::Ok(p, toks) => (p, toks),
-            Result::Err(e) => {return Result::Err(e);}
+            ParseResult::Ok(p, toks) => (p, toks),
+            ParseResult::Err(e) => {return ParseResult::Err(e);}
         }
     });
 );
@@ -18,7 +18,7 @@ macro_rules! parse_expr_binary_op(
                 // ... <op> <RHS>
                 [Tok{token: $tok, ..}, rest..] => {
                     let (parsed_rhs, tokens_after_term) = get_parsed!($parse_rhs(rest));
-                    Result::Ok(
+                    ParseResult::Ok(
                         Expr::BinOp{
                             op: $op,
                             lhs: Box::new(parsed_lhs),
@@ -30,9 +30,9 @@ macro_rules! parse_expr_binary_op(
                 }
             )+
             // <LHS>
-            [Tok{token: _, ..}, ..] => Result::Ok(parsed_lhs, tokens_after_lhs),
+            [Tok{token: _, ..}, ..] => ParseResult::Ok(parsed_lhs, tokens_after_lhs),
             // <LHS>
-            [] => Result::Ok(parsed_lhs, tokens_after_lhs),
+            [] => ParseResult::Ok(parsed_lhs, tokens_after_lhs),
         }
     });
 );

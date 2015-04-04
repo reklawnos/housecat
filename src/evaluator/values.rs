@@ -2,15 +2,14 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use ast::*;
-use std::fmt::{Debug, Formatter, Error};
-use std::result::Result as FmtResult;
-use eval_result::Result;
+use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Result as FmtResult;
 
 macro_rules! get_evald(
     ($parsed:expr) => ({
         match $parsed {
-            Result::Ok(t) => t,
-            Result::Err(e) => {return Result::Err(e);}
+            Ok(t) => t,
+            Err(e) => {return Err(e);}
         }
     });
 );
@@ -25,6 +24,44 @@ pub enum Value<'a> {
     Clip(Rc<RefCell<ClipStruct<'a>>>),
     RustClip(Rc<RefCell<RustClip<'a>>>),
     Nil
+}
+
+impl<'a> Display for Value<'a> {
+    fn fmt<'r>(&'r self, formatter: &mut Formatter) -> FmtResult {
+        match self {
+            &Value::Int(i) => write!(formatter, "{}", i),
+            &Value::Float(f) => write!(formatter, "{}", f),
+            &Value::Bool(b) => write!(formatter, "{}", b),
+            &Value::String(ref s) => write!(formatter, "{}", s),
+            &Value::Tuple(ref v) => {
+                match write!(formatter, "(") {
+                    Ok(()) => (),
+                    Err(e) => {return Err(e);}
+                }
+                let len = v.len();
+                for (idx, val) in v.iter().enumerate() {
+                    match write!(formatter, "{}", val) {
+                        Ok(()) => (),
+                        Err(e) => {return Err(e);}
+                    }
+                    if idx != len - 1 {
+                        match write!(formatter, ", ") {
+                            Ok(()) => (),
+                            Err(e) => {return Err(e);}
+                        }
+                    }
+                }
+                match write!(formatter, ")") {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(e)
+                }
+            }
+            &Value::Clip(_) => write!(formatter, "<Clip>"),
+            &Value::RustClip(_) => write!(formatter, "<RustClip>"),
+            &Value::Nil => write!(formatter, "nil"),
+        }
+        
+    }
 }
 
 #[derive(Debug)]
@@ -62,9 +99,9 @@ pub struct ScopeStack<'a>{
 }
 
 
-fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>> {
+fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>, String> {
     match expr {
-        &Expr::Ident{name, ..} => Result::Ok(vec![name]),
+        &Expr::Ident{name, ..} => Ok(vec![name]),
         //TODO: implement idents for defining interior values
         &Expr::Postfix{ref expr, ref postfixes, ref data} => {
             let mut result_vec = Vec::new();
@@ -72,7 +109,7 @@ fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>> {
                 Expr::Ident{name, ..} => {
                     result_vec.push(name);
                 }
-                _ => {return Result::Err(format!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1))}
+                _ => {return Err(format!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1))}
             }
             for postfix in postfixes.iter() {
                 match postfix {
@@ -80,26 +117,26 @@ fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>> {
                         result_vec.push(s);
                     }
                     //TODO: need to do this for index types, too
-                    _ => {return Result::Err(format!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1))}
+                    _ => {return Err(format!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1))}
                 }
             }
-            Result::Ok(result_vec)
+            Ok(result_vec)
         }
-        _ => Result::Err(format!("EVAL FAILURE: cannot assign to a non-ident"))
+        _ => Err(format!("EVAL FAILURE: cannot assign to a non-ident"))
     }
 }
 
 fn get_def_from_idents<'a>(idents: &[&'a str],
                            curr_defs: *mut HashMap<&'a str, VarType<'a>>,
-                           value: Value<'a>) -> Result<Value<'a>> {
+                           value: Value<'a>) -> Result<Value<'a>, String> {
     match idents {
         [s] => {
             unsafe {
                 if (*curr_defs).contains_key(s) {
                     (*curr_defs).insert(s, VarType::Def(value));
-                    Result::Ok(Value::Nil)
+                    Ok(Value::Nil)
                 } else {
-                    Result::Err(format!("EVAL FAILURE: '{}' is not declared in the current scope", s))
+                    Err(format!("EVAL FAILURE: '{}' is not declared in the current scope", s))
                 }
             }
         }
@@ -115,17 +152,17 @@ fn get_def_from_idents<'a>(idents: &[&'a str],
                                 ret
                             }
                             _ => {
-                                Result::Err(format!("EVAL FAILURE: cannot assign values to a non-clip"))
+                                Err(format!("EVAL FAILURE: cannot assign values to a non-clip"))
                             }
                         }
                     }
                     None => {
-                        Result::Err(format!("EVAL FAILURE: ident not found"))
+                        Err(format!("EVAL FAILURE: ident not found"))
                     }
                 }
             }
         }
-        [] => Result::Err(format!("EVAL FAILURE: missing an ident here"))
+        [] => Err(format!("EVAL FAILURE: missing an ident here"))
     }
 }
 
@@ -155,7 +192,7 @@ impl<'a> ScopeStack<'a> {
         None
     }
 
-    pub fn assign<'b>(&mut self, stmt_item: &'a StmtItem, value: Value<'a>) -> Result<Value<'a>> {
+    pub fn assign<'b>(&mut self, stmt_item: &'a StmtItem, value: Value<'a>) -> Result<Value<'a>, String> {
         let curr_scope = self.scopes.len() - 1;
         match stmt_item {
             &StmtItem::Bare(ref e) => {
@@ -166,11 +203,11 @@ impl<'a> ScopeStack<'a> {
                             match (**scope).get(idents[0]) {
                                 Some(&VarType::Var(_)) => {
                                     (**scope).insert(idents[0], VarType::Var(value));
-                                    return Result::Ok(Value::Nil);
+                                    return Ok(Value::Nil);
                                 }
                                 Some(&VarType::Def(_)) => {
                                     (**scope).insert(idents[0], VarType::Def(value));
-                                    return Result::Ok(Value::Nil);
+                                    return Ok(Value::Nil);
                                 }
                                 None => ()
                             }
@@ -184,7 +221,7 @@ impl<'a> ScopeStack<'a> {
                                             return retval;
                                         }
                                         _ => {
-                                            return Result::Err(format!("EVAL FAILURE: cannot assign values to a non-clip"));
+                                            return Err(format!("EVAL FAILURE: cannot assign values to a non-clip"));
                                         }
                                     }
                                 }
@@ -195,13 +232,13 @@ impl<'a> ScopeStack<'a> {
                         }
                     }
                 }
-                return Result::Err(format!("EVAL FAILURE: '{}' was not found in any scope", idents[0]));
+                return Err(format!("EVAL FAILURE: '{}' was not found in any scope", idents[0]));
             },
             &StmtItem::Var(ref s) => {
                 unsafe {
                     let ref mut curr_scope_val = *self.scopes[curr_scope];
                     if curr_scope_val.contains_key(s) {
-                        return Result::Err(format!("EVAL FAILURE: '{}' is already declared in the current scope", s));
+                        return Err(format!("EVAL FAILURE: '{}' is already declared in the current scope", s));
                     } else {
                         curr_scope_val.insert(s, VarType::Var(value));
                     }
@@ -219,29 +256,29 @@ impl<'a> ScopeStack<'a> {
                 }
             } 
         }
-        Result::Ok(Value::Nil)
+        Ok(Value::Nil)
     }
 }
 
 use evaluator::Evaluator;
 
 pub struct RustClip<'a> {
-    func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>>>,
+    func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>>,
     pub defs: HashMap<&'a str, VarType<'a>>
 }
 
 impl<'a> RustClip<'a> {
-    pub fn new(func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>>>,
+    pub fn new(func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>>,
                defs: HashMap<&'a str, VarType<'a>>) -> RustClip<'a> {
         RustClip{func: func, defs: defs}
     }
-    pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>> {
+    pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
         (*self.func)(args, eval)
     }
 }
 
 impl<'a> Debug for RustClip<'a> {
-    fn fmt(&self, formatter: &mut Formatter) -> FmtResult<(), Error> {
+    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
         formatter.write_str("<RustClip>")
     }
 }

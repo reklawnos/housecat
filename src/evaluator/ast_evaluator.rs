@@ -3,15 +3,14 @@ use std::collections::HashMap;
 use std::num::{Int, Float};
 use std::rc::Rc;
 use std::cell::RefCell;
-use eval_result::Result;
 use evaluator::Evaluator;
 use evaluator::values::*;
 
 macro_rules! get_evald(
     ($parsed:expr) => ({
         match $parsed {
-            Result::Ok(t) => t,
-            Result::Err(e) => {return Result::Err(e);}
+            Ok(t) => t,
+            Err(e) => {return Err(e);}
         }
     });
 );
@@ -31,7 +30,7 @@ pub struct AstEvaluator<'a> {
 impl<'a> Evaluator<'a> for AstEvaluator<'a> {
     fn add_rust_clip(&mut self,
                          name: &'a str,
-                         func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>>>,
+                         func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>>,
                          defs: HashMap<&'a str, VarType<'a>>) {
         let new_clip = RustClip::new(func, defs);
         self.rust_clips.insert(name, VarType::Var(Value::RustClip(Rc::new(RefCell::new(new_clip)))));
@@ -40,7 +39,7 @@ impl<'a> Evaluator<'a> for AstEvaluator<'a> {
     fn eval_file_stmts(&mut self,
                            stmt_list: &'a Vec<Stmt<'a>>,
                            params: &'a Vec<&'a str>,
-                           returns: &'a Vec<&'a str>) -> Result<Rc<RefCell<ClipStruct<'a>>>> {
+                           returns: &'a Vec<&'a str>) -> Result<Rc<RefCell<ClipStruct<'a>>>, String> {
         let file_defs = HashMap::new();
         let file_clip = ClipStruct {
             params: params,
@@ -56,7 +55,7 @@ impl<'a> Evaluator<'a> for AstEvaluator<'a> {
             scopes.push(&mut borrowed_clip.defs);
             get_evald!(self.eval_stmt_list(borrowed_clip.statements, &mut scopes));
         }
-        Result::Ok(file_pointer)
+        Ok(file_pointer)
     }
 }
 
@@ -65,13 +64,13 @@ impl<'a> AstEvaluator<'a> {
         AstEvaluator{rust_clips: HashMap::new()}
     }
 
-    fn eval_literal(literal: &'a Literal) -> Result<Value<'a>> {
+    fn eval_literal(literal: &'a Literal) -> Result<Value<'a>, String> {
         match literal {
-            &Literal::Bool(b) => Result::Ok(Value::Bool(b)),
-            &Literal::Int(i) => Result::Ok(Value::Int(i)),
-            &Literal::Float(f) => Result::Ok(Value::Float(f)),
-            &Literal::String(s) => Result::Ok(Value::String(s.to_string())),
-            &Literal::Nil => Result::Ok(Value::Nil),
+            &Literal::Bool(b) => Ok(Value::Bool(b)),
+            &Literal::Int(i) => Ok(Value::Int(i)),
+            &Literal::Float(f) => Ok(Value::Float(f)),
+            &Literal::String(s) => Ok(Value::String(s.to_string())),
+            &Literal::Nil => Ok(Value::Nil),
             &Literal::Clip{ref params, ref returns, ref statements} => {
                 let new_defs = HashMap::new();
                 let new_clip = ClipStruct {
@@ -80,12 +79,12 @@ impl<'a> AstEvaluator<'a> {
                     statements: statements,
                     defs: new_defs
                 };
-                Result::Ok(Value::Clip(Rc::new(RefCell::new(new_clip))))
+                Ok(Value::Clip(Rc::new(RefCell::new(new_clip))))
             }
         }
     }
 
-    pub fn eval_bin_op(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>> {
+    pub fn eval_bin_op(lhs: &Value, rhs: &Value, op: &BinOp) -> Result<Value<'a>, String> {
         let result_val = match lhs {
             &Value::Int(lh_i) => {
                 match *rhs {
@@ -105,10 +104,10 @@ impl<'a> AstEvaluator<'a> {
                             &BinOp::Neq => Value::Bool(lh_i != rh_i),
                             &BinOp::Same => Value::Bool(lh_i == rh_i),
                             &BinOp::Nsame => Value::Bool(lh_i != rh_i),
-                            op => return Result::Err(format!("EVAL FAILURE: {:?} is not valid for integers", op))
+                            op => return Err(format!("EVAL FAILURE: {:?} is not valid for integers", op))
                         }
                     },
-                    _ => return Result::Err(format!("EVAL FAILURE: RHS is not an integer"))
+                    _ => return Err(format!("EVAL FAILURE: RHS is not an integer"))
                 }
             },
             &Value::Float(lh_f) => {
@@ -129,10 +128,10 @@ impl<'a> AstEvaluator<'a> {
                             &BinOp::Neq => Value::Bool(lh_f != rh_f),
                             &BinOp::Same => Value::Bool(lh_f == rh_f),
                             &BinOp::Nsame => Value::Bool(lh_f != rh_f),
-                            op => return Result::Err(format!("EVAL FAILURE: {:?} is not valid for floats", op))
+                            op => return Err(format!("EVAL FAILURE: {:?} is not valid for floats", op))
                         }
                     },
-                    _ => return Result::Err(format!("EVAL FAILURE: RHS is not a float"))
+                    _ => return Err(format!("EVAL FAILURE: RHS is not a float"))
                 }
             },
             &Value::Bool(lh_b) => {
@@ -145,10 +144,10 @@ impl<'a> AstEvaluator<'a> {
                             &BinOp::Nsame => Value::Bool(lh_b != rh_b),
                             &BinOp::And => Value::Bool(lh_b && rh_b),
                             &BinOp::Or => Value::Bool(lh_b || rh_b),
-                            op => return Result::Err(format!("EVAL FAILURE: {:?} is not valid for bools", op))
+                            op => return Err(format!("EVAL FAILURE: {:?} is not valid for bools", op))
                         }
                     },
-                    _ => return Result::Err(format!("EVAL FAILURE: RHS is not a bool"))
+                    _ => return Err(format!("EVAL FAILURE: RHS is not a bool"))
                 }
             },
             &Value::String(ref lh_s) => {
@@ -160,25 +159,25 @@ impl<'a> AstEvaluator<'a> {
                             &BinOp::Neq => Value::Bool(lh_s != rh_s),
                             &BinOp::Same => Value::Bool(lh_s == rh_s),
                             &BinOp::Nsame => Value::Bool(lh_s != rh_s),
-                            op => return Result::Err(format!("EVAL FAILURE: {:?} is not valid for strings", op))
+                            op => return Err(format!("EVAL FAILURE: {:?} is not valid for strings", op))
                         }
                     },
-                    _ => return Result::Err(format!("EVAL FAILURE: RHS is not a string"))
+                    _ => return Err(format!("EVAL FAILURE: RHS is not a string"))
                 }
             },
             _ => panic!("bin op lhs not implemented yet")
         };
-        Result::Ok(result_val)
+        Ok(result_val)
     }
 
-    pub fn eval_expr(&mut self, expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Value<'a>> {
+    pub fn eval_expr(&mut self, expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Value<'a>, String> {
         match expr {
-            &Expr::Literal{ref value, ..} => Result::Ok(get_evald!(AstEvaluator::eval_literal(value))),
+            &Expr::Literal{ref value, ..} => Ok(get_evald!(AstEvaluator::eval_literal(value))),
             &Expr::Ident{ref name, ref data} => {
                 let val = scopes.get(&(**name));
                 match val {
-                    Some(v) => Result::Ok(v),
-                    None => Result::Err(format!("EVAL FAILURE at line {}: {} is not in the current scope", data.line + 1, name))
+                    Some(v) => Ok(v),
+                    None => Err(format!("EVAL FAILURE at line {}: {} is not in the current scope", data.line + 1, name))
                 }
             },
             &Expr::Tuple{ref values, ..} => {
@@ -186,7 +185,7 @@ impl<'a> AstEvaluator<'a> {
                 for e in values.iter(){
                     result_vec.push(get_evald!(self.eval_expr(e, scopes)));
                 }
-                Result::Ok(Value::Tuple(result_vec))
+                Ok(Value::Tuple(result_vec))
             }
             &Expr::BinOp{ref op, ref lhs, ref rhs, ref data} => {
                 let lh_val = get_evald!(self.eval_expr(lhs, scopes));
@@ -194,15 +193,15 @@ impl<'a> AstEvaluator<'a> {
                 match (&lh_val, &rh_val) {
                     (&Value::Tuple(ref lh_vec), &Value::Tuple(ref rh_vec)) => {
                         if lh_vec.len() != rh_vec.len() {
-                            return Result::Err(format!("EVAL FAILURE at line {}: tuples are not the same length", data.line + 1));
+                            return Err(format!("EVAL FAILURE at line {}: tuples are not the same length", data.line + 1));
                         }
                         let mut result_vec = Vec::new();
                         for (ref lh, ref rh) in lh_vec.iter().zip(rh_vec.iter()) {
                             result_vec.push(get_evald!(AstEvaluator::eval_bin_op(lh, rh, op)));
                         }
-                        Result::Ok(Value::Tuple(result_vec))
+                        Ok(Value::Tuple(result_vec))
                     }
-                    (&Value::Tuple(_), _) | (_, &Value::Tuple(_)) => Result::Err(format!("EVAL FAILURE at line {}: both sides must be tuples", data.line + 1)),
+                    (&Value::Tuple(_), _) | (_, &Value::Tuple(_)) => Err(format!("EVAL FAILURE at line {}: both sides must be tuples", data.line + 1)),
                     (ref lhs, ref rhs) => {
                         AstEvaluator::eval_bin_op(lhs, rhs, op)
                     }
@@ -213,15 +212,15 @@ impl<'a> AstEvaluator<'a> {
                 match op {
                     &UnOp::Neg => {
                         match &val {
-                            &Value::Int(i) => Result::Ok(Value::Int(-i)),
-                            &Value::Float(f) => Result::Ok(Value::Float(-f)),
-                            _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-number type", data.line + 1))
+                            &Value::Int(i) => Ok(Value::Int(-i)),
+                            &Value::Float(f) => Ok(Value::Float(-f)),
+                            _ => Err(format!("EVAL FAILURE at line {}: cannot negate a non-number type", data.line + 1))
                         }
                     },
                     &UnOp::Not => {
                         match &val {
-                            &Value::Bool(b) => Result::Ok(Value::Bool(!b)),
-                            _ => Result::Err(format!("EVAL FAILURE at line {}: cannot negate a non-boolean type", data.line + 1))
+                            &Value::Bool(b) => Ok(Value::Bool(!b)),
+                            _ => Err(format!("EVAL FAILURE at line {}: cannot negate a non-boolean type", data.line + 1))
                         }
                     }
                     &UnOp::Get => {
@@ -240,9 +239,9 @@ impl<'a> AstEvaluator<'a> {
                                     get_evald!(self.eval_stmt_list(borrowed_clip.statements, scopes));
                                     scopes.pop();
                                 }
-                                Result::Ok(Value::Clip(c))
+                                Ok(Value::Clip(c))
                             }
-                            _ => Result::Err(format!("EVAL FAILURE at line {}: get operator only valid on clip values", data.line + 1))
+                            _ => Err(format!("EVAL FAILURE at line {}: get operator only valid on clip values", data.line + 1))
                         }
                     }
                 }
@@ -261,7 +260,7 @@ impl<'a> AstEvaluator<'a> {
                                 Value::Clip(c) => {
                                     let mut borrowed_clip = c.borrow_mut();
                                     if borrowed_clip.params.len() != arg_values.len() {
-                                        return Result::Err(format!("EVAL FAILURE at line {}: clip expects a different number of params", data.line + 1));
+                                        return Err(format!("EVAL FAILURE at line {}: clip expects a different number of params", data.line + 1));
                                     }
                                     //Add params to the incoming scope
                                     for (key, value) in borrowed_clip.params.iter().zip(arg_values.into_iter()) {
@@ -297,7 +296,7 @@ impl<'a> AstEvaluator<'a> {
                                 Value::RustClip(b) => {
                                     curr_val = get_evald!(b.borrow().call(&arg_values, self));
                                 }
-                                _ => {return Result::Err(format!("EVAL FAILURE at line {}: can only play clips and RustClips", data.line + 1));}
+                                _ => {return Err(format!("EVAL FAILURE at line {}: can only play clips and RustClips", data.line + 1));}
                             }
                         }
                         &Postfix::Access(s) => {
@@ -307,7 +306,7 @@ impl<'a> AstEvaluator<'a> {
                                     let new_val = match borrowed_clip.defs.get(s) {
                                         Some(v) => (*v.as_ref()).clone(),
                                         None => {
-                                            return Result::Err(format!("EVAL FAILURE at line {}: clip has no field '{}'", data.line + 1, s));
+                                            return Err(format!("EVAL FAILURE at line {}: clip has no field '{}'", data.line + 1, s));
                                         }
                                     };
                                     scopes.push(&mut borrowed_clip.defs);
@@ -319,7 +318,7 @@ impl<'a> AstEvaluator<'a> {
                                     let new_val = match borrowed_clip.defs.get(s) {
                                         Some(v) => (*v.as_ref()).clone(),
                                         None => {
-                                            return Result::Err(format!("EVAL FAILURE at line {}: rust clip has no field '{}'", data.line + 1, s));
+                                            return Err(format!("EVAL FAILURE at line {}: rust clip has no field '{}'", data.line + 1, s));
                                         }
                                     };
                                     scopes.push(&mut borrowed_clip.defs);
@@ -328,7 +327,7 @@ impl<'a> AstEvaluator<'a> {
                                 }
                                 //TODO: maybe add fields to other types?
                                 _ => {
-                                    return Result::Err(format!("EVAL FAILURE at line {}: cannot access non-clip field", data.line + 1));
+                                    return Err(format!("EVAL FAILURE at line {}: cannot access non-clip field", data.line + 1));
                                 }
                             }
                         }
@@ -336,21 +335,21 @@ impl<'a> AstEvaluator<'a> {
                         &Postfix::Index(_) => panic!("postfix type not implemented yet")
                     }
                 }
-                Result::Ok(curr_val)
+                Ok(curr_val)
             }
         }
     }
 
     fn eval_bare_stmt_item(&mut self, stmt_item: &'a StmtItem,
-                               scopes: &mut ScopeStack<'a>) -> Result<Value<'a>> {
+                               scopes: &mut ScopeStack<'a>) -> Result<Value<'a>, String> {
         match stmt_item {
             &StmtItem::Bare(ref expr) => self.eval_expr(expr, scopes),
-            _ => Result::Err(format!("EVAL FAILURE: need a bare expression"))
+            _ => Err(format!("EVAL FAILURE: need a bare expression"))
         }
     }
 
     fn eval_stmt_list(&mut self, stmt_list: &'a Vec<Stmt>,
-                          scopes: &mut ScopeStack<'a>) -> Result<Vec<Value<'a>>> {
+                          scopes: &mut ScopeStack<'a>) -> Result<Vec<Value<'a>>, String> {
         let mut ret_list = vec![];
         for st in stmt_list.iter() {
             let mut values = get_evald!(match st {
@@ -359,7 +358,7 @@ impl<'a> AstEvaluator<'a> {
                     for i in items.iter() {
                         result_vec.push(get_evald!(self.eval_bare_stmt_item(i, scopes)));
                     }
-                    Result::Ok(result_vec)
+                    Ok(result_vec)
                 }
                 &Stmt::Assignment{ref items, ref expr, ref data} => {
                     let expr_value = get_evald!(self.eval_expr(expr, scopes));
@@ -367,23 +366,26 @@ impl<'a> AstEvaluator<'a> {
                         Value::Tuple(value_vec) => {
                             if items.len() == value_vec.len() {
                                 for (i, e) in items.iter().zip(value_vec.into_iter()) {
-                                    scopes.assign(i, e);
+                                    match scopes.assign(i, e) {
+                                        Ok(_) => {continue},
+                                        Err(s) => {return Err(s);}
+                                    }
                                 }
                             } else if items.len() == 1 {
                                 get_evald!(scopes.assign(&items[0], Value::Tuple(value_vec)));
                             } else {
-                                return Result::Err(format!("EVAL FAILURE at line {}: wrong arity for this assignment", data.line + 1));
+                                return Err(format!("EVAL FAILURE at line {}: wrong arity for this assignment", data.line + 1));
                             }
                         } 
                         _ => {
                             if items.len() == 1 {
                                 get_evald!(scopes.assign(&items[0], expr_value));
                             } else {
-                                return Result::Err(format!("EVAL FAILURE at line {}: too many idents to assign to", data.line + 1));
+                                return Err(format!("EVAL FAILURE at line {}: too many idents to assign to", data.line + 1));
                             }
                         }
                     }
-                    Result::Ok(vec![])
+                    Ok(vec![])
                 }
                 &Stmt::While{ref condition, ref statements, ref data} => {
                     let mut result_vec = vec![];
@@ -396,7 +398,7 @@ impl<'a> AstEvaluator<'a> {
                                 }
                             }
                             _ => {
-                                return Result::Err(format!("EVAL FAILURE at line {}: while loops must contain a boolean expression", data.line + 1));
+                                return Err(format!("EVAL FAILURE at line {}: while loops must contain a boolean expression", data.line + 1));
                             }
                         }
                         let mut new_scope = HashMap::new();
@@ -407,7 +409,7 @@ impl<'a> AstEvaluator<'a> {
                         }
                         scopes.pop();
                     }
-                    Result::Ok(result_vec)
+                    Ok(result_vec)
                 }
                 &Stmt::If{ref clauses, ref data} => {
                     let mut result_vec = vec![];
@@ -422,7 +424,7 @@ impl<'a> AstEvaluator<'a> {
                                         }
                                     }
                                     _ => {
-                                        return Result::Err(format!("EVAL FAILURE at line {}: if statements must contain a boolean expression", data.line + 1));
+                                        return Err(format!("EVAL FAILURE at line {}: if statements must contain a boolean expression", data.line + 1));
                                     }
                                 }
                                 let mut new_scope = HashMap::new();
@@ -446,7 +448,7 @@ impl<'a> AstEvaluator<'a> {
                             }
                         }
                     }
-                    Result::Ok(result_vec)
+                    Ok(result_vec)
                 }
                 &Stmt::Return{..} => {
                     break;
@@ -454,6 +456,6 @@ impl<'a> AstEvaluator<'a> {
             });
             ret_list.append(&mut values);
         }
-        Result::Ok(ret_list)
+        Ok(ret_list)
     }
 }

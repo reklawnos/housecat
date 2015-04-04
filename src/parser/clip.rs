@@ -2,22 +2,22 @@ use token::{Token, Tok};
 use ast::*;
 use utils::*;
 use parser::stmt::{parse_clip_statements};
-use parser::Result;
+use parser::ParseResult;
 
 // <ident-list>
-fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
+fn parse_ident_list<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
     match tokens {
         [Tok{token: Token::Ident(id), ..}, rest..] => {
             match rest {
                 // ... ")"
-                [Tok{token: Token::CloseParen, ..}, next_rest..] => Result::Ok(vec![id], next_rest),
+                [Tok{token: Token::CloseParen, ..}, next_rest..] => ParseResult::Ok(vec![id], next_rest),
                 // ... "," <ident-list>
                 [Tok{token: Token::Comma, ..}, next_rest..] => {
                             let (mut parsed_list, tokens_after_list) = get_parsed!(parse_ident_list(next_rest));
                             parsed_list.insert(0, id);
-                            Result::Ok(parsed_list, tokens_after_list)
+                            ParseResult::Ok(parsed_list, tokens_after_list)
                 }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+                [Tok{ref token, line, col, line_string, ..}, ..] => ParseResult::Err(format!(
                     "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
                     line + 1,
                     col + 1,
@@ -25,11 +25,11 @@ fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
                     line_string,
                     get_caret_string(col)
                 )),
-                [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected ')' or ','"))
+                [] => ParseResult::Err(format!("PARSING FAILURE: Reached end of file but expected ')' or ','"))
             }
         }
         [Tok{ref token, line, col, line_string, ..}, ..] => {
-            Result::Err(format!(
+            ParseResult::Err(format!(
                 "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
                 line + 1,
                 col + 1,
@@ -38,30 +38,30 @@ fn parse_ident_list<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
                 get_caret_string(col)
             ))
         }
-        [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+        [] => ParseResult::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
     }
 }
 
 // <params>
-fn parse_params<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
+fn parse_params<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
     match tokens {
         //  ")"
-        [Tok{token: Token::CloseParen, ..}, rest..] => Result::Ok(vec![], rest),
+        [Tok{token: Token::CloseParen, ..}, rest..] => ParseResult::Ok(vec![], rest),
         // <ident-list>
         [Tok{token: _, ..}, ..] => parse_ident_list(tokens),
-        _ => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or ')'"))
+        _ => ParseResult::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or ')'"))
     }
 }
 
 // <rets>
-fn parse_rets<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
+fn parse_rets<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
     match tokens {
         // "(" <ident-list>
         [Tok{token: Token::OpenParen, ..}, rest..] => parse_ident_list(rest),
         // <ident>
-        [Tok{token: Token::Ident(id), ..}, rest..] => Result::Ok(vec![id], rest),
+        [Tok{token: Token::Ident(id), ..}, rest..] => ParseResult::Ok(vec![id], rest),
         [Tok{ref token, line, col, line_string, ..}, ..] => {
-            Result::Err(format!(
+            ParseResult::Err(format!(
                 "PARSING FAILURE at {},{}: Expected Ident or '(' but found {:?}\n{}\n{}",
                 line + 1,
                 col + 1,
@@ -70,12 +70,12 @@ fn parse_rets<'a>(tokens: &'a[Tok]) -> Result<'a, Vec<&'a str>> {
                 get_caret_string(col)
             ))
         }
-        [] => Result::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or '('"))
+        [] => ParseResult::Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or '('"))
     }
 }
 
 // <clip-def>
-pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>)> {
+pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> ParseResult<'a, (Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>)> {
     match tokens {
         // "(" <params> ...
         [Tok{token: Token::OpenParen, line, col, line_string, ..}, rest..] => {
@@ -84,7 +84,7 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a
                         // ... "{" <clip-statements>
                         [Tok{token: Token::OpenCurly, ..}, next_rest..] => {
                             let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(next_rest));
-                            Result::Ok((parsed_params, vec![], parsed_list), tokens_after_list)
+                            ParseResult::Ok((parsed_params, vec![], parsed_list), tokens_after_list)
                         }
                         // ... "->" ...
                         [Tok{token: Token::Ret, ..}, next_rest..] => {
@@ -93,9 +93,9 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a
                                 // ... "{" <clip-statements>
                                 [Tok{token: Token::OpenCurly, ..}, tok_rest..] => {
                                     let (parsed_list, tokens_after_list) = get_parsed!(parse_clip_statements(tok_rest));
-                                    Result::Ok((parsed_params, parsed_rets, parsed_list), tokens_after_list)
+                                    ParseResult::Ok((parsed_params, parsed_rets, parsed_list), tokens_after_list)
                                 }
-                                [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+                                [Tok{ref token, line, col, line_string, ..}, ..] => ParseResult::Err(format!(
                                     "PARSING FAILURE at {},{}: Found {:?} but expected '{{'\n{}\n{}",
                                     line + 1,
                                     col + 1,
@@ -103,10 +103,10 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a
                                     line_string,
                                     get_caret_string(col)
                                 )),
-                                [] => Result::Err(format!("PARSING FAILURE: Reached end of file, but expected '{{'"))
+                                [] => ParseResult::Err(format!("PARSING FAILURE: Reached end of file, but expected '{{'"))
                             }  
                         }
-                        [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+                        [Tok{ref token, line, col, line_string, ..}, ..] => ParseResult::Err(format!(
                             "PARSING FAILURE at {},{}: Found {:?} but expected '{{' or '->'\n{}\n{}",
                             line + 1,
                             col + 1,
@@ -114,7 +114,7 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a
                             line_string,
                             get_caret_string(col)
                         )),
-                        [] => Result::Err(format!(
+                        [] => ParseResult::Err(format!(
                             "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
                             line + 1,
                             col + 1,
@@ -123,7 +123,7 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a
                         ))
             }
         },
-        [Tok{ref token, line, col, line_string, ..}, ..] => Result::Err(format!(
+        [Tok{ref token, line, col, line_string, ..}, ..] => ParseResult::Err(format!(
                 "PARSING FAILURE at {},{}: Found {:?} but expected '('\n{}\n{}",
                 line + 1,
                 col + 1,
@@ -131,6 +131,6 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok]) -> Result<'a, (Vec<&'a str>, Vec<&'a
                 line_string,
                 get_caret_string(col)
             )),
-        [] => Result::Err(format!("PARSING FAILURE: Reached end of file, but expected '('"))
+        [] => ParseResult::Err(format!("PARSING FAILURE: Reached end of file, but expected '('"))
     }
 }

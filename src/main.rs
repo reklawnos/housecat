@@ -18,7 +18,6 @@ mod parser;
 mod lexer;
 mod utils;
 mod evaluator;
-mod eval_result;
 mod libhc;
 
 static DEBUG: bool = false;
@@ -74,7 +73,7 @@ impl<'a> FileRunner<'a> {
                 }
                 let parse_result = parser::parse_tokens(&toks[..], &mut self.statements);
                 match parse_result {
-                    parser::Result::Ok(statement_vec, _) => {
+                    Ok(statement_vec) => {
                         if DEBUG {
                             println!("Parsed AST:");
                             for st in statement_vec.iter() {
@@ -83,12 +82,12 @@ impl<'a> FileRunner<'a> {
                         }
                         match self.evaluator.eval_file_stmts(&statement_vec, &self.params, &self.returns) {
                             //TODO: we get a clip back, we can use this for stuff.
-                            eval_result::Result::Ok(_) => (),
-                            eval_result::Result::Err(e) => println!("{}", e)
+                            Ok(_) => (),
+                            Err(e) => println!("{}", e)
                         }
                         
                     }
-                    parser::Result::Err(s) => println!("{}", s)
+                    Err(s) => println!("{}", s)
                 }
             }
         }
