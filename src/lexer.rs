@@ -1,158 +1,120 @@
 use token::{Token, Tok};
-use regex;
+use regex::Regex;
 
-pub enum ParseType {
-    PtName, //ident or keyword
-    PtBool,
-    PtFloat,
-    PtInt,
-    PtString,
-    PtSkip,
-    PtColon,
-    PtDot,
-    PtComma,
-    PtOpenBrac,
-    PtCloseBrac,
-    PtOpenCurly,
-    PtCloseCurly,
-    PtOpenParen,
-    PtCloseParen,
-    PtComment,
-    PtOperator,
-    PtRet
-}
+static COMMENT_REGEX: Regex = regex!(r"^#");
+static WHITESPACE_REGEX: Regex = regex!(r"^\s");
 
-static TOKEN_SPECS: &'static [(ParseType, regex::Regex)] = &[
-    (ParseType::PtBool, regex!(r"^(?:true|false)")),
-    (ParseType::PtName, regex!(r"^[A-Za-z_][0-9A-Za-z_]*")),
-    (ParseType::PtRet, regex!(r"^->")),
-    (ParseType::PtFloat, regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?")),
-    (ParseType::PtInt, regex!(r"^[0-9]+")),
-    (ParseType::PtString, regex!(r#"^"(?:[^"\\]|\\.)*""#)),
-    (ParseType::PtColon, regex!(r"^:")),
-    (ParseType::PtDot, regex!(r"^\.")),
-    (ParseType::PtComma, regex!(r"^,")),
-    (ParseType::PtOpenBrac, regex!(r"^\[")),
-    (ParseType::PtCloseBrac, regex!(r"^\]")),
-    (ParseType::PtOpenCurly, regex!(r"^\{")),
-    (ParseType::PtCloseCurly, regex!(r"^\}")),
-    (ParseType::PtOpenParen, regex!(r"^\(")),
-    (ParseType::PtCloseParen, regex!(r"^\)")),
-    (ParseType::PtOperator, regex!(r"^(<=|>=|!=|==|!==|\|\||&&|[!^*%+-<>=/$])")),
-    (ParseType::PtSkip, regex!(r"^\s")),
-    (ParseType::PtComment, regex!(r"^#"))
+static SYMBOL_SPECS: &'static [(Regex, Token<'static>)] = &[
+    //Keywords
+    (regex!(r"^def"), Token::Def),
+    (regex!(r"^var"), Token::Var),
+    (regex!(r"^nil"), Token::Nil),
+    (regex!(r"^fn"), Token::Fn),
+    (regex!(r"^return"), Token::Return),
+    (regex!(r"^in"), Token::In),
+    (regex!(r"^if"), Token::If),
+    (regex!(r"^else"), Token::Else),
+    (regex!(r"^elif"), Token::Elif),
+    (regex!(r"^while"), Token::While),
+    (regex!(r"^end"), Token::End),
+    //Symbols
+    (regex!(r"^:"), Token::Assign),
+    (regex!(r"^\."), Token::Dot),
+    (regex!(r"^\{"), Token::OpenCurly),
+    (regex!(r"^\}"), Token::CloseCurly),
+    (regex!(r"^\["), Token::OpenBrac),
+    (regex!(r"^\]"), Token::CloseBrac),
+    (regex!(r"^\("), Token::OpenParen),
+    (regex!(r"^\)"), Token::CloseParen),
+    (regex!(r"^,"), Token::Comma),
+    (regex!(r"^->"), Token::Ret),
+    //Binary Operators
+    (regex!(r"^\*"), Token::Mul),
+    (regex!(r"^/"), Token::Div),
+    (regex!(r"^%"), Token::Mod),
+    (regex!(r"^\+"), Token::Add),
+    (regex!(r"^-"), Token::Sub),
+    (regex!(r"^<"), Token::Lt),
+    (regex!(r"^<="), Token::Lte),
+    (regex!(r"^>"), Token::Gt),
+    (regex!(r"^>="), Token::Gte),
+    (regex!(r"^="), Token::Eq),
+    (regex!(r"^!="), Token::Neq),
+    (regex!(r"^=="), Token::Same),
+    (regex!(r"^!=="), Token::Nsame),
+    (regex!(r"^&&"), Token::And),
+    (regex!(r"^\|\|"), Token::Or),
+    //Unary Operators
+    (regex!(r"^!"), Token::Not),
+    (regex!(r"^\$"), Token::Get),
 ];
 
 pub fn lex_line<'a>(line: &'a str, line_no: usize, char_index: &mut usize, token_vec: & mut Vec<Tok<'a>>) -> Result<(), usize> {
+    let literal_regexes: [(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>); 5] = [
+        (regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?"), Box::new(|s: &'a str| Token::Float(s.parse().unwrap()))),
+        (regex!(r"^[0-9]+"), Box::new(|s: &'a str| Token::Int(s.parse().unwrap()))),
+        (regex!(r"^(?:true|false)"), Box::new(|s: &'a str| Token::Bool(s.parse().unwrap()))),
+        (regex!(r"^([A-Za-z_][0-9A-Za-z_]*)"), Box::new(|s: &'a str| Token::Ident(s))),
+        (regex!(r#"^"(?:[^"\\]|\\.)*""#), Box::new(|s: &'a str|{
+            let trimmed_slice = &s[1..s.len() - 1];
+            let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
+            Token::String(escaped)
+        }))
+    ];
     let mut line_slice = line;
     let mut col = 0usize;
+    let mut match_end = 0usize;
     while line_slice.len() > 0 {
         let mut found_token = false;
-        let mut found_comment = false;
-        for &(ref parse_type, ref re) in TOKEN_SPECS.iter() {
-            let (start,end) = match re.find(line_slice) {
-                Some(range) => range,
-                None => continue
-            };
-            //Skip the rest of the line_slice if we found a comment
-            match *parse_type {
-                ParseType::PtComment => {
-                    found_comment = true;
-                    break;
-                },
-                _ => {}
-            }
-            let token_slice = &line_slice[start..end];
-            //Skip over whitespace
-            match *parse_type {
-                ParseType::PtSkip => {},
-                _ => {
-                    let new_token = decide_token(parse_type, token_slice);
-                    token_vec.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
-                }
-            }
-            //Push the column index to the end of what we just read
-            col += end;
-            *char_index += end;
-            line_slice = &line_slice[end..];
-            found_token = true;
+        //Return for this line once a comment is reached
+        if COMMENT_REGEX.is_match(line_slice) {
             break;
+        }
+        //Skip whitespace
+        match WHITESPACE_REGEX.find(line_slice) {
+            Some((_, end)) => {
+                match_end = end;
+                found_token = true;
+            }
+            None => ()
+        };
+        if !found_token {
+            for &(ref re, ref tok_type) in SYMBOL_SPECS.iter() {
+                let (_,end) = match re.find(line_slice) {
+                    Some(range) => range,
+                    None => continue
+                };
+                match_end = end;
+                let new_token = (*tok_type).clone();
+                token_vec.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
+                found_token = true;
+                break;
+            }
+        }
+        if !found_token {
+            for &(ref re, ref tok_func) in literal_regexes.iter() {
+                let (start,end) = match re.find(line_slice) {
+                    Some(range) => range,
+                    None => continue
+                };
+                match_end = end;
+                let token_slice = &line_slice[start..end];
+                let new_token = tok_func(token_slice);
+                token_vec.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
+                found_token = true;
+                break;
+            }
         }
 
-        if found_comment {
-            break;
-        }
         //No token was found, which means that something was invalid
         if !found_token {
             return Err(col);
         }
+
+        //Push the column index to the end of what we just read
+        col += match_end;
+        *char_index += match_end;
+        line_slice = &line_slice[match_end..];
     }
     Ok(())
-}
-
-fn decide_token<'a>(parse_type: &ParseType, tok_string: &'a str) -> Token<'a> {
-    match *parse_type {
-        //Capture keywords and idents
-        ParseType::PtName => {
-            match tok_string {
-                "if" => Token::If,
-                "else" => Token::Else,
-                "elif" => Token::Elif,
-                "while" => Token::While,
-                "end" => Token::End,
-                "def" => Token::Def,
-                "var" => Token::Var,
-                "nil" => Token::Nil,
-                "fn" => Token::Fn,
-                "in" => Token::In,
-                "return" => Token::Return,
-                s => {
-                    Token::Ident(s)
-                }
-            }
-        }
-        ParseType::PtBool => Token::Bool(tok_string.parse().unwrap()),
-        ParseType::PtFloat => Token::Float(tok_string.parse().unwrap()),
-        ParseType::PtInt => Token::Int(tok_string.parse().unwrap()),
-        //TODO: add support for escape characters (should have error when there's an invalid char)
-        ParseType::PtString => {
-            let trimmed_slice = &tok_string[1..tok_string.len() - 1];
-            let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
-            Token::String(Box::new(escaped))
-        },
-        ParseType::PtColon      => Token::Assign,
-        ParseType::PtDot        => Token::Dot,
-        ParseType::PtComma      => Token::Comma,
-        ParseType::PtOpenBrac   => Token::OpenBrac,
-        ParseType::PtCloseBrac  => Token::CloseBrac,
-        ParseType::PtOpenCurly  => Token::OpenCurly,
-        ParseType::PtCloseCurly => Token::CloseCurly,
-        ParseType::PtOpenParen  => Token::OpenParen,
-        ParseType::PtCloseParen => Token::CloseParen,
-        ParseType::PtRet        => Token::Ret,
-        ParseType::PtOperator => {
-            match tok_string {
-                "!"   => Token::Not,
-                "^"   => Token::Exp,
-                "*"   => Token::Mul,
-                "/"   => Token::Div,
-                "%"   => Token::Mod,
-                "+"   => Token::Add,
-                "-"   => Token::Sub,
-                "<"   => Token::Lt,
-                "<="  => Token::Lte,
-                ">"   => Token::Gt,
-                ">="  => Token::Gte,
-                "="   => Token::Eq,
-                "!="  => Token::Neq,
-                "=="  => Token::Same,
-                "!==" => Token::Nsame,
-                "&&"  => Token::And,
-                "||"  => Token::Or,
-                "$"   => Token::Get,
-                _ => panic!("Unknown binary op")
-            }
-        }
-        _ => panic!("not implemented")
-    }
 }
