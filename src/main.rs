@@ -1,7 +1,7 @@
 #![feature(plugin)]
 #![plugin(regex_macros)]
 #![feature(collections)]
-#![feature(core)]
+#![feature(slice_patterns)]
 
 extern crate regex;
 

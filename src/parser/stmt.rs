@@ -64,7 +64,8 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> Result<'a, Stmt<'a>> {
         }
         // EPS
         [Tok{line, ..}, ..] => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: line}}, tokens_after_items),
-        [] => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: -1}}, tokens_after_items)
+        //TODO: fix line number for last bare statement
+        [] => Result::Ok(Stmt::Bare{items: parsed_items, data: AstData{line: 0}}, tokens_after_items)
     }
 }
 
