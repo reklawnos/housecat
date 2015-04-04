@@ -10,6 +10,7 @@ use std::fs::File;
 use std::env;
 use std::path::Path;
 use evaluator::Evaluator;
+use lexer::Lexer;
 
 mod token;
 mod ast;
@@ -23,9 +24,10 @@ mod libhc;
 static DEBUG: bool = false;
 
 pub struct FileRunner<'a> {
-    toks: Vec<token::Tok<'a>>,
+    //toks: Vec<token::Tok<'a>>,
     statements: Vec<ast::Stmt<'a>>,
-    file_string: String,
+    //file_string: String,
+    lexer: Lexer<'a>,
     pub evaluator: evaluator::ast_evaluator::AstEvaluator<'a>,
     params: Vec<&'a str>,
     returns: Vec<&'a str>
@@ -34,9 +36,10 @@ pub struct FileRunner<'a> {
 impl<'a> FileRunner<'a> {
     pub fn new() -> FileRunner<'a> {
         FileRunner {
-            toks: Vec::new(),
+            //toks: Vec::new(),
             statements: Vec::new(),
-            file_string: String::new(),
+            //file_string: String::new(),
+            lexer: Lexer::new(),
             evaluator: evaluator::ast_evaluator::AstEvaluator::new(),
             params: Vec::new(),
             returns: Vec::new()
@@ -50,23 +53,26 @@ impl<'a> FileRunner<'a> {
             },
             Ok(file) => file,
         };
-        match file.read_to_string(&mut self.file_string) {
+        let mut file_string = String::new();
+        match file.read_to_string(&mut file_string) {
             Err(err) => panic!("couldn't read {}: {}", file_path.display(), err),
             Ok(_) => {}
         }
-        let result = do_file_parse(&self.file_string, & mut self.toks);
+        self.lexer.input(file_string);
+        let result = self.lexer.lex();
+        //let result = do_file_parse(&self.file_string, & mut self.toks);
         match result {
             Err(s) => {
                 println!("{}", s);
             }
-            Ok(()) => {
+            Ok(toks) => {
                 if DEBUG {
                     println!("Parsed tokens:");
-                    for t in self.toks.iter() {
+                    for t in toks.iter() {
                         println!("{:?}: {},{}", t.token, t.line + 1, t.col + 1);
                     }
                 }
-                let parse_result = parser::parse_tokens(&self.toks[..], &mut self.statements);
+                let parse_result = parser::parse_tokens(&toks[..], &mut self.statements);
                 match parse_result {
                     parser::Result::Ok(statement_vec, _) => {
                         if DEBUG {
@@ -99,27 +105,4 @@ fn main() {
         let path = &Path::new(&command_args[1][..]);
         runner.run(path);
     }
-}
-
-fn do_file_parse<'a>(lines: &'a String, result_vec: & mut Vec<token::Tok<'a>>) -> Result<(), String> {
-    let mut char_index = 0usize;
-    for (line_index, l) in lines[..].split("\n").enumerate() {
-        let res = lexer::lex_line(l, line_index, &mut char_index, result_vec);
-        match res {
-            Ok(()) => {},
-            Err(col) => {
-                return Err(
-                    format!(
-                        "LEXING FAILURE at {},{}: invalid character {}\n{}\n{}",
-                        line_index + 1,
-                        col + 1,
-                        l.chars().nth(col).unwrap(),
-                        l,
-                        utils::get_caret_string(col)
-                    )
-                );
-            }
-        }
-    }
-    Ok(())
 }
