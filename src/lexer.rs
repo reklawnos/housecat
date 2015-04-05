@@ -77,17 +77,9 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn input(&mut self, s: String) {
-        self.input = s;
-    }
-
-    #[allow(dead_code)]
-    pub fn append(&mut self, s: String) {
-        self.input.push_str(&*s);
-    }
-
-    pub fn lex(&'a mut self) -> Result<&Vec<Tok<'a>>, String> {
+    pub fn lex(&'a mut self, s: String) -> Result<&Vec<Tok<'a>>, String> {
         let mut char_index = 0usize;
+        self.input = s;
         for (line_index, l) in self.input.lines().enumerate() {
             let res = Lexer::lex_line(l, line_index, &mut char_index, &mut self.toks, &self.lit_regexes);
             match res {

@@ -39,8 +39,3 @@ person.name: "Alfred"
 print(person.name)
 person.speak()
 print("bagel")
-#print(person.name)    # prints "Jensen"
-#person.speak()
-#person.name: "Alfred" # changes def of name
-#print(person.name)    # prints "Alfred"
-#person.speak()

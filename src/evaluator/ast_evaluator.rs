@@ -3,17 +3,7 @@ use std::collections::HashMap;
 use std::num::{Int, Float};
 use std::rc::Rc;
 use std::cell::RefCell;
-use evaluator::Evaluator;
-use evaluator::values::*;
-
-macro_rules! get_evald(
-    ($parsed:expr) => ({
-        match $parsed {
-            Ok(t) => t,
-            Err(e) => {return Err(e);}
-        }
-    });
-);
+use super::*;
 
 fn int_pow(lhs: i64, rhs: i64) -> i64 {
     if rhs >= 0 {
@@ -30,7 +20,7 @@ pub struct AstEvaluator<'a> {
 impl<'a> Evaluator<'a> for AstEvaluator<'a> {
     fn add_rust_clip(&mut self,
                          name: &'a str,
-                         func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>>,
+                         func: Box<RustClipFunc<'a>>,
                          defs: HashMap<&'a str, VarType<'a>>) {
         let new_clip = RustClip::new(func, defs);
         self.rust_clips.insert(name, VarType::Var(Value::RustClip(Rc::new(RefCell::new(new_clip)))));

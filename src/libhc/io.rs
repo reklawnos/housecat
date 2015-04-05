@@ -1,5 +1,5 @@
 use evaluator::Evaluator;
-use evaluator::values::*;
+use evaluator::Value;
 use std::collections::HashMap;
 
 #[allow(unused_variables)]

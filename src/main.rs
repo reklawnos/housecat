@@ -57,8 +57,7 @@ impl<'a> FileRunner<'a> {
             Err(err) => panic!("couldn't read {}: {}", file_path.display(), err),
             Ok(_) => {}
         }
-        self.lexer.input(file_string);
-        let result = self.lexer.lex();
+        let result = self.lexer.lex(file_string);
         //let result = do_file_parse(&self.file_string, & mut self.toks);
         match result {
             Err(s) => {

@@ -1,16 +1,24 @@
+#[macro_use]
+mod macros;
 pub mod ast_evaluator;
 pub mod values;
+mod scopestack;
 
-use evaluator::values::{Value, VarType, ClipStruct};
-use ast::Stmt;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use ast::Stmt;
+
+pub use self::values::{ClipStruct, RustClip, Value, VarType};
+pub use self::scopestack::ScopeStack;
+
+pub type RustClipFunc<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
+
 pub trait Evaluator<'a> {
      fn add_rust_clip(&mut self,
                          name: &'a str,
-                         func: Box<Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>>,
+                         func: Box<RustClipFunc<'a>>,
                          defs: HashMap<&'a str, VarType<'a>>);
 
     fn eval_file_stmts(&mut self,
