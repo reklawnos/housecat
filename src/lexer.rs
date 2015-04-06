@@ -5,37 +5,37 @@ use utils::get_caret_string;
 static COMMENT_REGEX: Regex = regex!(r"^#.*");
 static WHITESPACE_REGEX: Regex = regex!(r"^\s");
 
-static SYMBOL_SPECS: &'static [(Regex, Token<'static>)] = &[
+static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     //Symbols
-    (regex!(r"^:"), Token::Assign),
-    (regex!(r"^\."), Token::Dot),
-    (regex!(r"^\{"), Token::OpenCurly),
-    (regex!(r"^\}"), Token::CloseCurly),
-    (regex!(r"^\["), Token::OpenBrac),
-    (regex!(r"^\]"), Token::CloseBrac),
-    (regex!(r"^\("), Token::OpenParen),
-    (regex!(r"^\)"), Token::CloseParen),
-    (regex!(r"^,"), Token::Comma),
-    (regex!(r"^->"), Token::Ret),
+    (r":", Token::Assign),
+    (r".", Token::Dot),
+    (r"{", Token::OpenCurly),
+    (r"}", Token::CloseCurly),
+    (r"[", Token::OpenBrac),
+    (r"]", Token::CloseBrac),
+    (r"(", Token::OpenParen),
+    (r")", Token::CloseParen),
+    (r",", Token::Comma),
+    (r"->", Token::Ret),
     //Binary Operators
-    (regex!(r"^\*"), Token::Mul),
-    (regex!(r"^/"), Token::Div),
-    (regex!(r"^%"), Token::Mod),
-    (regex!(r"^\+"), Token::Add),
-    (regex!(r"^-"), Token::Sub),
-    (regex!(r"^<="), Token::Lte),
-    (regex!(r"^<"), Token::Lt),
-    (regex!(r"^>="), Token::Gte),
-    (regex!(r"^>"), Token::Gt),
-    (regex!(r"^=="), Token::Same),
-    (regex!(r"^="), Token::Eq),
-    (regex!(r"^!=="), Token::Nsame),
-    (regex!(r"^!="), Token::Neq),
-    (regex!(r"^&&"), Token::And),
-    (regex!(r"^\|\|"), Token::Or),
+    (r"*", Token::Mul),
+    (r"/", Token::Div),
+    (r"%", Token::Mod),
+    (r"+", Token::Add),
+    (r"-", Token::Sub),
+    (r"<=", Token::Lte),
+    (r"<", Token::Lt),
+    (r">=", Token::Gte),
+    (r">", Token::Gt),
+    (r"==", Token::Same),
+    (r"=", Token::Eq),
+    (r"!==", Token::Nsame),
+    (r"!=", Token::Neq),
+    (r"&&", Token::And),
+    (r"||", Token::Or),
     //Unary Operators
-    (regex!(r"^!"), Token::Not),
-    (regex!(r"^\$"), Token::Get),
+    (r"!", Token::Not),
+    (r"$", Token::Get),
 ];
 
 pub struct Lexer<'a> {
@@ -129,16 +129,15 @@ impl<'a> Lexer<'a> {
                 None => ()
             };
             if !found_token {
-                for &(ref re, ref tok_type) in SYMBOL_SPECS.iter() {
-                    let (_,end) = match re.find(line_slice) {
-                        Some(range) => range,
-                        None => continue
-                    };
-                    match_end = end;
-                    let new_token = (*tok_type).clone();
-                    toks.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
-                    found_token = true;
-                    break;
+                for &(s, ref tok_type) in SYMBOL_SPECS.iter() {
+                    if s.len() <= line_slice.len() &&line_slice[0..s.len()] == *s {
+                        match_end = s.len();
+                        let new_token = (*tok_type).clone();
+                        toks.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
+                        found_token = true;
+                        break;
+                    }
+                    
                 }
             }
             if !found_token {
@@ -244,7 +243,7 @@ mod test {
     fn test_char_data() {
         let mut lexer = Lexer::new();
         match lexer.lex("if 3 > 2\n    # do some stuff\n    stuff()\nend".to_string()){
-            Err(s) => assert!(false),
+            Err(_) => assert!(false),
             Ok(v) => {
                 assert_eq!("    stuff()", v[5].line_string);
                 assert_eq!(9, v[5].col);
@@ -259,12 +258,15 @@ mod test {
         let num_copies = 1000;
         let symbol_string = ":.{}()[],->*/%+-<=<>=>===!==!=&&||!$";
         let mut test_string = String::with_capacity(symbol_string.len() * num_copies);
-        for i in 1..num_copies {
+        for _ in 1..num_copies {
             test_string.push_str(symbol_string);
         }
         b.iter(|| {
             let mut lexer = Lexer::new();
-            lexer.lex(test_string.clone());
+            match lexer.lex(test_string.clone()) {
+                Err(_) => assert!(false),
+                Ok(_) => ()
+            }
         });
     }
 }

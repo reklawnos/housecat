@@ -2,7 +2,7 @@ use evaluator::Evaluator;
 use evaluator::Value;
 use std::collections::HashMap;
 
-#[allow(unused_variables)]
+#[allow(unused_variables, dead_code)]
 fn import<'a>(args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
     if args.len() == 1 {
         println!("importing file: {:?}", args[0]);
@@ -12,6 +12,7 @@ fn import<'a>(args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'
     }
 }
 
+#[allow(dead_code)]
 pub fn open_core<'a>(eval: &mut Evaluator<'a>) {
     eval.add_rust_clip("import", Box::new(import), HashMap::new());
 }

@@ -90,6 +90,7 @@ impl<'a> FileRunner<'a> {
     }
 }
 
+#[allow(dead_code)]
 fn main() {
     let command_args: Vec<String> = env::args().collect();
     if command_args.len() <= 1 {
