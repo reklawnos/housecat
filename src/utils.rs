@@ -6,3 +6,14 @@ pub fn get_caret_string(col: usize) -> String {
     caret_string.push('^');
     return caret_string;
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_get_caret_string() {
+        assert_eq!(&*get_caret_string(4), "    ^");
+    }
+}

@@ -2,8 +2,10 @@
 #![plugin(regex_macros)]
 #![feature(collections)]
 #![feature(slice_patterns)]
+#![feature(test)]
 
 extern crate regex;
+extern crate test;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -23,9 +25,7 @@ mod libhc;
 static DEBUG: bool = false;
 
 pub struct FileRunner<'a> {
-    //toks: Vec<token::Tok<'a>>,
     statements: Vec<ast::Stmt<'a>>,
-    //file_string: String,
     lexer: Lexer<'a>,
     pub evaluator: evaluator::ast_evaluator::AstEvaluator<'a>,
     params: Vec<&'a str>,
@@ -35,9 +35,7 @@ pub struct FileRunner<'a> {
 impl<'a> FileRunner<'a> {
     pub fn new() -> FileRunner<'a> {
         FileRunner {
-            //toks: Vec::new(),
             statements: Vec::new(),
-            //file_string: String::new(),
             lexer: Lexer::new(),
             evaluator: evaluator::ast_evaluator::AstEvaluator::new(),
             params: Vec::new(),
@@ -58,7 +56,6 @@ impl<'a> FileRunner<'a> {
             Ok(_) => {}
         }
         let result = self.lexer.lex(file_string);
-        //let result = do_file_parse(&self.file_string, & mut self.toks);
         match result {
             Err(s) => {
                 println!("{}", s);

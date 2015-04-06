@@ -2,22 +2,10 @@ use token::{Token, Tok};
 use regex::Regex;
 use utils::get_caret_string;
 
-static COMMENT_REGEX: Regex = regex!(r"^#");
+static COMMENT_REGEX: Regex = regex!(r"^#.*");
 static WHITESPACE_REGEX: Regex = regex!(r"^\s");
 
 static SYMBOL_SPECS: &'static [(Regex, Token<'static>)] = &[
-    //Keywords
-    (regex!(r"^def"), Token::Def),
-    (regex!(r"^var"), Token::Var),
-    (regex!(r"^nil"), Token::Nil),
-    (regex!(r"^fn"), Token::Fn),
-    (regex!(r"^return"), Token::Return),
-    (regex!(r"^in"), Token::In),
-    (regex!(r"^if"), Token::If),
-    (regex!(r"^else"), Token::Else),
-    (regex!(r"^elif"), Token::Elif),
-    (regex!(r"^while"), Token::While),
-    (regex!(r"^end"), Token::End),
     //Symbols
     (regex!(r"^:"), Token::Assign),
     (regex!(r"^\."), Token::Dot),
@@ -35,14 +23,14 @@ static SYMBOL_SPECS: &'static [(Regex, Token<'static>)] = &[
     (regex!(r"^%"), Token::Mod),
     (regex!(r"^\+"), Token::Add),
     (regex!(r"^-"), Token::Sub),
-    (regex!(r"^<"), Token::Lt),
     (regex!(r"^<="), Token::Lte),
-    (regex!(r"^>"), Token::Gt),
+    (regex!(r"^<"), Token::Lt),
     (regex!(r"^>="), Token::Gte),
-    (regex!(r"^="), Token::Eq),
-    (regex!(r"^!="), Token::Neq),
+    (regex!(r"^>"), Token::Gt),
     (regex!(r"^=="), Token::Same),
+    (regex!(r"^="), Token::Eq),
     (regex!(r"^!=="), Token::Nsame),
+    (regex!(r"^!="), Token::Neq),
     (regex!(r"^&&"), Token::And),
     (regex!(r"^\|\|"), Token::Or),
     //Unary Operators
@@ -53,7 +41,7 @@ static SYMBOL_SPECS: &'static [(Regex, Token<'static>)] = &[
 pub struct Lexer<'a> {
     input: String,
     toks: Vec<Tok<'a>>,
-    lit_regexes: [(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>); 5]
+    lit_regexes: [(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>); 4]
 }
 
 impl<'a> Lexer<'a> {
@@ -66,8 +54,25 @@ impl<'a> Lexer<'a> {
             lit_regexes: [
                 (regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?"), Box::new(|s: &'a str| Token::Float(s.parse().unwrap()))),
                 (regex!(r"^[0-9]+"), Box::new(|s: &'a str| Token::Int(s.parse().unwrap()))),
-                (regex!(r"^(?:true|false)"), Box::new(|s: &'a str| Token::Bool(s.parse().unwrap()))),
-                (regex!(r"^([A-Za-z_][0-9A-Za-z_]*)"), Box::new(|s: &'a str| Token::Ident(s))),
+                (regex!(r"^([A-Za-z_][0-9A-Za-z_]*)"), Box::new(|s: &'a str| {
+                    //Match keywords and idents
+                    match s {
+                        "def" => Token::Def,
+                        "var" => Token::Var,
+                        "nil" => Token::Nil,
+                        "fn" => Token::Fn,
+                        "return" => Token::Return,
+                        "in" => Token::In,
+                        "if" => Token::If,
+                        "else" => Token::Else,
+                        "elif" => Token::Elif,
+                        "while" => Token::While,
+                        "end" => Token::End,
+                        "true" => Token::Bool(true),
+                        "false" => Token::Bool(false),
+                        s => Token::Ident(s)
+                    }
+                })),
                 (regex!(r#"^"(?:[^"\\]|\\.)*""#), Box::new(|s: &'a str|{
                     let trimmed_slice = &s[1..s.len() - 1];
                     let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
@@ -83,7 +88,7 @@ impl<'a> Lexer<'a> {
         for (line_index, l) in self.input.lines().enumerate() {
             let res = Lexer::lex_line(l, line_index, &mut char_index, &mut self.toks, &self.lit_regexes);
             match res {
-                Ok(()) => {},
+                Ok(()) => {char_index += 1;},
                 Err(col) => {
                     return Err(
                         format!(
@@ -101,15 +106,19 @@ impl<'a> Lexer<'a> {
         Ok(&self.toks)
     }
 
-    fn lex_line(line: &'a str, line_no: usize, char_index: &mut usize, toks: &mut Vec<Tok<'a>>, lit_regexes: &[(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>); 5]) -> Result<(), usize> {
+    fn lex_line(line: &'a str, line_no: usize, char_index: &mut usize, toks: &mut Vec<Tok<'a>>, lit_regexes: &[(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>)]) -> Result<(), usize> {
         let mut line_slice = line;
         let mut col = 0usize;
         let mut match_end = 0usize;
         while line_slice.len() > 0 {
             let mut found_token = false;
             //Return for this line once a comment is reached
-            if COMMENT_REGEX.is_match(line_slice) {
-                break;
+            match COMMENT_REGEX.find(line_slice) {
+                Some((_, end)) => {
+                    match_end = end;
+                    found_token = true;
+                }
+                None => ()
             }
             //Skip whitespace
             match WHITESPACE_REGEX.find(line_slice) {
@@ -158,5 +167,104 @@ impl<'a> Lexer<'a> {
             line_slice = &line_slice[match_end..];
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Lexer;
+    use token::Token;
+    use test::Bencher;
+
+    fn match_tokens(input: &str, output: Vec<Token>) {
+        let mut lexer = Lexer::new();
+        let results = lexer.lex(input.to_string()).ok().unwrap();
+        for (res, test) in results.iter().zip(output.iter()) {
+            assert_eq!(test, &res.token);
+        }
+    }
+
+    #[test]
+    fn test_keywords() {
+        match_tokens(
+            "def var nil return",
+            vec![Token::Def, Token::Var, Token::Nil, Token::Return]
+        );
+    }
+
+    #[test]
+    fn test_ambiguous() {
+        match_tokens(
+            "-->> ->-> >== <<= !=",
+            vec![
+                Token::Sub,
+                Token::Ret,
+                Token::Gt,
+                Token::Ret,
+                Token::Ret,
+                Token::Gte,
+                Token::Eq,
+                Token::Lt,
+                Token::Lte,
+                Token::Neq
+            ]
+        );
+    }
+
+    #[test]
+    fn test_ident() {
+        match_tokens(
+            "else elser fn() nils dowhile returns defing tootrue falsehood",
+            vec![
+                Token::Else,
+                Token::Ident("elser"),
+                Token::Fn,
+                Token::OpenParen,
+                Token::CloseParen,
+                Token::Ident("nils"),
+                Token::Ident("dowhile"),
+                Token::Ident("returns"),
+                Token::Ident("defing"),
+                Token::Ident("tootrue"),
+                Token::Ident("falsehood")
+            ]
+        )
+    }
+
+    #[test]
+    fn test_invalid_char() {
+        let mut lexer = Lexer::new();
+        match lexer.lex("this is @ invalid".to_string()){
+            Err(s) => assert_eq!("LEXING FAILURE at 1,9: invalid character @\nthis is @ invalid\n        ^".to_string(), s),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn test_char_data() {
+        let mut lexer = Lexer::new();
+        match lexer.lex("if 3 > 2\n    # do some stuff\n    stuff()\nend".to_string()){
+            Err(s) => assert!(false),
+            Ok(v) => {
+                assert_eq!("    stuff()", v[5].line_string);
+                assert_eq!(9, v[5].col);
+                assert_eq!(2, v[5].line);
+                assert_eq!(38, v[5].char_index);
+            }
+        }
+    }
+
+    #[bench]
+    fn bench_symbols(b: &mut Bencher) {
+        let num_copies = 1000;
+        let symbol_string = ":.{}()[],->*/%+-<=<>=>===!==!=&&||!$";
+        let mut test_string = String::with_capacity(symbol_string.len() * num_copies);
+        for i in 1..num_copies {
+            test_string.push_str(symbol_string);
+        }
+        b.iter(|| {
+            let mut lexer = Lexer::new();
+            lexer.lex(test_string.clone());
+        });
     }
 }
