@@ -128,9 +128,20 @@ impl<'a> Lexer<'a> {
                 }
                 None => ()
             };
+            //Lex symbols
             if !found_token {
                 for &(s, ref tok_type) in SYMBOL_SPECS.iter() {
-                    if s.len() <= line_slice.len() &&line_slice[0..s.len()] == *s {
+                    let mut got_match = true;
+                    if s.len() > line_slice.len() {
+                        continue;
+                    }
+                    for (s_char, line_char) in s.chars().zip(line_slice.chars()) {
+                        if s_char != line_char {
+                            got_match = false;
+                            break;
+                        }
+                    }
+                    if got_match {
                         match_end = s.len();
                         let new_token = (*tok_type).clone();
                         toks.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
@@ -140,6 +151,7 @@ impl<'a> Lexer<'a> {
                     
                 }
             }
+            //Lex regexes
             if !found_token {
                 for &(ref re, ref tok_func) in lit_regexes.iter() {
                     let (start,end) = match re.find(line_slice) {
@@ -249,6 +261,18 @@ mod test {
                 assert_eq!(9, v[5].col);
                 assert_eq!(2, v[5].line);
                 assert_eq!(38, v[5].char_index);
+            }
+        }
+    }
+
+    #[test]
+    fn test_unicode_space() {
+        let mut lexer = Lexer::new();
+        match lexer.lex("def x: ${  \n    def a: 1\n    def b: 2\n}".to_string()){
+            Err(_) => assert!(false),
+            Ok(v) => {
+                assert_eq!(Token::Get, v[3].token);
+                assert_eq!(Token::OpenCurly, v[4].token);
             }
         }
     }

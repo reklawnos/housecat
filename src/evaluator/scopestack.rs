@@ -37,11 +37,15 @@ fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Result<Vec<&'a str>, String> {
 
 fn get_def_from_idents<'a>(idents: &[&'a str],
                            curr_defs: *mut HashMap<&'a str, VarType<'a>>,
-                           value: Value<'a>) -> Result<Value<'a>, String> {
+                           value: Value<'a>,
+                           create_new: bool) -> Result<Value<'a>, String> {
     match idents {
         [s] => {
             unsafe {
-                if (*curr_defs).contains_key(s) {
+                if (*curr_defs).contains_key(s) && !create_new {
+                    (*curr_defs).insert(s, VarType::Def(value));
+                    Ok(Value::Nil)
+                } else if create_new {
                     (*curr_defs).insert(s, VarType::Def(value));
                     Ok(Value::Nil)
                 } else {
@@ -57,7 +61,7 @@ fn get_def_from_idents<'a>(idents: &[&'a str],
                             &Value::Clip(ref c) => {
                                 let clone = c.clone();
                                 let def = &mut clone.borrow_mut().defs;
-                                let ret = get_def_from_idents(rest, def, value);
+                                let ret = get_def_from_idents(rest, def, value, create_new);
                                 ret
                             }
                             _ => {
@@ -101,47 +105,60 @@ impl<'a> ScopeStack<'a> {
         None
     }
 
+    fn assign_access(&mut self, expr: &'a Expr, value: Value<'a>, create_new: bool) -> Result<Value<'a>, String> {
+        let idents = get_evald!(eval_expr_as_ident(expr));
+        unsafe{
+            for scope in self.scopes.iter_mut().rev() {
+                if idents.len() == 1 {
+                    match (**scope).get(idents[0]) {
+                        Some(&VarType::Var(_)) if !create_new => {
+                            (**scope).insert(idents[0], VarType::Var(value));
+                            return Ok(Value::Nil);
+                        }
+                        Some(&VarType::Def(_)) if !create_new => {
+                            (**scope).insert(idents[0], VarType::Def(value));
+                            return Ok(Value::Nil);
+                        }
+                        Some(&VarType::Var(_)) if create_new => {
+                            return Err(format!("EVAL FAILURE: cannot def to a name that is already a var"));
+                        }
+                        Some(_) => (),
+                        None => {
+                            if create_new {
+                                (**scope).insert(idents[0], VarType::Def(value));
+                                return Ok(Value::Nil);
+                            }
+                        }
+                    }
+                } else {
+                    match (**scope).get(idents[0]) {
+                        Some(v) => {
+                            match v.as_ref() {
+                                &Value::Clip(ref c) => {
+                                    let def = &mut c.borrow_mut().defs;
+                                    let retval = get_def_from_idents(&idents[1..], def, value, create_new);
+                                    return retval;
+                                }
+                                _ => {
+                                    return Err(format!("EVAL FAILURE: cannot assign values to a non-clip"));
+                                }
+                            }
+                        }
+                        None => {
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        return Err(format!("EVAL FAILURE: '{}' was not found in any scope", idents[0]));
+    }
+
     pub fn assign<'b>(&mut self, stmt_item: &'a StmtItem, value: Value<'a>) -> Result<Value<'a>, String> {
         let curr_scope = self.scopes.len() - 1;
         match stmt_item {
             &StmtItem::Bare(ref e) => {
-                let idents = get_evald!(eval_expr_as_ident(e));
-                unsafe{
-                    for scope in self.scopes.iter_mut().rev() {
-                        if idents.len() == 1 {
-                            match (**scope).get(idents[0]) {
-                                Some(&VarType::Var(_)) => {
-                                    (**scope).insert(idents[0], VarType::Var(value));
-                                    return Ok(Value::Nil);
-                                }
-                                Some(&VarType::Def(_)) => {
-                                    (**scope).insert(idents[0], VarType::Def(value));
-                                    return Ok(Value::Nil);
-                                }
-                                None => ()
-                            }
-                        } else {
-                            match (**scope).get(idents[0]) {
-                                Some(v) => {
-                                    match v.as_ref() {
-                                        &Value::Clip(ref c) => {
-                                            let def = &mut c.borrow_mut().defs;
-                                            let retval = get_def_from_idents(&idents[1..], def, value);
-                                            return retval;
-                                        }
-                                        _ => {
-                                            return Err(format!("EVAL FAILURE: cannot assign values to a non-clip"));
-                                        }
-                                    }
-                                }
-                                None => {
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-                return Err(format!("EVAL FAILURE: '{}' was not found in any scope", idents[0]));
+                return self.assign_access(e, value, false);
             },
             &StmtItem::Var(ref s) => {
                 unsafe {
@@ -153,16 +170,8 @@ impl<'a> ScopeStack<'a> {
                     }
                 }
             }
-            //TODO: Allow inserting defs into a clip
             &StmtItem::Def(ref e) => {
-                let idents = get_evald!(eval_expr_as_ident(e));
-                //Only define if it's not yet defined
-                unsafe {
-                    let ref mut curr_scope_val = *self.scopes[curr_scope];
-                    if !curr_scope_val.contains_key(idents[0]) {
-                        curr_scope_val.insert(idents[0], VarType::Def(value));
-                    }
-                }
+                return self.assign_access(e, value, true);
             } 
         }
         Ok(Value::Nil)
