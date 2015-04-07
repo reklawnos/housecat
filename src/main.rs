@@ -93,6 +93,7 @@ impl<'a> FileRunner<'a> {
 #[allow(dead_code)]
 fn main() {
     let command_args: Vec<String> = env::args().collect();
+    evaluator::stack_evaluator::test_stack();
     if command_args.len() <= 1 {
         println!("No .hcat file provided!");
     } else {

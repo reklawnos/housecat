@@ -2,6 +2,7 @@
 mod macros;
 pub mod ast_evaluator;
 pub mod values;
+pub mod stack_evaluator;
 mod scopestack;
 
 use std::collections::HashMap;

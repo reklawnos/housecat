@@ -1,12 +1,13 @@
 #[macro_use]
 mod macros;
 mod stmt;
-mod expr;
+pub mod expr;
 mod clip;
 
 use token::Tok;
 use ast::*;
 use parser::stmt::parse_base_statements;
+
 
 pub enum ParseResult<'a, T> {
     Ok(T, &'a[Tok<'a>]),
