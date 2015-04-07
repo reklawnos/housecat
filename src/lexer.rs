@@ -54,7 +54,7 @@ impl<'a> Lexer<'a> {
             lit_regexes: [
                 (regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?"), Box::new(|s: &'a str| Token::Float(s.parse().unwrap()))),
                 (regex!(r"^[0-9]+"), Box::new(|s: &'a str| Token::Int(s.parse().unwrap()))),
-                (regex!(r"^([A-Za-z_][0-9A-Za-z_]*)"), Box::new(|s: &'a str| {
+                (regex!(r"^((\p{Alphabetic}|\p{M}|\p{Pc}|\p{Join_Control})\w*)"), Box::new(|s: &'a str| {
                     //Match keywords and idents
                     match s {
                         "def" => Token::Def,
@@ -275,6 +275,30 @@ mod test {
                 assert_eq!(Token::OpenCurly, v[4].token);
             }
         }
+    }
+
+    #[test]
+    fn test_idents() {
+        match_tokens(
+            "_i1 i2_a ΔᎠβ_ⅠᏴγδⅡ",
+            vec![
+                Token::Ident("_i1"),
+                Token::Ident("i2_a"),
+                Token::Ident("ΔᎠβ_ⅠᏴγδⅡ")
+            ]
+        )
+    }
+
+    #[test]
+    fn test_starting_with_number() {
+        match_tokens(
+            "3_i1 i2_a",
+            vec![
+                Token::Int(3),
+                Token::Ident("_i1"),
+                Token::Ident("i2_a"),
+            ]
+        )
     }
 
     #[bench]
