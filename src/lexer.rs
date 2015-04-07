@@ -301,6 +301,41 @@ mod test {
         )
     }
 
+    #[test]
+    fn test_comment() {
+        let test_string = "if else #valid as is 3 + 3\n2 + 2 #comments #in #comments\n 5 + 5";
+        match_tokens(
+            test_string,
+            vec![
+                Token::If,
+                Token::Else,
+                Token::Int(2),
+                Token::Add,
+                Token::Int(2),
+                Token::Int(5),
+                Token::Add,
+                Token::Int(5)
+            ]
+        )
+    }
+
+    #[test]
+    fn test_strings() {
+        match_tokens(
+            "def a: \"hello there kind sir\"\ndef b: \"how are you \\\"doing\\\" today?\"",
+            vec![
+                Token::Def,
+                Token::Ident("a"),
+                Token::Assign,
+                Token::String("hello there kind sir".to_string()),
+                Token::Def,
+                Token::Ident("b"),
+                Token::Assign,
+                Token::String("how are you \"doing\" today?".to_string())
+            ]
+        )
+    }
+
     #[bench]
     fn bench_symbols(b: &mut Bencher) {
         let num_copies = 1000;
