@@ -4,6 +4,7 @@ pub mod ast_evaluator;
 pub mod values;
 pub mod stack_evaluator;
 mod scopestack;
+mod codegen;
 
 use std::collections::HashMap;
 use std::rc::Rc;
