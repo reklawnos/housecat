@@ -1,9 +1,10 @@
 use ast::*;
-use evaluator::stack_evaluator::Op;
-use super::*;
+use super::ops::Op;
+//use super::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use super::values::{Value, ClipStruct};
 
 pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
     match expr {
@@ -36,10 +37,12 @@ pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
                 &Literal::Nil => Value::Nil,
                 &Literal::Clip{ref params, ref returns, ref statements} => {
                     let new_defs = HashMap::new();
+                    let mut func_ops = Vec::new();
+                    gen_stmt_list(statements, &mut func_ops);
                     let new_clip = ClipStruct {
-                        params: params,
-                        returns: returns,
-                        statements: statements,
+                        params: params.clone(),
+                        returns: returns.clone(),
+                        statements: func_ops,
                         defs: new_defs
                     };
                     Value::Clip(Rc::new(RefCell::new(new_clip)))

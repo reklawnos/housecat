@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use evaluator::{Value, VarType};
+use super::{Value, VarType};
 use ast::*;
 
 pub struct ScopeStack<'a>{
@@ -106,7 +106,7 @@ impl<'a> ScopeStack<'a> {
     }
 
     fn assign_access(&mut self, expr: &'a Expr, value: Value<'a>, create_new: bool) -> Result<Value<'a>, String> {
-        let idents = get_evald!(eval_expr_as_ident(expr));
+        let idents = try!(eval_expr_as_ident(expr));
         unsafe{
             for scope in self.scopes.iter_mut().rev() {
                 if idents.len() == 1 {

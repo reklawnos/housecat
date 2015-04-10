@@ -1,9 +1,15 @@
+pub mod values;
+mod scopestack;
+
 use ast::*;
 use std::collections::HashMap;
 use std::num::{Int, Float};
 use std::rc::Rc;
 use std::cell::RefCell;
 use super::*;
+
+pub use self::values::{Value, VarType, RustClip, ClipStruct};
+use self::scopestack::ScopeStack;
 
 fn int_pow(lhs: i64, rhs: i64) -> i64 {
     if rhs >= 0 {
@@ -43,7 +49,7 @@ impl<'a> Evaluator<'a> for AstEvaluator<'a> {
             let mut scopes = ScopeStack::new();
             scopes.push(&mut self.rust_clips);
             scopes.push(&mut borrowed_clip.defs);
-            get_evald!(self.eval_stmt_list(borrowed_clip.statements, &mut scopes));
+            try!(self.eval_stmt_list(borrowed_clip.statements, &mut scopes));
         }
         Ok(file_pointer)
     }
@@ -162,7 +168,7 @@ impl<'a> AstEvaluator<'a> {
 
     pub fn eval_expr(&mut self, expr: &'a Expr, scopes: &mut ScopeStack<'a>) -> Result<Value<'a>, String> {
         match expr {
-            &Expr::Literal{ref value, ..} => Ok(get_evald!(AstEvaluator::eval_literal(value))),
+            &Expr::Literal{ref value, ..} => Ok(try!(AstEvaluator::eval_literal(value))),
             &Expr::Ident{ref name, ref data} => {
                 let val = scopes.get(&(**name));
                 match val {
@@ -173,13 +179,13 @@ impl<'a> AstEvaluator<'a> {
             &Expr::Tuple{ref values, ..} => {
                 let mut result_vec = Vec::new();
                 for e in values.iter(){
-                    result_vec.push(get_evald!(self.eval_expr(e, scopes)));
+                    result_vec.push(try!(self.eval_expr(e, scopes)));
                 }
                 Ok(Value::Tuple(result_vec))
             }
             &Expr::BinOp{ref op, ref lhs, ref rhs, ref data} => {
-                let lh_val = get_evald!(self.eval_expr(lhs, scopes));
-                let rh_val = get_evald!(self.eval_expr(rhs, scopes));
+                let lh_val = try!(self.eval_expr(lhs, scopes));
+                let rh_val = try!(self.eval_expr(rhs, scopes));
                 match (&lh_val, &rh_val) {
                     (&Value::Tuple(ref lh_vec), &Value::Tuple(ref rh_vec)) => {
                         if lh_vec.len() != rh_vec.len() {
@@ -187,7 +193,7 @@ impl<'a> AstEvaluator<'a> {
                         }
                         let mut result_vec = Vec::new();
                         for (ref lh, ref rh) in lh_vec.iter().zip(rh_vec.iter()) {
-                            result_vec.push(get_evald!(AstEvaluator::eval_bin_op(lh, rh, op)));
+                            result_vec.push(try!(AstEvaluator::eval_bin_op(lh, rh, op)));
                         }
                         Ok(Value::Tuple(result_vec))
                     }
@@ -198,7 +204,7 @@ impl<'a> AstEvaluator<'a> {
                 }
             }
             &Expr::UnOp{ref op, ref expr, ref data} => {
-                let val = get_evald!(self.eval_expr(expr, scopes));
+                let val = try!(self.eval_expr(expr, scopes));
                 match op {
                     &UnOp::Neg => {
                         match &val {
@@ -226,7 +232,7 @@ impl<'a> AstEvaluator<'a> {
                                         borrowed_clip.defs.insert(*key, VarType::Var(Value::Nil));
                                     }
                                     scopes.push(&mut borrowed_clip.defs);
-                                    get_evald!(self.eval_stmt_list(borrowed_clip.statements, scopes));
+                                    try!(self.eval_stmt_list(borrowed_clip.statements, scopes));
                                     scopes.pop();
                                 }
                                 Ok(Value::Clip(c))
@@ -237,14 +243,14 @@ impl<'a> AstEvaluator<'a> {
                 }
             }
             &Expr::Postfix{ref expr, ref postfixes, ref data} => {
-                let mut curr_val = get_evald!(self.eval_expr(expr, scopes));
+                let mut curr_val = try!(self.eval_expr(expr, scopes));
                 let mut scopes_to_pop = 0;
                 for postfix in postfixes.iter() {
                     match postfix {
                         &Postfix::Play(ref args) => {
                             let mut arg_values = Vec::new();
                             for arg in args.iter() {
-                                arg_values.push(get_evald!(self.eval_expr(arg, scopes)));
+                                arg_values.push(try!(self.eval_expr(arg, scopes)));
                             }
                             match curr_val {
                                 Value::Clip(c) => {
@@ -260,7 +266,7 @@ impl<'a> AstEvaluator<'a> {
                                         borrowed_clip.defs.insert(*key, VarType::Var(Value::Nil));
                                     }
                                     scopes.push(&mut borrowed_clip.defs);
-                                    get_evald!(self.eval_stmt_list(borrowed_clip.statements, scopes));
+                                    try!(self.eval_stmt_list(borrowed_clip.statements, scopes));
                                     scopes.pop();
                                     match borrowed_clip.returns.len() {
                                         0 => {
@@ -284,7 +290,7 @@ impl<'a> AstEvaluator<'a> {
                                     scopes_to_pop = 0;
                                 }
                                 Value::RustClip(b) => {
-                                    curr_val = get_evald!(b.borrow().call(&arg_values, self));
+                                    curr_val = try!(b.borrow().call(&arg_values, self));
                                 }
                                 _ => {return Err(format!("EVAL FAILURE at line {}: can only play clips and RustClips", data.line + 1));}
                             }
@@ -340,18 +346,18 @@ impl<'a> AstEvaluator<'a> {
 
     fn eval_stmt_list(&mut self, stmt_list: &'a Vec<Stmt>,
                           scopes: &mut ScopeStack<'a>) -> Result<Vec<Value<'a>>, String> {
-        let mut ret_list = vec![];
+        let mut ret_list: Vec<Value<'a>> = vec![];
         for st in stmt_list.iter() {
-            let mut values = get_evald!(match st {
+            let mut values: Vec<Value<'a>> = match st {
                 &Stmt::Bare{ref items, ..} => {
                     let mut result_vec = vec![];
                     for i in items.iter() {
-                        result_vec.push(get_evald!(self.eval_bare_stmt_item(i, scopes)));
+                        result_vec.push(try!(self.eval_bare_stmt_item(i, scopes)));
                     }
-                    Ok(result_vec)
+                    result_vec
                 }
                 &Stmt::Assignment{ref items, ref expr, ref data} => {
-                    let expr_value = get_evald!(self.eval_expr(expr, scopes));
+                    let expr_value = try!(self.eval_expr(expr, scopes));
                     match expr_value {
                         Value::Tuple(value_vec) => {
                             if items.len() == value_vec.len() {
@@ -362,25 +368,25 @@ impl<'a> AstEvaluator<'a> {
                                     }
                                 }
                             } else if items.len() == 1 {
-                                get_evald!(scopes.assign(&items[0], Value::Tuple(value_vec)));
+                                try!(scopes.assign(&items[0], Value::Tuple(value_vec)));
                             } else {
                                 return Err(format!("EVAL FAILURE at line {}: wrong arity for this assignment", data.line + 1));
                             }
                         } 
                         _ => {
                             if items.len() == 1 {
-                                get_evald!(scopes.assign(&items[0], expr_value));
+                                try!(scopes.assign(&items[0], expr_value));
                             } else {
                                 return Err(format!("EVAL FAILURE at line {}: too many idents to assign to", data.line + 1));
                             }
                         }
                     }
-                    Ok(vec![])
+                    vec![]
                 }
                 &Stmt::While{ref condition, ref statements, ref data} => {
                     let mut result_vec = vec![];
                     loop {
-                        let expr_val = get_evald!(self.eval_expr(condition, scopes));
+                        let expr_val = try!(self.eval_expr(condition, scopes));
                         match expr_val {
                             Value::Bool(b) => {
                                 if !b {
@@ -393,20 +399,20 @@ impl<'a> AstEvaluator<'a> {
                         }
                         let mut new_scope = HashMap::new();
                         scopes.push(&mut new_scope);
-                        let vals = get_evald!(self.eval_stmt_list(statements, scopes));
+                        let vals = try!(self.eval_stmt_list(statements, scopes));
                         for val in vals.into_iter() {
                             result_vec.push(val);
                         }
                         scopes.pop();
                     }
-                    Ok(result_vec)
+                    result_vec
                 }
                 &Stmt::If{ref clauses, ref data} => {
                     let mut result_vec = vec![];
                     for clause in clauses.iter() {
                         match clause {
                             &IfClause::If{ref condition, ref statements} => {
-                                let expr_val = get_evald!(self.eval_expr(condition, scopes));
+                                let expr_val = try!(self.eval_expr(condition, scopes));
                                 match expr_val {
                                     Value::Bool(b) => {
                                         if !b {
@@ -419,7 +425,7 @@ impl<'a> AstEvaluator<'a> {
                                 }
                                 let mut new_scope = HashMap::new();
                                 scopes.push(&mut new_scope);
-                                let vals = get_evald!(self.eval_stmt_list(statements, scopes));
+                                let vals = try!(self.eval_stmt_list(statements, scopes));
                                 for val in vals.into_iter() {
                                     result_vec.push(val);
                                 }
@@ -429,7 +435,7 @@ impl<'a> AstEvaluator<'a> {
                             &IfClause::Else(ref statements) => {
                                 let mut new_scope = HashMap::new();
                                 scopes.push(&mut new_scope);
-                                let vals = get_evald!(self.eval_stmt_list(statements, scopes));
+                                let vals = try!(self.eval_stmt_list(statements, scopes));
                                 for val in vals.into_iter() {
                                     result_vec.push(val);
                                 }
@@ -438,12 +444,12 @@ impl<'a> AstEvaluator<'a> {
                             }
                         }
                     }
-                    Ok(result_vec)
+                    result_vec
                 }
                 &Stmt::Return{..} => {
                     break;
                 }
-            });
+            };
             ret_list.append(&mut values);
         }
         Ok(ret_list)

@@ -1,47 +1,20 @@
+mod ops;
+pub mod values;
+
 use ast::*;
 use std::collections::HashMap;
 use std::num::{Int, Float};
 use super::*;
 use lexer::Lexer;
 use parser;
-use evaluator::codegen::gen_expr;
+mod codegen;
 
-#[derive(Debug)]
-pub enum Op<'a> {
-    //Stack manipulation
-    Push(Value<'a>), // _ -> a
-    Pop, // a, .. -> ..
-    Jump(usize), // .. -> ..
-    JumpIfFalse(usize), // a -> ..
-    JumpTarget, // .. -> ..
-    //Scoping
-    PushScope,
-    PopScope,
-    //Unary ops
-    Get, // a, .. -> $a ..
-    Neg, // a, .. -> -a ..
-    Not, // a, .. -> !a ..
-    //Binary ops
-    Add, // b, a, .. -> a + b, ..
-    Sub, // b, a, .. -> a - b, ..
-    Mul, // b, a, .. -> a * b, ..
-    Div, // b, a, .. -> a / b, ..
-    Mod, // b, a, .. -> a % b, ..
-    In, // b, a, .. -> a in b, ..
-    Lt, // b, a, .. -> a < b, ..
-    Lte, // b, a, .. -> a <= b, ..
-    Gt, // b, a, .. -> a > b, ..
-    Gte, // b, a, .. -> a >= b, ..
-    Eq, // b, a, .. -> a = b, ..
-    Neq, // b, a, .. -> a != b, ..
-    And, // b, a, .. -> a && b, ..
-    Or, // b, a, .. -> a || b, ..
-    //Variables
-    AssignDef(&'a str), // a, .. -> ..
-    AssignVar(&'a str), // a, .. -> ..
-    //Postfixes
-    Access(&'a str), // a, .. -> a.b, ..
-}
+use self::codegen::gen_expr;
+use self::ops::Op;
+pub use self::values::Value;
+
+type RustClipFuncStack<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
+
 
 macro_rules! check_bin_op(
     ($a:expr, $b:expr, $op_name:expr, $stack:expr, [ $($lhs_type:path, $rhs_type:path => $f:expr => $result_type:path),+ ]) => ({
@@ -185,9 +158,6 @@ pub fn test_stack(){
             Op::Eq => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                let res = match (a, b) {
-                    (Value::Clip(c), Value::Clip(c))
-                }
                 stack.push(Value::Bool(a == b));
             }
             Op::Neq => {

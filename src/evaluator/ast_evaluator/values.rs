@@ -7,15 +7,6 @@ use std::fmt::Result as FmtResult;
 use ast::*;
 use evaluator::RustClipFunc;
 
-macro_rules! get_evald(
-    ($parsed:expr) => ({
-        match $parsed {
-            Ok(t) => t,
-            Err(e) => {return Err(e);}
-        }
-    });
-);
-
 #[derive(Debug, Clone)]
 pub enum Value<'a> {
     Int(i64),

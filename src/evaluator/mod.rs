@@ -1,19 +1,12 @@
-#[macro_use]
-mod macros;
 pub mod ast_evaluator;
-pub mod values;
 pub mod stack_evaluator;
-mod scopestack;
-mod codegen;
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
 use ast::Stmt;
-
-pub use self::values::{ClipStruct, RustClip, Value, VarType};
-pub use self::scopestack::ScopeStack;
+use self::ast_evaluator::values::{Value, VarType, ClipStruct};
 
 pub type RustClipFunc<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
 
