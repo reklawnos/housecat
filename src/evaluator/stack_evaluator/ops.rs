@@ -5,12 +5,20 @@ pub enum Op<'a> {
     //Stack manipulation
     Push(Value<'a>), // _ -> a
     Pop, // a, .. -> ..
+    MakeTuple(usize), // 1, ... N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
+    JumpIfTrue(usize), // a -> ..
     JumpIfFalse(usize), // a -> ..
     JumpTarget, // .. -> ..
     //Scoping
     PushScope,
     PopScope,
+    //Variables
+    //AssignDef(&'a str), // a, .. -> ..
+    //AssignVar(&'a str), // a, .. -> ..
+    Load(&'a str), // .. -> a, ..
+    Store(&'a str), // a, .. -> ..
+    Access(&'a str), // a, .. -> a.b, ..
     //Unary ops
     Get, // a, .. -> $a ..
     Neg, // a, .. -> -a ..
@@ -30,9 +38,4 @@ pub enum Op<'a> {
     Neq, // b, a, .. -> a != b, ..
     And, // b, a, .. -> a && b, ..
     Or, // b, a, .. -> a || b, ..
-    //Variables
-    AssignDef(&'a str), // a, .. -> ..
-    AssignVar(&'a str), // a, .. -> ..
-    //Postfixes
-    Access(&'a str), // a, .. -> a.b, ..
 }
