@@ -74,7 +74,7 @@ pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
                 }
             }
         }
-        &Expr::Tuple{ref values, ref data} => {
+        &Expr::Tuple{ref values, ..} => {
             //Reverse the order, that way we don't have to reverse it at runtime
             for expr in values.iter().rev() {
                 gen_expr(expr, ops);

@@ -5,6 +5,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::fmt::Result as FmtResult;
 use super::ops::Op;
 use super::RustClipFuncStack;
+use evaluator::Evaluator;
 
 #[derive(Debug, Clone)]
 pub enum Value<'a> {
@@ -93,38 +94,26 @@ pub struct ClipStruct<'a> {
     pub params: Vec<&'a str>,
     pub returns: Vec<&'a str>,
     pub statements: Vec<Op<'a>>,
-    pub defs: HashMap<&'a str, VarType<'a>>
+    pub defs: HashMap<&'a str, Value<'a>>
 }
 
 pub struct RustClip<'a> {
     func: Box<RustClipFuncStack<'a>>,
-    pub defs: HashMap<&'a str, VarType<'a>>
+    pub defs: HashMap<&'a str, Value<'a>>
+}
+
+impl<'a> RustClip<'a> {
+    pub fn new(func: Box<RustClipFuncStack<'a>>,
+               defs: HashMap<&'a str, Value<'a>>) -> RustClip<'a> {
+        RustClip{func: func, defs: defs}
+    }
+    pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
+        (*self.func)(args, eval)
+    }
 }
 
 impl<'a> Debug for RustClip<'a> {
     fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
         formatter.write_str("<RustClip>")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum VarType<'a> {
-    Var(Value<'a>),
-    Def(Value<'a>)
-}
-
-impl<'a> VarType<'a> {
-    pub fn as_ref<'r>(&'r self) -> &'r Value<'a> {
-        match *self {
-            VarType::Var(ref v) => v,
-            VarType::Def(ref v) => v 
-        }
-    }
-
-    pub fn unwrap(self) -> Value<'a> {
-        match self {
-            VarType::Var(v) => v,
-            VarType::Def(v) => v
-        }
     }
 }

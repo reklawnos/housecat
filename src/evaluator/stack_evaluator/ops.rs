@@ -4,10 +4,10 @@ use super::values::Value;
 pub enum Op<'a> {
     //Stack manipulation
     Push(Value<'a>), // _ -> a
-    Pop, // a, .. -> ..
+    //Pop, // a, .. -> ..
     MakeTuple(usize), // 1, ... N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
-    JumpIfTrue(usize), // a -> ..
+    //JumpIfTrue(usize), // a -> ..
     JumpIfFalse(usize), // a -> ..
     JumpTarget, // .. -> ..
     //Scoping
