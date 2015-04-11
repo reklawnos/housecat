@@ -1,24 +1,14 @@
 #[macro_export]
-macro_rules! get_parsed(
-    ($parsed:expr) => ({
-        match $parsed {
-            ParseResult::Ok(p, toks) => (p, toks),
-            ParseResult::Err(e) => {return ParseResult::Err(e);}
-        }
-    });
-);
-
-#[macro_export]
 macro_rules! parse_expr_binary_op(
     ($tokens:ident, $parse_lhs:ident, $parse_rhs:ident, [ $($tok:pat => $op:expr),+ ]) => ({
         // <LHS> ...
-        let (parsed_lhs, tokens_after_lhs) = get_parsed!($parse_lhs($tokens));
+        let (parsed_lhs, tokens_after_lhs) = try!($parse_lhs($tokens));
         match tokens_after_lhs {
             $(
                 // ... <op> <RHS>
                 [Tok{token: $tok, ..}, rest..] => {
-                    let (parsed_rhs, tokens_after_term) = get_parsed!($parse_rhs(rest));
-                    ParseResult::Ok(
+                    let (parsed_rhs, tokens_after_term) = try!($parse_rhs(rest));
+                    Ok((
                         Expr::BinOp{
                             op: $op,
                             lhs: Box::new(parsed_lhs),
@@ -26,13 +16,13 @@ macro_rules! parse_expr_binary_op(
                             data: AstData{line: $tokens[0].line}
                         },
                         tokens_after_term
-                    )
+                    ))
                 }
             )+
             // <LHS>
-            [Tok{token: _, ..}, ..] => ParseResult::Ok(parsed_lhs, tokens_after_lhs),
+            [Tok{token: _, ..}, ..] => Ok((parsed_lhs, tokens_after_lhs)),
             // <LHS>
-            [] => ParseResult::Ok(parsed_lhs, tokens_after_lhs),
+            [] => Ok((parsed_lhs, tokens_after_lhs)),
         }
     });
 );
