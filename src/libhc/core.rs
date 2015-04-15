@@ -1,5 +1,5 @@
 use evaluator::Evaluator;
-use evaluator::ast_evaluator::values::Value;
+use evaluator::Value;
 use std::collections::HashMap;
 
 #[allow(unused_variables, dead_code)]

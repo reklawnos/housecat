@@ -8,7 +8,8 @@ static WHITESPACE_REGEX: Regex = regex!(r"^\s");
 static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     //Symbols
     (r":", Token::Assign),
-    (r".", Token::Dot),
+    (r".", Token::Access),
+    (r"|", Token::AccessSelf),
     (r"{", Token::OpenCurly),
     (r"}", Token::CloseCurly),
     (r"[", Token::OpenBrac),

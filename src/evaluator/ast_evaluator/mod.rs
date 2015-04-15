@@ -328,7 +328,8 @@ impl<'a> AstEvaluator<'a> {
                             }
                         }
                         //TODO: Implement indexing
-                        &Postfix::Index(_) => panic!("postfix type not implemented yet")
+                        &Postfix::Index(_) => panic!("postfix type not implemented yet"),
+                        &Postfix::PlaySelf(_, _) => panic!("postfix play self not implemented")
                     }
                 }
                 Ok(curr_val)

@@ -1,24 +1,25 @@
 use super::values::Value;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Op<'a> {
     //Stack manipulation
-    Push(Value<'a>), // _ -> a
-    //Pop, // a, .. -> ..
-    MakeTuple(usize), // 1, ... N, .. -> (1, ..., N), ..
+    Push(Value<'a>), // .. -> a, ..
+    PushClip {params: Vec<&'a str>, returns: Vec<&'a str>, ops: Vec<Op<'a>>}, // .. -> clip, ..
+    MakeTuple(usize), // 1, ..., N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
-    //JumpIfTrue(usize), // a -> ..
-    JumpIfFalse(usize), // a -> ..
+    JumpIfFalse(usize), // bool, .. -> ..
     JumpTarget, // .. -> ..
     //Scoping
     PushScope,
     PopScope,
     //Variables
-    //AssignDef(&'a str), // a, .. -> ..
-    //AssignVar(&'a str), // a, .. -> ..
     Load(&'a str), // .. -> a, ..
     Store(&'a str), // a, .. -> ..
-    Access(&'a str), // a, .. -> a.b, ..
+    Def(Value<'a>), // clip, value, .. -> ..
+    DefSelf(Value<'a>), // value, .. -> ..
+    //Postfixes
+    Access(Value<'a>), // a, .. -> a.b, ..
+    Play(usize), // 1, ..., N, a, .. -> a(1, ..., N), ..
     //Unary ops
     Get, // a, .. -> $a ..
     Neg, // a, .. -> -a ..

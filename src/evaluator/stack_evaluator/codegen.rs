@@ -4,9 +4,9 @@ use super::ops::Op;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use super::values::{Value, ClipStruct};
+use super::values::{Value, ClipStruct, FloatWrap, ClipHolder};
 
-pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
+pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
     match expr {
         &Expr::UnOp{ref expr, ref op, ..} => {
             gen_expr(expr, ops);
@@ -40,26 +40,20 @@ pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
             ops.push(new_op);
         }
         &Expr::Literal{ref value, ..} => {
-            let v = match value {
-                &Literal::Bool(b) => Value::Bool(b),
-                &Literal::Int(i) => Value::Int(i),
-                &Literal::Float(f) => Value::Float(f),
-                &Literal::String(s) => Value::String(s.to_string()),
-                &Literal::Nil => Value::Nil,
+            match value {
+                &Literal::Bool(b) => ops.push(Op::Push(Value::Bool(b))),
+                &Literal::Int(i) => ops.push(Op::Push(Value::Int(i))),
+                &Literal::Float(f) => ops.push(Op::Push(Value::Float(FloatWrap::new(f)))),
+                &Literal::String(s) => ops.push(Op::Push(Value::String(s.to_string()))),
+                &Literal::Nil => ops.push(Op::Push(Value::Nil)),
                 &Literal::Clip{ref params, ref returns, ref statements} => {
-                    let new_defs = HashMap::new();
                     let mut func_ops = Vec::new();
                     gen_stmt_list(statements, &mut func_ops);
-                    let new_clip = ClipStruct {
-                        params: params.clone(),
-                        returns: returns.clone(),
-                        statements: func_ops,
-                        defs: new_defs
-                    };
-                    Value::Clip(Rc::new(RefCell::new(new_clip)))
+                    ops.push(Op::PushClip{params: params.clone(),
+                                          returns: returns.clone(),
+                                          ops: func_ops})
                 }
-            };
-            ops.push(Op::Push(v));
+            }
         }
         &Expr::Ident{ref name, ..} => {
             ops.push(Op::Load(name));
@@ -69,8 +63,9 @@ pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
             for postfix in postfixes.iter() {
                 match postfix {
                     &Postfix::Play(_) => panic!("not implemented: play postfix"),
+                    &Postfix::PlaySelf(_, _) => panic!("not implemented: play self postfix"),
                     &Postfix::Index(_) => panic!("not implemented: index postfix"),
-                    &Postfix::Access(ref s) => ops.push(Op::Access(s))
+                    &Postfix::Access(ref s) => ops.push(Op::Access(Value::String(s.to_string())))
                 }
             }
         }
@@ -79,27 +74,29 @@ pub fn gen_expr<'a>(expr: &'a Expr, ops: &mut Vec<Op<'a>>) {
             for expr in values.iter().rev() {
                 gen_expr(expr, ops);
             }
-            ops.push(Op::MakeTuple(values.len()));
+            if values.len() > 1 {
+                ops.push(Op::MakeTuple(values.len()));
+            }
         }
     }
 }
 
-fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Vec<&'a str> {
+fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Vec<Value<'a>> {
     match expr {
-        &Expr::Ident{name, ..} => vec![name],
+        &Expr::Ident{name, ..} => vec![Value::String(name.to_string())],
         //TODO: implement idents for defining interior values
         &Expr::Postfix{ref expr, ref postfixes, ref data} => {
             let mut result_vec = Vec::new();
             match **expr {
                 Expr::Ident{name, ..} => {
-                    result_vec.push(name);
+                    result_vec.push(Value::String(name.to_string()));
                 }
                 _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
             }
             for postfix in postfixes.iter() {
                 match postfix {
                     &Postfix::Access(s) => {
-                        result_vec.push(s);
+                        result_vec.push(Value::String(s.to_string()));
                     }
                     //TODO: need to do this for index types, too
                     _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
@@ -123,11 +120,16 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
                     ops.push(Op::Store(s));
                 }
                 StmtItem::Bare(ref expr) => {
-                    let idents = eval_expr_as_ident(expr);
-                    if idents.len() > 1 {
-                        panic!("not implemented: assign to clip");
+                    let mut keys = eval_expr_as_ident(expr);
+                    let assign_key = keys.pop().unwrap();
+                    if keys.len() > 0 {
+                        for ident in keys.into_iter() {
+                            ops.push(Op::Access(ident));
+                        }
+                        ops.push(Op::Def(assign_key));
+                    } else {
+                        ops.push(Op::DefSelf(assign_key));
                     }
-                    ops.push(Op::Store(idents[0]));
                 }
                 _ => panic!("not implemented: defs or bare assignment")
             }

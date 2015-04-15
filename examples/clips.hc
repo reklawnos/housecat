@@ -13,3 +13,6 @@ def foo : {
         def butter: "hoo!" + param2
     }
 }
+
+test()
+foo()

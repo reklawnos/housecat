@@ -13,37 +13,14 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
             Ok((Expr::Ident{name: id, data: AstData{line: line}}, rest))
         }
         // "(" <expr> ...
-        [Tok{token: Token::OpenParen, line, col, line_string, ..}, rest..] => {
-            let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            match tokens_after_expr {
-                // ... ")"
-                [Tok{token: Token::CloseParen, ..}, rest..] => Ok((parsed_expr, rest)),
-                // ... "," <expr-list>
-                [Tok{token: Token::Comma, ..}, rest..] => {
-                    let (mut parsed_list, tokens_after_list) = try!(parse_expr_list(rest));
-                    parsed_list.insert(0, parsed_expr);
-                    Ok((Expr::Tuple{values: parsed_list, data: AstData{line: line}},
-                        tokens_after_list))
-                }
-                [Tok{token: ref next_token, line: next_line, col: next_col,
-                     line_string: next_line_string, ..}, ..] => Err(format!(
-                        "PARSING FAILURE at {},{}: Found {:?} but expected ')' to match '(' at {},{}\n{}\n{}",
-                        next_line + 1,
-                        next_col + 1,
-                        next_token,
-                        line + 1,
-                        col + 1,
-                        next_line_string,
-                        get_caret_string(next_col)
-                    )),
-                [] => Err(format!(
-                    "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    line_string,
-                    get_caret_string(col)
-                ))
-            }
+        [Tok{token: Token::OpenParen, line, ..}, rest..] => {
+            let (mut parsed_list, tokens_after_list) = try!(parse_expr_list(rest, Token::CloseParen));
+            // if parsed_list.len() == 1 {
+            //     Ok((parsed_list.remove(0), rest))
+            // } else {
+                Ok((Expr::Tuple{values: parsed_list, data: AstData{line: line}},
+                    tokens_after_list))
+            //}
         },
         // "{" <clip-statements>
         [Tok{token: Token::OpenCurly, line, ..}, rest..] => {
@@ -112,7 +89,8 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
     match tokens_after_expr {
         [ref first_tok, ..] => {
             match first_tok.token {
-                Token::OpenParen | Token::Dot | Token::OpenBrac => {
+                //TODO: fix this - ends up checking the type of this token twice if it's a postfix
+                Token::OpenParen | Token::Access | Token::OpenBrac => {
                     let (parsed_postfixes, tokens_after_postfix) = {
                         try!(parse_postfix_continuation(tokens_after_expr))
                     };
@@ -124,21 +102,34 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         },
         [] => Ok((parsed_expr, tokens_after_expr))
     }
-    
-    //parse_primary_expr(tokens)
 }
 
+// <params>
+fn parse_params<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Expr<'a>>> {
+     match tokens {
+        // ... ")" ...
+        [Tok{token: Token::CloseParen, ..}, rest..] => {
+            Ok((vec![], rest))
+        }
+        [Tok{token: _, ..}, ..] => {
+            parse_expr_list(tokens, Token::CloseParen)
+        }
+        [] => Err(format!("PARSING FAILURE: Reached end of file but expected an expression or ')'"))
+    }
+}
+
+// <postfix-continuation>
 fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postfix<'a>>> {
     match tokens {
         // ... "(" ...
         [Tok{token: Token::OpenParen, ..}, rest..] => {
-            let (parsed_params, tokens_after_params) = try!(parse_expr_list(rest));
+            let (parsed_params, tokens_after_params) = try!(parse_params(rest));
             let (mut postfix_list, tokens_after_postfix) = {
                 try!(parse_postfix_continuation(tokens_after_params))
             };
             postfix_list.insert(0, Postfix::Play(parsed_params));
             Ok((postfix_list, tokens_after_postfix))
-        },
+        }
         // ... "[" ...
         [Tok{token: Token::OpenBrac, line, col, line_string, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
@@ -170,9 +161,9 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                     get_caret_string(col)
                 ))
             }
-        },
-        // ... . ...
-        [Tok{token: Token::Dot, ..}, rest..] => {
+        }
+        // ... "." ...
+        [Tok{token: Token::Access, ..}, rest..] => {
             match rest {
                 // <ident>
                 [Tok{token: Token::Ident(i), ..}, rest..] => {
@@ -192,30 +183,49 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                 )),
                 [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
             }
-        },
+        }
+        // ,,, "|" <ident> "(" ...
+        [Tok{token: Token::AccessSelf, ..}, rest..] => {
+            match rest {
+                // <ident> "(" <params>
+                [Tok{token: Token::Ident(i), ..}, Tok{token: Token::OpenParen, ..}, rest..] => {
+                    let (params_list, tokens_after_params) = try!(parse_params(rest));
+                    let (mut postfix_list, tokens_after_next) = {
+                        try!(parse_postfix_continuation(tokens_after_params))
+                    };
+                    postfix_list.insert(0, Postfix::PlaySelf(i, params_list));
+                    Ok((postfix_list, tokens_after_next))
+                },
+                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+                    "PARSING FAILURE at {},{}: Found {:?} but expected an Ident followed by '('\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+            }
+        }
         // EPS 
         _ => Ok((vec![], tokens))
     }
 }
 
-// <params>
-fn parse_expr_list<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Expr<'a>>> {
+// <expr-list>
+fn parse_expr_list<'a>(tokens: &'a[Tok], delimiter_tok: Token<'a>) -> ParseResult<'a, Vec<Expr<'a>>> {
     match tokens {
-        // )
-        [Tok{token: Token::CloseParen, ..}, rest..] => {
-            Ok((vec![], rest))
-        }
         // <expr> ...
         [Tok{token: _, ..}, ..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(tokens));
             match tokens_after_expr {
-                // ... ")"
-                [Tok{token: Token::CloseParen, ..}, rest..] => {
+                // ... <delimiter_tok>
+                [Tok{ref token, ..}, rest..] if token == &delimiter_tok => {
                     Ok((vec![parsed_expr], rest))
                 },
                 // ... "," ...
                 [Tok{token: Token::Comma, ..}, rest..] => {
-                    let (mut parsed_list, tokens_after_params) = try!(parse_expr_list(rest));
+                    let (mut parsed_list, tokens_after_params) = try!(parse_expr_list(rest, delimiter_tok));
                     parsed_list.insert(0, parsed_expr);
                     Ok((parsed_list, tokens_after_params))
                 }
@@ -230,7 +240,7 @@ fn parse_expr_list<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Expr<'a>>> {
                 [] => Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
             }
         }
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
+        [] => Err(format!("PARSING FAILURE: Reached end of file but expected an expression"))
     }
 }
 

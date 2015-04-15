@@ -12,3 +12,4 @@ path = "src/main.rs"
 [dependencies]
 regex = "0.1.27"
 regex_macros = "0.1.15"
+num = "0.1.22"

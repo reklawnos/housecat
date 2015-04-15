@@ -57,6 +57,7 @@ pub enum Expr<'a> {
 #[derive(Debug)]
 pub enum Postfix<'a> {
     Play(Vec<Expr<'a>>),
+    PlaySelf(&'a str, Vec<Expr<'a>>),
     Index(Box<Expr<'a>>),
     Access(&'a str)
 }
@@ -131,6 +132,6 @@ pub enum IfClause<'a> {
 #[derive(Debug)]
 pub enum StmtItem<'a> {
     Bare(Box<Expr<'a>>),
-    Def(Box<Expr<'a>>),
+    Def(&'a str),
     Var(&'a str)
 }

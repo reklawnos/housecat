@@ -1,61 +1,34 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Error};
 use std::fmt::Result as FmtResult;
+use num::Float;
+use std::mem;
+use core::hash::{Hash, Hasher};
+use core::cmp::Eq;
+
 use super::ops::Op;
 use super::RustClipFuncStack;
 use evaluator::Evaluator;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Value<'a> {
     Int(i64),
-    Float(f64),
+    Float(FloatWrap),
     Bool(bool),
     String(String),
     Tuple(Vec<Value<'a>>),
-    Clip(Rc<RefCell<ClipStruct<'a>>>),
-    RustClip(Rc<RefCell<RustClip<'a>>>),
+    Clip(ClipHolder<'a>),
+    RustClip(RustHolder<'a>),
     Nil
-}
-
-impl<'a> PartialEq for Value<'a> {
-    fn eq(&self, other: &Value<'a>) -> bool {
-        match (self, other) {
-            (&Value::Int(l), &Value::Int(r)) => l == r,
-            (&Value::Float(l), &Value::Float(r)) => l == r,
-            (&Value::Bool(l), &Value::Bool(r)) => l == r,
-            (&Value::String(ref l), &Value::String(ref r)) => l == r,
-            (&Value::Tuple(ref l), &Value::Tuple(ref r)) => l == r,
-            (&Value::Clip(ref l), &Value::Clip(ref r)) => {
-                unsafe {
-                    let l_ptr = l.as_unsafe_cell().get();
-                    let r_ptr = r.as_unsafe_cell().get();
-                    l_ptr == r_ptr
-                }
-            }
-            (&Value::RustClip(ref l), &Value::RustClip(ref r)) => {
-                unsafe {
-                    let l_ptr = l.as_unsafe_cell().get();
-                    let r_ptr = r.as_unsafe_cell().get();
-                    l_ptr == r_ptr
-                }
-            },
-            (&Value::Nil, &Value::Nil) => true,
-            (_, _) => false
-        }
-    }
-
-    fn ne(&self, other: &Value<'a>) -> bool {
-        !self.eq(other)
-    }
 }
 
 impl<'a> Display for Value<'a> {
     fn fmt<'r>(&'r self, formatter: &mut Formatter) -> FmtResult {
         match self {
             &Value::Int(i) => write!(formatter, "{}", i),
-            &Value::Float(f) => write!(formatter, "{}", f),
+            &Value::Float(ref f) => write!(formatter, "{}", f),
             &Value::Bool(b) => write!(formatter, "{}", b),
             &Value::String(ref s) => write!(formatter, "{}", s),
             &Value::Tuple(ref v) => {
@@ -89,22 +62,131 @@ impl<'a> Display for Value<'a> {
     }
 }
 
-#[derive(Debug)]
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct ClipHolder<'a>(pub Rc<RefCell<ClipStruct<'a>>>);
+
+impl<'a> Eq for ClipHolder<'a> {}
+
+impl<'a> Hash for ClipHolder<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.borrow().hash(state);
+    }
+}
+
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct RustHolder<'a>(pub Rc<RefCell<RustClip<'a>>>);
+
+impl<'a> Eq for RustHolder<'a> {}
+
+impl<'a> Hash for RustHolder<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.borrow().hash(state);
+    }
+}
+
+
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct FloatWrap(u64);
+
+impl FloatWrap {
+    pub fn new(mut val: f64) -> FloatWrap {
+        // make all NaNs have the same representation
+        if val.is_nan() {
+            val = Float::nan()
+        }
+        unsafe {
+            FloatWrap(mem::transmute(val))
+        }
+    }
+
+    pub fn get(&self) -> f64 {
+        let cl = self.clone();
+        unsafe {
+            mem::transmute(cl)
+        }
+    }
+}
+
+impl Debug for FloatWrap {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{:?}", self.get())
+    }
+}
+
+impl Display for FloatWrap {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", self.get())
+    }
+}
+
+
 pub struct ClipStruct<'a> {
     pub params: Vec<&'a str>,
     pub returns: Vec<&'a str>,
     pub statements: Vec<Op<'a>>,
-    pub defs: HashMap<&'a str, Value<'a>>
+    pub defs: HashMap<Value<'a>, Value<'a>>
 }
+
+impl<'a> PartialEq for ClipStruct<'a> {
+    fn eq(&self, other: &ClipStruct<'a>) -> bool {
+        let self_ptr: *const ClipStruct<'a> = self;
+        let other_ptr: *const ClipStruct<'a> = other;
+        self_ptr == other_ptr
+    }
+
+    fn ne(&self, other: &ClipStruct<'a>) -> bool {
+        !self.eq(other)
+    }
+}
+
+impl<'a> Eq for ClipStruct<'a> {}
+
+impl<'a> Hash for ClipStruct<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let self_ptr: *const ClipStruct<'a> = self;
+        self_ptr.hash(state);
+    }
+}
+
+impl<'a> Debug for ClipStruct<'a> {
+    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
+        formatter.write_str("<Clip>")
+    }
+}
+
 
 pub struct RustClip<'a> {
     func: Box<RustClipFuncStack<'a>>,
-    pub defs: HashMap<&'a str, Value<'a>>
+    pub defs: HashMap<Value<'a>, Value<'a>>
 }
+
+impl<'a> PartialEq for RustClip<'a> {
+    fn eq(&self, other: &RustClip<'a>) -> bool {
+        let self_ptr: *const RustClip<'a> = self;
+        let other_ptr: *const RustClip<'a> = other;
+        self_ptr == other_ptr
+    }
+
+    fn ne(&self, other: &RustClip<'a>) -> bool {
+        !self.eq(other)
+    }
+}
+
+impl<'a> Eq for RustClip<'a> {}
+
+impl<'a> Hash for RustClip<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let self_ptr: *const RustClip<'a> = self;
+        self_ptr.hash(state);
+    }
+}
+
 
 impl<'a> RustClip<'a> {
     pub fn new(func: Box<RustClipFuncStack<'a>>,
-               defs: HashMap<&'a str, Value<'a>>) -> RustClip<'a> {
+               defs: HashMap<Value<'a>, Value<'a>>) -> RustClip<'a> {
         RustClip{func: func, defs: defs}
     }
     pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {

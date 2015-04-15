@@ -16,7 +16,8 @@ pub enum Token<'a>{
     // Symbols
     Eof,
     Assign,
-    Dot,
+    Access,
+    AccessSelf,
     OpenCurly,
     CloseCurly,
     OpenBrac,

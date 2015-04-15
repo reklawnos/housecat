@@ -17,6 +17,7 @@ Expressions
         | "fn" <clip-def>
         | "(" <expr> ")"
         | "(" <expr> "," <expr-list>
+        | "[" <expr-list-const>
 
     <postfix-expr> ::=
         | <primary-expr> <postfix-continuation>
@@ -24,6 +25,7 @@ Expressions
     <postfix-continuation> ::=
         | "(" <params> <postfix-continuation>
         | "." <ident> <postfix-continuation>
+        | "|" <ident> "(" <params> <postfix-continuation>
         | "[" <expr> "]" <postfix-continuation>
         | ""
 
@@ -33,6 +35,10 @@ Expressions
 
     <expr-list> ::=
         | <expr> ")"
+        | <expr> "," <expr-list>
+
+    <expr-list-const> ::=
+        | <expr> "]"
         | <expr> "," <expr-list>
 
     <unary-expr> ::=
@@ -91,7 +97,7 @@ Statements
 
     <item> ::=
         | "var" <ident>
-        | "def" <expr>
+        | "def" <ident>
         | <expr>
 
     <item-list> ::=

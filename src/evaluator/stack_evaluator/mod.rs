@@ -10,8 +10,10 @@ use parser;
 use self::codegen::gen_stmt_list;
 use self::ops::Op;
 use self::vm::execute;
+use std::collections::HashMap;
+use std::cell::{RefCell, RefMut};
+use std::rc::Rc;
 
-pub use self::values::Value;
 
 pub type RustClipFuncStack<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
 
@@ -22,22 +24,9 @@ fn print_ops(ops: &Vec<Op>) {
     }
 }
 
-pub fn test_stack(){
+pub fn test_stack(file_string: String) {
     println!("testing stack eval...");
     let mut lexer = Lexer::new();
-    let file_string =
-    "\
-    var x: 1\
-    while x < 1000000
-        \"go\"
-        x
-        x: x + 1
-    end
-    if false
-        1
-        2
-        3
-    end".to_string();
     let result = lexer.lex(file_string);
     let mut statements = Vec::new();
     let ast = match result {
@@ -53,8 +42,14 @@ pub fn test_stack(){
         }
     };
     let mut ops = Vec::new();
+    let mut defs = HashMap::new();
+
+    let mut vars = vec![HashMap::new()];
+    
     gen_stmt_list(&ast, &mut ops);
     //println!("ops are: {:?}", ops);
     print_ops(&ops);
-    execute(&ops);
+    let mut stack = Vec::new();
+    
+    execute(&mut ops, &mut stack, &mut vars, &mut defs);
 }
