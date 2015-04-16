@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::cell::{RefCell};
 use std::rc::Rc;
 
-use super::ops::Op;
+use super::ops::{Op, ClipParts};
 use super::values::{Value, FloatWrap, ClipStruct, ClipHolder};
 
 macro_rules! check_bin_op(
@@ -63,15 +63,19 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
     let len = unsafe {(*ops).len()};
     while pc < len {
         match *unsafe {&(*ops)[pc]} {
-            Op::Push(ref v) => {stack.push((*v).clone());},
-            Op::PushClip{ref params, ref returns, ref ops} => {
-                let new_clip = ClipStruct {
-                    params: params.clone(),
-                    returns: returns.clone(),
-                    statements: (*ops).clone(),
-                    defs: HashMap::new()
-                };
-                stack.push(Value::Clip(ClipHolder(Rc::new(RefCell::new(new_clip)))))
+            Op::Push(ref v) => {stack.push((**v).clone());},
+            Op::PushClip(ref parts) => {
+                match **parts {
+                    ClipParts{ref params, ref returns, ref ops} => {
+                        let new_clip = ClipStruct {
+                            params: params.clone(),
+                            returns: returns.clone(),
+                            statements: (*ops).clone(),
+                            defs: HashMap::new()
+                        };
+                        stack.push(Value::Clip(ClipHolder(Rc::new(RefCell::new(new_clip)))))
+                    }
+                }
             }
             Op::MakeTuple(arity) => {
                 let mut tuple_vec = Vec::new();
@@ -130,7 +134,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     Value::Clip(ref c) => {
                         let mut clip = c.0.borrow_mut();
                         let value = stack.pop().unwrap();
-                        clip.defs.insert(key.clone(), value);
+                        clip.defs.insert((**key).clone(), value);
                     }
                     _ => panic!("can't def on a non-clip")
                 };
@@ -138,8 +142,8 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             }
             Op::DefSelf(ref key) => {
                 let mut found_var = false;
-                match key {
-                    &Value::String(ref s) => {
+                match **key {
+                    Value::String(ref s) => {
                         for scope in vars.iter_mut().rev() {
                             if scope.contains_key(&s[..]) {
                                 let value = stack.pop().unwrap();
@@ -153,7 +157,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 }
                 if !found_var {
                     let value = stack.pop().unwrap();
-                    unsafe {(*defs).insert(key.clone(), value)};
+                    unsafe {(*defs).insert((**key).clone(), value)};
                 }
             }
             Op::Access(ref b) => {

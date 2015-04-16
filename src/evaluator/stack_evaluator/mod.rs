@@ -10,7 +10,9 @@ use parser;
 use self::codegen::gen_stmt_list;
 use self::ops::Op;
 use self::vm::execute;
+
 use std::collections::HashMap;
+use std::mem::size_of;
 
 
 pub type RustClipFuncStack<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
@@ -24,6 +26,8 @@ fn print_ops(ops: &Vec<Op>) {
 
 pub fn test_stack(file_string: String) {
     println!("testing stack eval...");
+    println!("op size: {}", size_of::<Op>());
+    println!("value size: {}", size_of::<Value>());
     let mut lexer = Lexer::new();
     let result = lexer.lex(file_string);
     let mut statements = Vec::new();

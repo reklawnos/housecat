@@ -1,5 +1,5 @@
 use ast::*;
-use super::ops::Op;
+use super::ops::{Op, ClipParts};
 //use super::*;
 use super::values::{Value, FloatWrap};
 
@@ -38,17 +38,19 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
         }
         &Expr::Literal{ref value, ..} => {
             match value {
-                &Literal::Bool(b) => ops.push(Op::Push(Value::Bool(b))),
-                &Literal::Int(i) => ops.push(Op::Push(Value::Int(i))),
-                &Literal::Float(f) => ops.push(Op::Push(Value::Float(FloatWrap::new(f)))),
-                &Literal::String(s) => ops.push(Op::Push(Value::String(s.to_string()))),
-                &Literal::Nil => ops.push(Op::Push(Value::Nil)),
+                &Literal::Bool(b) => ops.push(Op::Push(Box::new(Value::Bool(b)))),
+                &Literal::Int(i) => ops.push(Op::Push(Box::new(Value::Int(i)))),
+                &Literal::Float(f) => ops.push(Op::Push(Box::new(Value::Float(FloatWrap::new(f))))),
+                &Literal::String(s) => ops.push(Op::Push(Box::new(Value::String(s.to_string())))),
+                &Literal::Nil => ops.push(Op::Push(Box::new(Value::Nil))),
                 &Literal::Clip{ref params, ref returns, ref statements} => {
                     let mut func_ops = Vec::new();
                     gen_stmt_list(statements, &mut func_ops);
-                    ops.push(Op::PushClip{params: params.clone(),
-                                          returns: returns.clone(),
-                                          ops: func_ops})
+                    ops.push(Op::PushClip(Box::new(ClipParts{
+                        params: params.clone(),
+                        returns: returns.clone(),
+                        ops: func_ops
+                    })));
                 }
             }
         }
@@ -67,7 +69,7 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
                     }
                     &Postfix::PlaySelf(_, _) => panic!("not implemented: play self postfix"),
                     &Postfix::Index(_) => panic!("not implemented: index postfix"),
-                    &Postfix::Access(ref s) => ops.push(Op::Access(Value::String(s.to_string())))
+                    &Postfix::Access(ref s) => ops.push(Op::Access(Box::new(Value::String(s.to_string()))))
                 }
             }
         }
@@ -126,11 +128,11 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
                     let assign_key = keys.pop().unwrap();
                     if keys.len() > 0 {
                         for ident in keys.into_iter() {
-                            ops.push(Op::Access(ident));
+                            ops.push(Op::Access(Box::new(ident)));
                         }
-                        ops.push(Op::Def(assign_key));
+                        ops.push(Op::Def(Box::new(assign_key)));
                     } else {
-                        ops.push(Op::DefSelf(assign_key));
+                        ops.push(Op::DefSelf(Box::new(assign_key)));
                     }
                 }
                 _ => panic!("not implemented: defs or bare assignment")

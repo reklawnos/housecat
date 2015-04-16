@@ -3,8 +3,8 @@ use super::values::Value;
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Op<'a> {
     //Stack manipulation
-    Push(Value<'a>), // .. -> a, ..
-    PushClip {params: Vec<&'a str>, returns: Vec<&'a str>, ops: Vec<Op<'a>>}, // .. -> clip, ..
+    Push(Box<Value<'a>>), // .. -> a, ..
+    PushClip(Box<ClipParts<'a>>), // .. -> clip, ..
     MakeTuple(usize), // 1, ..., N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
     JumpIfFalse(usize), // bool, .. -> ..
@@ -15,10 +15,10 @@ pub enum Op<'a> {
     //Variables
     Load(&'a str), // .. -> a, ..
     Store(&'a str), // a, .. -> ..
-    Def(Value<'a>), // clip, value, .. -> ..
-    DefSelf(Value<'a>), // value, .. -> ..
+    Def(Box<Value<'a>>), // clip, value, .. -> ..
+    DefSelf(Box<Value<'a>>), // value, .. -> ..
     //Postfixes
-    Access(Value<'a>), // a, .. -> a.b, ..
+    Access(Box<Value<'a>>), // a, .. -> a.b, ..
     Play(usize), // 1, ..., N, a, .. -> a(1, ..., N), ..
     //Unary ops
     Get, // a, .. -> $a ..
@@ -39,4 +39,11 @@ pub enum Op<'a> {
     Neq, // b, a, .. -> a != b, ..
     And, // b, a, .. -> a && b, ..
     Or, // b, a, .. -> a || b, ..
+}
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct ClipParts<'a> {
+    pub params: Vec<&'a str>,
+    pub returns: Vec<&'a str>,
+    pub ops: Vec<Op<'a>>
 }
