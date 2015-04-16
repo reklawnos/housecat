@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell};
 use std::rc::Rc;
 
 use super::ops::Op;
@@ -58,7 +58,7 @@ macro_rules! check_bin_op(
 
 pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                    vars: &mut Vec<HashMap<&'a str, Value<'a>>>,
-                   defs: * mut HashMap<Value<'a>, Value<'a>>) {
+                   defs: *mut HashMap<Value<'a>, Value<'a>>) {
     let mut pc: usize = 0;
     let len = unsafe {(*ops).len()};
     while pc < len {
@@ -97,19 +97,27 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::PopScope => {vars.pop();},
             Op::Load(ref s) => {
                 let mut found_var = false;
-                let top_scope = vars.len() - 1;
-                for scope in vars.iter().rev() {
-                    match scope.get(s) {
-                        Some(v) => {
-                            stack.push(v.clone());
-                            found_var = true;
-                            break;
+                match unsafe{(*defs).get(&Value::String(s.to_string()))} {
+                    Some(v) => {
+                        stack.push(v.clone());
+                        found_var = true;
+                    }
+                    None => ()
+                }
+                if !found_var {
+                    for scope in vars.iter().rev() {
+                        match scope.get(s) {
+                            Some(v) => {
+                                stack.push(v.clone());
+                                found_var = true;
+                                break;
+                            }
+                            None => continue
                         }
-                        None => continue
                     }
                 }
                 if !found_var {
-                    panic!("{}: could not find {} in any scope");
+                    panic!("{}: could not find {} in any scope", pc, s);
                 }
             }
             Op::Store(ref s) => {
@@ -132,7 +140,6 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 let mut found_var = false;
                 match key {
                     &Value::String(ref s) => {
-                        let top_scope = vars.len() - 1;
                         for scope in vars.iter_mut().rev() {
                             if scope.contains_key(&s[..]) {
                                 let value = stack.pop().unwrap();
@@ -149,12 +156,22 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     unsafe {(*defs).insert(key.clone(), value)};
                 }
             }
-            Op::Access(_) => {
-                panic!("not implemented: access op")
+            Op::Access(ref b) => {
+                match stack.pop().unwrap() {
+                    Value::Clip(ref c) => {
+                        let clip = c.0.borrow_mut();
+                        let new_val = match clip.defs.get(b) {
+                            Some(v) => v,
+                            None => panic!("{}: no key {} in clip", pc, b)
+                        };
+                        stack.push(new_val.clone());
+                    }
+                    _ => panic!("can't access a non-clip")
+                };
             }
-            Op::Play(u) => {
+            Op::Play(n) => {
                 let mut params = Vec::new();
-                for _ in 0..u {
+                for _ in 0..n {
                     params.push(stack.pop().unwrap());
                 }
                 match stack.pop().unwrap() {
@@ -164,20 +181,48 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         for (ident, value) in clip.params.iter().zip(params.into_iter()) {
                             new_scope.insert(*ident, value);
                         }
+                        for ident in clip.returns.iter() {
+                            new_scope.insert(*ident, Value::Nil);
+                        }
+                        {
+                            vars.push(new_scope);
+                            let mut temp_stack = Vec::new();
+                            execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
+                            let idx = vars.len() - 1;
+                            if clip.returns.len() == 0 {
+                                stack.push(Value::Nil);
+                            } else if clip.returns.len() == 1 {
+                                stack.push(vars[idx].remove(clip.returns[0]).unwrap());
+                            } else {
+                                let mut ret_vec = Vec::new();
+                                for ret in clip.returns.iter() {
+                                    ret_vec.push(vars[idx].remove(*ret).unwrap());
+                                }
+                                stack.push(Value::Tuple(ret_vec));
+                            }
+                            
+                            vars.pop();
+                        }
+                    }
+                    _ => panic!("can't run a non-clip")
+                }
+            }
+            //Unary ops
+            Op::Get => {
+                match stack.pop().unwrap() {
+                    Value::Clip(ref c) => {
+                        let mut clip = c.0.borrow_mut();
+                        let new_scope = HashMap::new();
                         {
                             vars.push(new_scope);
                             let mut temp_stack = Vec::new();
                             execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
                             vars.pop();
                         }
+                        stack.push(Value::Clip(c.clone()));
                     }
-                    _ => panic!("can't run a non-clip")
+                    _ => panic!("can't get a non-clip")
                 }
-                panic!("not implemented: play clip");
-            }
-            //Unary ops
-            Op::Get => {
-                panic!("not implemented: eval get op"); 
             }
             Op::Neg => {
                 let a = stack.pop().unwrap();
@@ -296,8 +341,8 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 ])
             }
         }
+        //println!("{}: {:?}", pc, stack);
         pc += 1;
     }
     println!("{:?}", stack);
-
 }

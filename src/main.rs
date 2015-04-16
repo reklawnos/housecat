@@ -14,8 +14,8 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::env;
 use std::path::Path;
-use evaluator::Evaluator;
-use lexer::Lexer;
+//use evaluator::Evaluator;
+//use lexer::Lexer;
 
 mod token;
 mod ast;

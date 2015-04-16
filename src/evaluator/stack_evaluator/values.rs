@@ -9,8 +9,8 @@ use core::hash::{Hash, Hasher};
 use core::cmp::Eq;
 
 use super::ops::Op;
-use super::RustClipFuncStack;
-use evaluator::Evaluator;
+//use super::RustClipFuncStack;
+//use evaluator::Evaluator;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Value<'a> {
@@ -158,7 +158,7 @@ impl<'a> Debug for ClipStruct<'a> {
 
 
 pub struct RustClip<'a> {
-    func: Box<RustClipFuncStack<'a>>,
+    //func: Box<RustClipFuncStack<'a>>,
     pub defs: HashMap<Value<'a>, Value<'a>>
 }
 
@@ -184,15 +184,15 @@ impl<'a> Hash for RustClip<'a> {
 }
 
 
-impl<'a> RustClip<'a> {
-    pub fn new(func: Box<RustClipFuncStack<'a>>,
-               defs: HashMap<Value<'a>, Value<'a>>) -> RustClip<'a> {
-        RustClip{func: func, defs: defs}
-    }
-    pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
-        (*self.func)(args, eval)
-    }
-}
+// impl<'a> RustClip<'a> {
+//     pub fn new(func: Box<RustClipFuncStack<'a>>,
+//                defs: HashMap<Value<'a>, Value<'a>>) -> RustClip<'a> {
+//         RustClip{func: func, defs: defs}
+//     }
+//     pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
+//         (*self.func)(args, eval)
+//     }
+// }
 
 impl<'a> Debug for RustClip<'a> {
     fn fmt(&self, formatter: &mut Formatter) -> FmtResult {

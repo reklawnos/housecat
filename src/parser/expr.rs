@@ -14,7 +14,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         }
         // "(" <expr> ...
         [Tok{token: Token::OpenParen, line, ..}, rest..] => {
-            let (mut parsed_list, tokens_after_list) = try!(parse_expr_list(rest, Token::CloseParen));
+            let (parsed_list, tokens_after_list) = try!(parse_expr_list(rest, Token::CloseParen));
             // if parsed_list.len() == 1 {
             //     Ok((parsed_list.remove(0), rest))
             // } else {

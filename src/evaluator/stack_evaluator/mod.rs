@@ -11,8 +11,6 @@ use self::codegen::gen_stmt_list;
 use self::ops::Op;
 use self::vm::execute;
 use std::collections::HashMap;
-use std::cell::{RefCell, RefMut};
-use std::rc::Rc;
 
 
 pub type RustClipFuncStack<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
@@ -50,6 +48,5 @@ pub fn test_stack(file_string: String) {
     //println!("ops are: {:?}", ops);
     print_ops(&ops);
     let mut stack = Vec::new();
-    
     execute(&mut ops, &mut stack, &mut vars, &mut defs);
 }

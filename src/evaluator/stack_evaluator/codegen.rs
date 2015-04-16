@@ -1,10 +1,7 @@
 use ast::*;
 use super::ops::Op;
 //use super::*;
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use super::values::{Value, ClipStruct, FloatWrap, ClipHolder};
+use super::values::{Value, FloatWrap};
 
 pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
     match expr {
@@ -62,7 +59,12 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
             gen_expr(expr, ops);
             for postfix in postfixes.iter() {
                 match postfix {
-                    &Postfix::Play(_) => panic!("not implemented: play postfix"),
+                    &Postfix::Play(ref params) => {
+                        for expr in params.iter().rev() {
+                            gen_expr(expr, ops);
+                        }
+                        ops.push(Op::Play(params.len()));
+                    }
                     &Postfix::PlaySelf(_, _) => panic!("not implemented: play self postfix"),
                     &Postfix::Index(_) => panic!("not implemented: index postfix"),
                     &Postfix::Access(ref s) => ops.push(Op::Access(Value::String(s.to_string())))
