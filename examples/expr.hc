@@ -1,11 +1,14 @@
-var y: 3
-var andonify: fn(s, i, b) -> res {
-    res: s
+var y = "it goes on"
+var andonify = fn(s, i, b) -> res {
+    res = s
+    if false
+        return
+    end
     while i > 0
-        i: i - 1
-        res: res + i
+        i = i - 1
+        res = res + " and on"
         res
     end
 }
-y: andonify(y, 10000, false)
+y = andonify(y, 10, false)
 y

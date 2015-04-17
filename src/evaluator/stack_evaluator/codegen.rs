@@ -240,7 +240,7 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
             ops.push(Op::Jump(continue_jump_idx));
             ops.push(Op::JumpTarget);
         }
-        &Stmt::Return{..} => panic!("not implemented: return statement")
+        &Stmt::Return{..} => {ops.push(Op::Return)}
     }
 }
 

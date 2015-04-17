@@ -84,6 +84,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 }
             }
             Op::JumpTarget => (),
+            Op::Return => {return;},
             Op::PushScope => vars.push(HashMap::new()),
             Op::PopScope => {vars.pop();},
             Op::Load(ref s) => {
@@ -182,15 +183,30 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                             vars.push(new_scope);
                             let mut temp_stack = Vec::new();
                             execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
-                            let idx = vars.len() - 1;
                             if clip.returns.len() == 0 {
                                 stack.push(Value::Nil);
                             } else if clip.returns.len() == 1 {
-                                stack.push(vars[idx].remove(clip.returns[0]).unwrap());
+                                for scope in vars.iter_mut().rev() {
+                                    match scope.remove(clip.returns[0]) {
+                                        Some(v) => {
+                                            stack.push(v);
+                                            break;
+                                        }
+                                        None => continue
+                                    }
+                                }
                             } else {
                                 let mut ret_vec = Vec::new();
                                 for ret in clip.returns.iter() {
-                                    ret_vec.push(vars[idx].remove(*ret).unwrap());
+                                    for scope in vars.iter_mut().rev() {
+                                        match scope.remove(ret) {
+                                            Some(v) => {
+                                                ret_vec.push(v);
+                                                break;
+                                            }
+                                            None => continue
+                                        }
+                                    }
                                 }
                                 stack.push(Value::Tuple(ret_vec));
                             }

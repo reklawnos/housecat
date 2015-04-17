@@ -9,6 +9,7 @@ pub enum Op<'a> {
     Jump(usize), // .. -> ..
     JumpIfFalse(usize), // bool, .. -> ..
     JumpTarget, // .. -> ..
+    Return, // .. -> ..
     //Scoping
     PushScope,
     PopScope,
