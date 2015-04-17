@@ -19,19 +19,19 @@ scotsman|print_trueness()  # prints "no I am not a true person", which is syntac
 scotsman.print_trueness(scotsman)  # ...this equivalent statement.
 
 ### list constructor...
-var list: ["a", "b", "c"]
+var list -> ["a", "b", "c"]
 # ...which syntactic sugar for...
-var list: ${
+var list -> ${
     0: "a"
     1: "b"
     3: "c"
 }
 
-### python dict-like set up
-var data_structure: ${
-    "name": "jacobs"
-    "occupation": "miner"
-    "hobbies": [
+### javascript-like definition
+var data_structure = ${
+    name: "jacobs"
+    occupation: "miner"
+    hobbies: [
         "eating",
         "sleeping",
         "underwater basket weaving"

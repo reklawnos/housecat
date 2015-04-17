@@ -28,6 +28,8 @@ pub fn test_stack(file_string: String) {
     println!("testing stack eval...");
     println!("op size: {}", size_of::<Op>());
     println!("value size: {}", size_of::<Value>());
+    println!("boxed size: {}", size_of::<Box<Value>>());
+    println!("string size: {}", size_of::<String>());
     let mut lexer = Lexer::new();
     let result = lexer.lex(file_string);
     let mut statements = Vec::new();
@@ -43,14 +45,14 @@ pub fn test_stack(file_string: String) {
             }
         }
     };
-    let mut ops = Vec::new();
-    let mut defs = HashMap::new();
+    let mut ops = Vec::with_capacity(1024);
+    let mut defs = HashMap::with_capacity(100);
 
-    let mut vars = vec![HashMap::new()];
+    let mut vars = vec![HashMap::with_capacity(1024)];
     
     gen_stmt_list(&ast, &mut ops);
     //println!("ops are: {:?}", ops);
     print_ops(&ops);
-    let mut stack = Vec::new();
+    let mut stack = Vec::with_capacity(2048);
     execute(&mut ops, &mut stack, &mut vars, &mut defs);
 }

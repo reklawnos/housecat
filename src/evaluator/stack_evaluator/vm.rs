@@ -43,19 +43,6 @@ macro_rules! check_bin_op(
     });
 );
 
-// pub fn run<'a>(ops: Vec<Op>, clip: Rc<RefCell<ClipStruct>>) {
-//     let mut clip = Rc::new(RefCell::new(ClipStruct{
-//         statements: ops,
-//         defs: HashMap::new(),
-//         params: vec![],
-//         returns: vec![]
-//     }));
-//     let mut stack = Vec::new();
-//     let mut vars = vec![HashMap::new()];
-//     let mut clip_clone = clip.clone();
-//     execute(clip_clone.borrow_mut(), &mut stack, &mut vars);
-// }
-
 pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                    vars: &mut Vec<HashMap<&'a str, Value<'a>>>,
                    defs: *mut HashMap<Value<'a>, Value<'a>>) {

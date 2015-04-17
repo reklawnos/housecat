@@ -1,36 +1,36 @@
-def person: ${
-    def name: "Jensen"
-    def speak: {
+var person = ${
+    name: "Jensen"
+    speak: {
         print(name)
     }
     speak()
 }
 
-def test: fn() {
+var test = fn() {
     print("abc")
 }
 
-def foo: ${
-    def bar1: fn() -> bagels {
-        def bagels: "test"
+var foo = ${
+    bar1: fn() -> bagels {
+        bagels: "test"
         print("woo!")
     }
-    def bar2: fn(param1, param2) -> (bagel, butter) {
-        def bagel: "woo" + param1
-        def butter: "hoo!" + param2
+    bar2: fn(param1, param2) -> (bagel, butter) {
+        bagel = "woo" + param1
+        butter = "hoo!" + param2
     }
 }
 
-def get_somethings: fn() -> (retval1, retval2, retval3) {
-    retval1: "return 1"
-    retval2: "return 2"
-    retval3: "return 3"
+var get_somethings = fn() -> (retval1, retval2, retval3) {
+    retval1 = "return 1"
+    retval2 = "return 2"
+    retval3 = "return 3"
 }
 
-var x, var y, var z: get_somethings()
+var x, var y, var z = get_somethings()
 
-def get_something_2: fn() -> (retval) {
-    retval: "return"
+var get_something_2 = fn() -> (retval) {
+    retval = "return"
 }
 
 test()
