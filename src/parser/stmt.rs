@@ -23,20 +23,20 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
             }
         }
         // "def" <ident>
-        [Tok{token: Token::Def, ..}, rest..] => {
-            match rest {
-                [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Def(id), rest)),
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
-            }
-        }
+        // [Tok{token: Token::Def, ..}, rest..] => {
+        //     match rest {
+        //         [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Def(id), rest)),
+        //         [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+        //             "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
+        //             line + 1,
+        //             col + 1,
+        //             token,
+        //             line_string,
+        //             get_caret_string(col)
+        //         )),
+        //         [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
+        //     }
+        // }
         // <expr>
         [Tok{token: _, ..}, ..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(tokens));
@@ -66,10 +66,16 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
     let (parsed_items, tokens_after_items) = try!(parse_item_list(tokens));
     match tokens_after_items {
         // ... ":" <expr>
+        [Tok{token: Token::Def, line, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
+            Ok((Stmt::Def{items: parsed_items, expr: Box::new(parsed_expr),
+                                 data: AstData{line: line}}, tokens_after_expr))
+        }
+        // ... "=" <expr>
         [Tok{token: Token::Assign, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            Ok((Stmt::Assignment{items: parsed_items, expr: Box::new(parsed_expr),
-                                 data: AstData{line: line}}, tokens_after_expr))
+            Ok((Stmt::Assign{items: parsed_items, expr: Box::new(parsed_expr),
+                             data: AstData{line: line}}, tokens_after_expr))
         }
         // EPS
         [Tok{line, ..}, ..] => {

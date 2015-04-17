@@ -88,33 +88,38 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::PopScope => {vars.pop();},
             Op::Load(ref s) => {
                 let mut found_var = false;
-                match unsafe{(*defs).get(&Value::String(s.to_string()))} {
-                    Some(v) => {
-                        stack.push(v.clone());
-                        found_var = true;
-                    }
-                    None => ()
-                }
-                if !found_var {
-                    for scope in vars.iter().rev() {
-                        match scope.get(s) {
-                            Some(v) => {
-                                stack.push(v.clone());
-                                found_var = true;
-                                break;
-                            }
-                            None => continue
+                for scope in vars.iter().rev() {
+                    match scope.get(s) {
+                        Some(v) => {
+                            stack.push(v.clone());
+                            found_var = true;
+                            break;
                         }
+                        None => continue
                     }
                 }
                 if !found_var {
                     panic!("{}: could not find {} in any scope", pc, s);
                 }
             }
-            Op::Store(ref s) => {
+            Op::DeclareAndStore(ref s) => {
                 let a = stack.pop().unwrap();
                 let top_idx = vars.len() - 1;
                 vars[top_idx].insert(s, a);
+            }
+            Op::Store(ref s) => {
+                let mut found_var = false;
+                for scope in vars.iter_mut().rev() {
+                    if scope.contains_key(s) {
+                        let a = stack.pop().unwrap();
+                        scope.insert(s, a);
+                        found_var = true;
+                        break;
+                    }
+                }
+                if !found_var {
+                    panic!("{}: could not find {} in any scope", pc, s);
+                }
             }
             Op::Def(ref key) => {
                 match stack.pop().unwrap() {
@@ -123,31 +128,29 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let value = stack.pop().unwrap();
                         clip.defs.insert((**key).clone(), value);
                     }
-                    _ => panic!("can't def on a non-clip")
+                    _ => panic!("{}: can't def on a non-clip", pc)
                 };
                 
             }
             Op::DefSelf(ref key) => {
-                let mut found_var = false;
-                match **key {
-                    Value::String(ref s) => {
-                        for scope in vars.iter_mut().rev() {
-                            if scope.contains_key(&s[..]) {
-                                let value = stack.pop().unwrap();
-                                scope.insert(&*s, value);
-                                found_var = true;
-                                break;
-                            }
-                        }
-                    }
-                    _ => ()
-                }
-                if !found_var {
-                    let value = stack.pop().unwrap();
-                    unsafe {(*defs).insert((**key).clone(), value)};
-                }
+                let value = stack.pop().unwrap();
+                unsafe {(*defs).insert((**key).clone(), value)};
             }
             Op::Access(ref b) => {
+                let idx = stack.len() - 1;
+                let new_val = match stack[idx] {
+                    Value::Clip(ref c) => {
+                        let clip = c.0.borrow_mut();
+                        match clip.defs.get(b) {
+                            Some(v) => v.clone(),
+                            None => panic!("{}: no key {} in clip", pc, b)
+                        }
+                    }
+                    _ => panic!("{}: can't access a non-clip", pc)
+                };
+                stack.push(new_val);
+            }
+            Op::AccessPop(ref b) => {
                 match stack.pop().unwrap() {
                     Value::Clip(ref c) => {
                         let clip = c.0.borrow_mut();
@@ -157,7 +160,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         };
                         stack.push(new_val.clone());
                     }
-                    _ => panic!("can't access a non-clip")
+                    _ => panic!("{}: can't access a non-clip", pc)
                 };
             }
             Op::Play(n) => {
@@ -195,7 +198,46 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                             vars.pop();
                         }
                     }
-                    _ => panic!("can't run a non-clip")
+                    _ => panic!("{}: can't run a non-clip", pc)
+                }
+            }
+            Op::PlaySelf(n) => {
+                let mut params = Vec::new();
+                for _ in 0..n {
+                    params.push(stack.pop().unwrap());
+                }
+                match stack.pop().unwrap() {
+                    Value::Clip(ref c) => {
+                        let mut clip = c.0.borrow_mut();
+                        let mut new_scope = HashMap::new();
+                        params.insert(0, stack.pop().unwrap());
+                        for (ident, value) in clip.params.iter().zip(params.into_iter()) {
+                            new_scope.insert(*ident, value);
+                        }
+                        for ident in clip.returns.iter() {
+                            new_scope.insert(*ident, Value::Nil);
+                        }
+                        {
+                            vars.push(new_scope);
+                            let mut temp_stack = Vec::new();
+                            execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
+                            let idx = vars.len() - 1;
+                            if clip.returns.len() == 0 {
+                                stack.push(Value::Nil);
+                            } else if clip.returns.len() == 1 {
+                                stack.push(vars[idx].remove(clip.returns[0]).unwrap());
+                            } else {
+                                let mut ret_vec = Vec::new();
+                                for ret in clip.returns.iter() {
+                                    ret_vec.push(vars[idx].remove(*ret).unwrap());
+                                }
+                                stack.push(Value::Tuple(ret_vec));
+                            }
+                            
+                            vars.pop();
+                        }
+                    }
+                    _ => panic!("{}: can't run a non-clip", pc)
                 }
             }
             //Unary ops
@@ -212,7 +254,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         }
                         stack.push(Value::Clip(c.clone()));
                     }
-                    _ => panic!("can't get a non-clip")
+                    _ => panic!("{}: can't get a non-clip", pc)
                 }
             }
             Op::Neg => {

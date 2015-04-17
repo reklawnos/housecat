@@ -1,7 +1,6 @@
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub enum Token<'a>{
     // Keywords
-    Def,
     Var,
     Nil,
     Fn,
@@ -16,6 +15,7 @@ pub enum Token<'a>{
     // Symbols
     Eof,
     Assign,
+    Def,
     Access,
     AccessSelf,
     OpenCurly,
@@ -49,8 +49,6 @@ pub enum Token<'a>{
     Gte,
     Eq,
     Neq,
-    Same,
-    Nsame,
     And,
     Or
 }

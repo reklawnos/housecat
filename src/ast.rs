@@ -86,8 +86,6 @@ pub enum BinOp {
     Gte,
     Eq,
     Neq,
-    Same,
-    Nsame,
     And,
     Or
 }
@@ -95,7 +93,12 @@ pub enum BinOp {
 //Statement
 #[derive(Debug)]
 pub enum Stmt<'a> {
-    Assignment {
+    Def {
+        items: Vec<StmtItem<'a>>,
+        expr: Box<Expr<'a>>,
+        data: AstData
+    },
+    Assign {
         items: Vec<StmtItem<'a>>,
         expr: Box<Expr<'a>>,
         data: AstData
@@ -132,6 +135,5 @@ pub enum IfClause<'a> {
 #[derive(Debug)]
 pub enum StmtItem<'a> {
     Bare(Box<Expr<'a>>),
-    Def(&'a str),
     Var(&'a str)
 }

@@ -97,7 +97,6 @@ Statements
 
     <item> ::=
         | "var" <ident>
-        | "def" <ident>
         | <expr>
 
     <item-list> ::=
@@ -107,6 +106,7 @@ Statements
     <stmt-items> ::=
         | <item-list>
         | <item-list> ":" <expr>
+        | <item-list> "=" <expr>
 
     <stmt> ::=
         | <stmt-items>

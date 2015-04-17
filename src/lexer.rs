@@ -7,7 +7,7 @@ static WHITESPACE_REGEX: Regex = regex!(r"^\s");
 
 static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     //Symbols
-    (r":", Token::Assign),
+    (r":", Token::Def),
     (r".", Token::Access),
     (r"|", Token::AccessSelf),
     (r"{", Token::OpenCurly),
@@ -28,15 +28,15 @@ static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     (r"<", Token::Lt),
     (r">=", Token::Gte),
     (r">", Token::Gt),
-    (r"==", Token::Same),
-    (r"=", Token::Eq),
-    (r"!==", Token::Nsame),
+    (r"==", Token::Eq),
     (r"!=", Token::Neq),
     (r"&&", Token::And),
     (r"||", Token::Or),
     //Unary Operators
     (r"!", Token::Not),
     (r"$", Token::Get),
+
+    (r"=", Token::Assign)
 ];
 
 pub struct Lexer<'a> {
@@ -58,7 +58,6 @@ impl<'a> Lexer<'a> {
                 (regex!(r"^((\p{Alphabetic}|\p{M}|\p{Pc}|\p{Join_Control})\w*)"), Box::new(|s: &'a str| {
                     //Match keywords and idents
                     match s {
-                        "def" => Token::Def,
                         "var" => Token::Var,
                         "nil" => Token::Nil,
                         "fn" => Token::Fn,

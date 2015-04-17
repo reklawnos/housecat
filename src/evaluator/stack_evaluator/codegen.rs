@@ -67,9 +67,15 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
                         }
                         ops.push(Op::Play(params.len()));
                     }
-                    &Postfix::PlaySelf(_, _) => panic!("not implemented: play self postfix"),
+                    &Postfix::PlaySelf(ref ident, ref params) => {
+                        ops.push(Op::Access(Box::new(Value::String(ident.to_string()))));
+                        for expr in params.iter().rev() {
+                            gen_expr(expr, ops);
+                        }
+                        ops.push(Op::PlaySelf(params.len()));
+                    }
                     &Postfix::Index(_) => panic!("not implemented: index postfix"),
-                    &Postfix::Access(ref s) => ops.push(Op::Access(Box::new(Value::String(s.to_string()))))
+                    &Postfix::Access(ref s) => ops.push(Op::AccessPop(Box::new(Value::String(s.to_string()))))
                 }
             }
         }
@@ -85,22 +91,22 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
     }
 }
 
-fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Vec<Value<'a>> {
+fn eval_expr_as_ident_values<'a>(expr: &'a Expr) -> Vec<&'a str> {
     match expr {
-        &Expr::Ident{name, ..} => vec![Value::String(name.to_string())],
+        &Expr::Ident{name, ..} => vec![name],
         //TODO: implement idents for defining interior values
         &Expr::Postfix{ref expr, ref postfixes, ref data} => {
             let mut result_vec = Vec::new();
             match **expr {
                 Expr::Ident{name, ..} => {
-                    result_vec.push(Value::String(name.to_string()));
+                    result_vec.push(name);
                 }
                 _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
             }
             for postfix in postfixes.iter() {
                 match postfix {
                     &Postfix::Access(s) => {
-                        result_vec.push(Value::String(s.to_string()));
+                        result_vec.push(s);
                     }
                     //TODO: need to do this for index types, too
                     _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
@@ -112,30 +118,55 @@ fn eval_expr_as_ident<'a>(expr: &'a Expr) -> Vec<Value<'a>> {
     }
 }
 
+
+fn eval_expr_as_ident_str<'a>(expr: &'a Expr) -> &'a str {
+    match expr {
+        &Expr::Ident{name, ..} => name,
+        _ => panic!("not an ident type")
+    }
+}
+
 pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
     match stmt {
-        &Stmt::Assignment{ref items, ref expr, ..} => {
+        &Stmt::Assign{ref items, ref expr, ..} => {
             gen_expr(expr, ops);
             if items.len() > 1 {
                 panic!("not implemented: tuple assignment");
             }
             match items[0] {
                 StmtItem::Var(s) => {
-                    ops.push(Op::Store(s));
+                    ops.push(Op::DeclareAndStore(s));
                 }
                 StmtItem::Bare(ref expr) => {
-                    let mut keys = eval_expr_as_ident(expr);
+                    let key = eval_expr_as_ident_str(expr);
+                    ops.push(Op::Store(key));
+                }
+            }
+        }
+        &Stmt::Def{ref items, ref expr, ..} => {
+            let mut new_ops = Vec::new();
+            gen_expr(expr, &mut new_ops);
+            println!("new_ops: {:?}", &new_ops);
+            ops.append(&mut new_ops);
+            if items.len() > 1 {
+                panic!("not implemented: tuple defs");
+            }
+            match items[0] {
+                StmtItem::Bare(ref expr) => {
+                    let mut keys = eval_expr_as_ident_values(expr);
                     let assign_key = keys.pop().unwrap();
                     if keys.len() > 0 {
+                        let base_ident = keys.remove(0);
+                        ops.push(Op::Load(base_ident));
                         for ident in keys.into_iter() {
-                            ops.push(Op::Access(Box::new(ident)));
+                            ops.push(Op::Access(Box::new(Value::String(ident.to_string()))));
                         }
-                        ops.push(Op::Def(Box::new(assign_key)));
+                        ops.push(Op::Def(Box::new(Value::String(assign_key.to_string()))));
                     } else {
-                        ops.push(Op::DefSelf(Box::new(assign_key)));
+                        ops.push(Op::DefSelf(Box::new(Value::String(assign_key.to_string()))));
                     }
                 }
-                _ => panic!("not implemented: defs or bare assignment")
+                _ => panic!("cannot def without bare item")
             }
         }
         &Stmt::Bare{ref items, ..} => {

@@ -90,7 +90,7 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         [ref first_tok, ..] => {
             match first_tok.token {
                 //TODO: fix this - ends up checking the type of this token twice if it's a postfix
-                Token::OpenParen | Token::Access | Token::OpenBrac => {
+                Token::OpenParen | Token::Access | Token::AccessSelf | Token::OpenBrac => {
                     let (parsed_postfixes, tokens_after_postfix) = {
                         try!(parse_postfix_continuation(tokens_after_expr))
                     };
@@ -184,7 +184,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                 [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
             }
         }
-        // ,,, "|" <ident> "(" ...
+        // ... "|" <ident> "(" ...
         [Tok{token: Token::AccessSelf, ..}, rest..] => {
             match rest {
                 // <ident> "(" <params>
@@ -344,9 +344,7 @@ fn parse_equality_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         parse_equality_expr,
         [
             Token::Eq => BinOp::Eq,
-            Token::Neq => BinOp::Neq,
-            Token::Same => BinOp::Same,
-            Token::Nsame => BinOp::Nsame
+            Token::Neq => BinOp::Neq
         ]
     )
 }

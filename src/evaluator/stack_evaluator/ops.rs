@@ -14,12 +14,15 @@ pub enum Op<'a> {
     PopScope,
     //Variables
     Load(&'a str), // .. -> a, ..
-    Store(&'a str), // a, .. -> ..
+    DeclareAndStore(&'a str), // a, .. -> ..
+    Store(&'a str),
     Def(Box<Value<'a>>), // clip, value, .. -> ..
     DefSelf(Box<Value<'a>>), // value, .. -> ..
     //Postfixes
-    Access(Box<Value<'a>>), // a, .. -> a.b, ..
+    Access(Box<Value<'a>>), // a, .. -> a.b, a, ..
+    AccessPop(Box<Value<'a>>), // a, .. -> a.b, ..
     Play(usize), // 1, ..., N, a, .. -> a(1, ..., N), ..
+    PlaySelf(usize), // 1, ..., N, func, self, .. -> func(self, 1, ..., N), ..
     //Unary ops
     Get, // a, .. -> $a ..
     Neg, // a, .. -> -a ..
