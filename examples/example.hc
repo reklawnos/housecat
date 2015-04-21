@@ -1,18 +1,18 @@
 var person = ${
     name: "Jensen"
     speak: fn(self){
-        self.name
+        print(self.name)
     }
 }
 
 var test = fn() {
-    "abc"
+    print("abc")
 }
 
 var foo = ${
     bar1: fn() -> bagels {
         bagels = "test"
-        "woo!"
+        print("woo!")
     }
     # bar2: fn(param1, param2) -> (bagel, butter) {
     #    bagel = "woo" + param1
@@ -33,8 +33,8 @@ var get_something_2 = fn() -> (retval) {
 }
 
 test()
-person.name
+print(person.name)
 person.name: "Alfred"
-person.name
+print(person.name)
 person|speak()
-"bagel"
+print("bagel")

@@ -13,9 +13,11 @@ use self::vm::execute;
 
 use std::collections::HashMap;
 use std::mem::size_of;
+use std::rc::Rc;
+use std::cell::RefCell;
 
-
-pub type RustClipFuncStack<'a> = Fn(&Vec<Value<'a>>, &mut Evaluator<'a>) -> Result<Value<'a>, String>;
+use libhc::open_libs;
+use self::values::RustHolder;
 
 
 fn print_ops(ops: &Vec<Op>) {
@@ -45,10 +47,16 @@ pub fn test_stack(file_string: String) {
             }
         }
     };
+    let libs = open_libs();
     let mut ops = Vec::with_capacity(1024);
     let mut defs = HashMap::with_capacity(100);
-
-    let mut vars = vec![HashMap::with_capacity(1024)];
+    let mut var_map = HashMap::with_capacity(1024);
+    let mut id = 0usize;
+    for (key, rc) in libs.into_iter() {
+        var_map.insert(key, Value::RustClip(RustHolder{clip: Rc::new(RefCell::new(rc)), id: id}));
+        id += 1;
+    }
+    let mut vars = vec![var_map];
     
     gen_stmt_list(&ast, &mut ops);
     //println!("ops are: {:?}", ops);

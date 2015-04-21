@@ -1,7 +1,7 @@
-var s: 1
-var x: 1
+var s = 1
+var x = 1
 while x < 1000001
-    s: (s * x) % 4231432143214
-    x: x + 1
+    s = (s * x) % 4231432143214
+    x = x + 1
 end
-s
+print(s)

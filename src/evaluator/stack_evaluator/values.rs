@@ -63,6 +63,37 @@ impl<'a> Display for Value<'a> {
 }
 
 
+#[derive(Clone, Debug)]
+pub struct RustHolder<'a> {
+    pub clip: Rc<RefCell<Box<RustClip<'a> + 'a>>>,
+    pub id: usize
+}
+
+impl<'a> Eq for RustHolder<'a> {}
+
+impl<'a> PartialEq for RustHolder<'a> {
+    fn eq(&self, other: &RustHolder<'a>) -> bool {
+        self.id == other.id
+    }
+
+    fn ne(&self, other: &RustHolder<'a>) -> bool {
+        self.id != other.id
+    }
+}
+
+impl<'a> Hash for RustHolder<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+pub trait RustClip<'a>: Debug{
+    fn get(&self, &str) -> Option<Value<'a>>;
+    fn set(&mut self, &str, Value<'a>) -> Result<(), &str>;
+    fn call(&mut self, Vec<Value<'a>>) -> Result<Value<'a>, &str>;
+}
+
+
 #[derive(PartialEq, Clone, Debug)]
 pub struct ClipHolder<'a>(pub Rc<RefCell<ClipStruct<'a>>>);
 
@@ -71,53 +102,6 @@ impl<'a> Eq for ClipHolder<'a> {}
 impl<'a> Hash for ClipHolder<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.borrow().hash(state);
-    }
-}
-
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct RustHolder<'a>(pub Rc<RefCell<RustClip<'a>>>);
-
-impl<'a> Eq for RustHolder<'a> {}
-
-impl<'a> Hash for RustHolder<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.borrow().hash(state);
-    }
-}
-
-
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct FloatWrap(u64);
-
-impl FloatWrap {
-    pub fn new(mut val: f64) -> FloatWrap {
-        // make all NaNs have the same representation
-        if val.is_nan() {
-            val = Float::nan()
-        }
-        unsafe {
-            FloatWrap(mem::transmute(val))
-        }
-    }
-
-    pub fn get(&self) -> f64 {
-        let cl = self.clone();
-        unsafe {
-            mem::transmute(cl)
-        }
-    }
-}
-
-impl Debug for FloatWrap {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{:?}", self.get())
-    }
-}
-
-impl Display for FloatWrap {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "{}", self.get())
     }
 }
 
@@ -156,46 +140,36 @@ impl<'a> Debug for ClipStruct<'a> {
     }
 }
 
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct FloatWrap(u64);
 
-pub struct RustClip<'a> {
-    //func: Box<RustClipFuncStack<'a>>,
-    pub defs: HashMap<Value<'a>, Value<'a>>
-}
-
-impl<'a> PartialEq for RustClip<'a> {
-    fn eq(&self, other: &RustClip<'a>) -> bool {
-        let self_ptr: *const RustClip<'a> = self;
-        let other_ptr: *const RustClip<'a> = other;
-        self_ptr == other_ptr
+impl FloatWrap {
+    pub fn new(mut val: f64) -> FloatWrap {
+        // make all NaNs have the same representation
+        if val.is_nan() {
+            val = Float::nan()
+        }
+        unsafe {
+            FloatWrap(mem::transmute(val))
+        }
     }
 
-    fn ne(&self, other: &RustClip<'a>) -> bool {
-        !self.eq(other)
-    }
-}
-
-impl<'a> Eq for RustClip<'a> {}
-
-impl<'a> Hash for RustClip<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let self_ptr: *const RustClip<'a> = self;
-        self_ptr.hash(state);
+    pub fn get(&self) -> f64 {
+        let cl = self.clone();
+        unsafe {
+            mem::transmute(cl)
+        }
     }
 }
 
+impl Debug for FloatWrap {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{:?}", self.get())
+    }
+}
 
-// impl<'a> RustClip<'a> {
-//     pub fn new(func: Box<RustClipFuncStack<'a>>,
-//                defs: HashMap<Value<'a>, Value<'a>>) -> RustClip<'a> {
-//         RustClip{func: func, defs: defs}
-//     }
-//     pub fn call(&self, args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
-//         (*self.func)(args, eval)
-//     }
-// }
-
-impl<'a> Debug for RustClip<'a> {
-    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
-        formatter.write_str("<RustClip>")
+impl Display for FloatWrap {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(f, "{}", self.get())
     }
 }

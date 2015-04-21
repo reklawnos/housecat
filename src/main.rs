@@ -23,7 +23,7 @@ mod parser;
 mod lexer;
 mod utils;
 mod evaluator;
-//mod libhc;
+mod libhc;
 
 static DEBUG: bool = false;
 

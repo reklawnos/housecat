@@ -214,6 +214,9 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                             vars.pop();
                         }
                     }
+                    Value::RustClip(ref rc) => {
+                        rc.clip.borrow_mut().call(params);
+                    }
                     _ => panic!("{}: can't run a non-clip", pc)
                 }
             }
@@ -393,5 +396,5 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
         //println!("{}: {:?}", pc, stack);
         pc += 1;
     }
-    println!("{:?}", stack);
+    //println!("{:?}", stack);
 }
