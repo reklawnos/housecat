@@ -74,7 +74,10 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
                         }
                         ops.push(Op::PlaySelf(params.len()));
                     }
-                    &Postfix::Index(_) => panic!("not implemented: index postfix"),
+                    &Postfix::Index(ref expr) => {
+                        gen_expr(expr, ops);
+                        ops.push(Op::GetAndAccess);
+                    }//panic!("not implemented: index postfix"),
                     &Postfix::Access(ref s) => ops.push(Op::AccessPop(Box::new(Value::String(s.to_string()))))
                 }
             }
@@ -239,6 +242,36 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
             //Jump back to the beginning to continue
             ops.push(Op::Jump(continue_jump_idx));
             ops.push(Op::JumpTarget);
+        }
+        &Stmt::For{ref idents, ref iterator, ref statements, ..} => {
+            if idents.len() > 1 {
+                panic!("can't do tuple assignment in for loops yet");
+            }
+            gen_expr(iterator, ops);
+            ops.push(Op::PushScope);
+            ops.push(Op::PushIterator);
+            //Index to jump to when continuing = first jump target
+            let continue_jump_idx = ops.len();
+            //Code for: iterator|next() != nil
+            ops.push(Op::JumpTarget);
+            ops.push(Op::RetrieveIterator);
+            ops.push(Op::Access(Box::new(Value::String("next".to_string()))));
+            ops.push(Op::PlaySelf(0));
+            ops.push(Op::DeclareAndStore(idents[0]));
+            ops.push(Op::Load(idents[0]));
+            ops.push(Op::Push(Box::new(Value::Nil)));
+            ops.push(Op::Neq);
+            let mut body_ops = Vec::new();
+            gen_stmt_list(statements, &mut body_ops);
+            //JumpIfFalse to the jump target after the statement list and the continue jump
+            let break_jump_idx = ops.len() + body_ops.len() + 2;
+            ops.push(Op::JumpIfFalse(break_jump_idx));
+            ops.append(&mut body_ops);
+            //Jump back to the beginning to continue
+            ops.push(Op::Jump(continue_jump_idx));
+            ops.push(Op::JumpTarget);
+            ops.push(Op::PopIterator);
+            ops.push(Op::PopScope);
         }
         &Stmt::Return{..} => {ops.push(Op::Return)}
     }

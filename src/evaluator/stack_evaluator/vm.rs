@@ -48,6 +48,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                    defs: *mut HashMap<Value<'a>, Value<'a>>) {
     let mut pc: usize = 0;
     let len = unsafe {(*ops).len()};
+    let mut iterators = Vec::new();
     while pc < len {
         match *unsafe {&(*ops)[pc]} {
             Op::Push(ref v) => {stack.push((**v).clone());},
@@ -85,6 +86,17 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             }
             Op::JumpTarget => (),
             Op::Return => {return;},
+            Op::PushIterator => {
+                let a = stack.pop().unwrap();
+                iterators.push(a);
+            }
+            Op::PopIterator => {
+                iterators.pop();
+            }
+            Op::RetrieveIterator => {
+                let idx = iterators.len() - 1;
+                stack.push(iterators[idx].clone());
+            }
             Op::PushScope => vars.push(HashMap::new()),
             Op::PopScope => {vars.pop();},
             Op::Load(ref s) => {
@@ -136,6 +148,20 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::DefSelf(ref key) => {
                 let value = stack.pop().unwrap();
                 unsafe {(*defs).insert((**key).clone(), value)};
+            }
+            Op::GetAndAccess => {
+                let b = stack.pop().unwrap();
+                match stack.pop().unwrap() {
+                    Value::Clip(ref c) => {
+                        let clip = c.0.borrow_mut();
+                        let new_val = match clip.defs.get(&b) {
+                            Some(v) => v,
+                            None => panic!("{}: no key {} in clip", pc, b)
+                        };
+                        stack.push(new_val.clone());
+                    }
+                    _ => panic!("{}: can't access a non-clip", pc)
+                };
             }
             Op::Access(ref b) => {
                 let idx = stack.len() - 1;
@@ -334,7 +360,12 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 ])
             }
             Op::In => {
-                panic!("not implemented: 'in' operation");
+                // let b = stack.pop().unwrap();
+                // let a = stack.pop().unwrap();
+                // match b {
+
+                // }
+                panic!("not implemented: binary in")
             }
             Op::Lt => {
                 let b = stack.pop().unwrap();

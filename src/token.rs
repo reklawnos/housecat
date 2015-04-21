@@ -10,6 +10,7 @@ pub enum Token<'a>{
     Else,
     Elif,
     While,
+    For,
     End,
 
     // Symbols

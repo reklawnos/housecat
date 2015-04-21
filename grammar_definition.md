@@ -112,6 +112,7 @@ Statements
         | <stmt-items>
         | "if" <expr> <if-statements>
         | "while" <expr> <block-statements>
+        | "for" <rets> "in" <expr> <block-statemnts>
         | "return"
 
     <if-statements> ::=

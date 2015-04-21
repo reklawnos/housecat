@@ -116,6 +116,12 @@ pub enum Stmt<'a> {
         statements: Vec<Stmt<'a>>,
         data: AstData
     },
+    For {
+        idents: Vec<&'a str>,
+        iterator: Box<Expr<'a>>,
+        statements: Vec<Stmt<'a>>,
+        data: AstData
+    },
     Return {
         data: AstData
     }

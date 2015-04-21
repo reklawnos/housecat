@@ -67,6 +67,7 @@ impl<'a> Lexer<'a> {
                         "else" => Token::Else,
                         "elif" => Token::Elif,
                         "while" => Token::While,
+                        "for" => Token::For,
                         "end" => Token::End,
                         "true" => Token::Bool(true),
                         "false" => Token::Bool(false),

@@ -56,7 +56,7 @@ fn parse_params<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
 }
 
 // <rets>
-fn parse_rets<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
+pub fn parse_rets<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
     match tokens {
         // "(" <ident-list>
         [Tok{token: Token::OpenParen, ..}, rest..] => parse_ident_list(rest),

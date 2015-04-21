@@ -2,6 +2,7 @@ use token::{Token, Tok};
 use ast::*;
 use utils::*;
 use parser::expr::parse_expr;
+use parser::clip::parse_rets;
 use parser::ParseResult;
 
 // <item>
@@ -103,7 +104,27 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
             let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
             Ok((Stmt::While{condition: Box::new(parsed_expr), statements: stmt_list,
                             data: AstData{line: line}}, tokens_after_list))
-
+        }
+        // "for" <rets> "in" <expr> <block-statements>
+        [Tok{token: Token::For, line, ..}, rest..] => {
+            let (parsed_rets, tokens_after_rets) = try!(parse_rets(rest));
+            match tokens_after_rets {
+                [Tok{token: Token::In, line, ..}, rest..] => {
+                    let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
+                    let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
+                    Ok((Stmt::For{idents: parsed_rets, iterator: Box::new(parsed_expr), statements: stmt_list,
+                                    data: AstData{line: line}}, tokens_after_list))
+                }
+                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+                    "PARSING FAILURE at {},{}: Expected 'in' but found {:?}\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'in'"))
+            }
         }
         // "return"
         [Tok{token: Token::Return, line, ..}, rest..] => {

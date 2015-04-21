@@ -10,6 +10,9 @@ pub enum Op<'a> {
     JumpIfFalse(usize), // bool, .. -> ..
     JumpTarget, // .. -> ..
     Return, // .. -> ..
+    PushIterator, // a, .. -> ..
+    PopIterator, // .. -> ..
+    RetrieveIterator, // .. -> a, ..
     //Scoping
     PushScope,
     PopScope,
@@ -20,6 +23,7 @@ pub enum Op<'a> {
     Def(Box<Value<'a>>), // clip, value, .. -> ..
     DefSelf(Box<Value<'a>>), // value, .. -> ..
     //Postfixes
+    GetAndAccess, // b, a, .. -> a.b, ..
     Access(Box<Value<'a>>), // a, .. -> a.b, a, ..
     AccessPop(Box<Value<'a>>), // a, .. -> a.b, ..
     Play(usize), // 1, ..., N, a, .. -> a(1, ..., N), ..
