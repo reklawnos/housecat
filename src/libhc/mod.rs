@@ -3,8 +3,7 @@ mod io;
 
 use libhc::io::open_io;
 //use libhc::core::open_core;
-use evaluator::Evaluator;
-use evaluator::stack_evaluator::values::{Value, RustClip};
+use evaluator::stack_evaluator::values::RustClip;
 use std::collections::HashMap;
 
 #[allow(dead_code)]

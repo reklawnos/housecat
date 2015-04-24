@@ -1,4 +1,4 @@
-use evaluator::stack_evaluator::values::{Value, RustClip, RustHolder};
+use evaluator::stack_evaluator::values::{Value, RustClip};
 use std::collections::HashMap;
 
 

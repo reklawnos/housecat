@@ -1,4 +1,3 @@
-use evaluator::Evaluator;
 use evaluator::stack_evaluator::Value;
 use std::collections::HashMap;
 

@@ -14,8 +14,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::env;
 use std::path::Path;
-//use evaluator::Evaluator;
-//use lexer::Lexer;
+use lexer::Lexer;
 
 mod token;
 mod ast;
@@ -114,6 +113,21 @@ fn main() {
             Err(err) => panic!("couldn't read {}: {}", path.display(), err),
             Ok(_) => {}
         }
-        evaluator::stack_evaluator::test_stack(file_string);
+        let mut lexer = Lexer::new();
+        let result = lexer.lex(file_string);
+        let mut statements = Vec::new();
+        let ast = match result {
+            Err(_) => {
+                panic!("failed to lex");
+            }
+            Ok(toks) => {
+                let parse_result = parser::parse_tokens(&toks[..], &mut statements);
+                match parse_result {
+                    Ok(v) => v,
+                    Err(s) => panic!("failed to parse: {}", s)
+                }
+            }
+        };
+        evaluator::stack_evaluator::test_stack(&ast);
     }
 }

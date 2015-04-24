@@ -109,7 +109,7 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
         [Tok{token: Token::For, line, ..}, rest..] => {
             let (parsed_rets, tokens_after_rets) = try!(parse_rets(rest));
             match tokens_after_rets {
-                [Tok{token: Token::In, line, ..}, rest..] => {
+                [Tok{token: Token::In, ..}, rest..] => {
                     let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
                     let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
                     Ok((Stmt::For{idents: parsed_rets, iterator: Box::new(parsed_expr), statements: stmt_list,

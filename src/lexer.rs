@@ -46,7 +46,6 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-
     pub fn new() -> Lexer<'a> {
         Lexer {
             input: String::new(),
