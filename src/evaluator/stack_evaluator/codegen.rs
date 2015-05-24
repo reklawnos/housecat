@@ -1,23 +1,29 @@
 use ast::*;
 use super::ops::{Op, ClipParts};
-//use super::*;
 use super::values::{Value, FloatWrap};
 
-pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
-    let &Expr{ref expr, ..} = expr;
+
+
+fn codegen_failure<T>(line_number: usize, message: &str) -> Result<T, String> {
+    Err(format!("CODEGEN FAILURE at line {}: {}", line_number + 1, message))
+}
+
+pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
+    let &Expr{ref expr, ref data} = expr;
     match expr {
         &ExprType::UnOp{ref expr, ref op, ..} => {
-            gen_expr(expr, ops);
+            try!(gen_expr(expr, ops));
             let new_op = match op {
                 &UnOp::Neg => Op::Neg,
                 &UnOp::Not => Op::Not,
                 &UnOp::Get => Op::Get
             };
             ops.push(new_op);
+            Ok(())
         }
         &ExprType::BinOp{ref lhs, ref rhs, ref op, ..} => {
-            gen_expr(lhs, ops);
-            gen_expr(rhs, ops);
+            try!(gen_expr(lhs, ops));
+            try!(gen_expr(rhs, ops));
             let new_op = match op {
                 &BinOp::Add => Op::Add,
                 &BinOp::Sub => Op::Sub,
@@ -33,9 +39,10 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
                 &BinOp::Neq => Op::Neq,
                 &BinOp::And => Op::And,
                 &BinOp::Or => Op::Or,
-                _ => panic!("not implemented: bin op types")
+                _ => {return codegen_failure(data.line, "binary op not implemented");}
             };
             ops.push(new_op);
+            Ok(())
         }
         &ExprType::Literal{ref value, ..} => {
             match value {
@@ -46,7 +53,7 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
                 &Literal::Nil => ops.push(Op::Push(Box::new(Value::Nil))),
                 &Literal::Clip{ref params, ref returns, ref statements} => {
                     let mut func_ops = Vec::new();
-                    gen_stmt_list(statements, &mut func_ops);
+                    try!(gen_stmt_list(statements, &mut func_ops));
                     ops.push(Op::PushClip(Box::new(ClipParts{
                         params: params.clone(),
                         returns: returns.clone(),
@@ -54,51 +61,55 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) {
                     })));
                 }
             }
+            Ok(())
         }
         &ExprType::Ident{ref name, ..} => {
             ops.push(Op::Load(name));
+            Ok(())
         }
         &ExprType::Postfix{ref expr, ref postfixes, ..} => {
-            gen_expr(expr, ops);
+            try!(gen_expr(expr, ops));
             for postfix in postfixes.iter() {
                 match postfix {
                     &Postfix::Play(ref params) => {
                         for expr in params.iter().rev() {
-                            gen_expr(expr, ops);
+                            try!(gen_expr(expr, ops));
                         }
                         ops.push(Op::Play(params.len()));
                     }
                     &Postfix::PlaySelf(ref ident, ref params) => {
                         ops.push(Op::Access(Box::new(Value::String(ident.to_string()))));
                         for expr in params.iter().rev() {
-                            gen_expr(expr, ops);
+                            try!(gen_expr(expr, ops));
                         }
                         ops.push(Op::PlaySelf(params.len()));
                     }
                     &Postfix::Index(ref expr) => {
-                        gen_expr(expr, ops);
+                        try!(gen_expr(expr, ops));
                         ops.push(Op::GetAndAccess);
                     }//panic!("not implemented: index postfix"),
                     &Postfix::Access(ref s) => ops.push(Op::AccessPop(Box::new(Value::String(s.to_string()))))
                 }
             }
+            Ok(())
         }
         &ExprType::Tuple{ref values, ..} => {
             //Reverse the order, that way we don't have to reverse it at runtime
             for expr in values.iter().rev() {
-                gen_expr(expr, ops);
+                try!(gen_expr(expr, ops));
             }
             if values.len() > 1 {
                 ops.push(Op::MakeTuple(values.len()));
             }
+            Ok(())
         }
     }
 }
 
-fn eval_expr_as_ident_values<'a>(expr: &'a Expr) -> Vec<&'a str> {
+fn eval_expr_as_ident_values<'a>(expr: &'a Expr) -> Result<Vec<&'a str>, String> {
     let &Expr{ref expr, ref data} = expr;
     match expr {
-        &ExprType::Ident{name, ..} => vec![name],
+        &ExprType::Ident{name, ..} => Ok(vec![name]),
         //TODO: implement idents for defining interior values
         &ExprType::Postfix{ref expr, ref postfixes} => {
             let mut result_vec = Vec::new();
@@ -106,7 +117,7 @@ fn eval_expr_as_ident_values<'a>(expr: &'a Expr) -> Vec<&'a str> {
                 Expr{expr: ExprType::Ident{name, ..}, ..} => {
                     result_vec.push(name);
                 }
-                _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
+                _ => {return codegen_failure(data.line, "cannot assign to a non-ident");}
             }
             for postfix in postfixes.iter() {
                 match postfix {
@@ -114,29 +125,29 @@ fn eval_expr_as_ident_values<'a>(expr: &'a Expr) -> Vec<&'a str> {
                         result_vec.push(s);
                     }
                     //TODO: need to do this for index types, too
-                    _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
+                    _ => {return codegen_failure(data.line, "cannot assign to a non-ident");}
                 }
             }
-            result_vec
+            Ok(result_vec)
         }
-        _ => panic!("EVAL FAILURE at line {}: cannot assign to a non-ident", data.line + 1)
+        _ => codegen_failure(data.line, "cannot assign to a non-ident")
     }
 }
 
 
-fn eval_expr_as_ident_str<'a>(expr: &'a Expr) -> &'a str {
-    let &Expr{ref expr, ..} = expr;
+fn eval_expr_as_ident_str<'a>(expr: &'a Expr) -> Result<&'a str, String> {
+    let &Expr{ref expr, ref data} = expr;
     match expr {
-        &ExprType::Ident{name, ..} => name,
-        _ => panic!("not an ident type")
+        &ExprType::Ident{name, ..} => Ok(name),
+        _ => codegen_failure(data.line, "not an ident type")
     }
 }
 
-pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
+pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
     let &Stmt{ref stmt, ..} = stmt;
     match stmt {
         &StmtType::Assign{ref items, ref expr, ..} => {
-            gen_expr(expr, ops);
+            try!(gen_expr(expr, ops));
             if items.len() > 1 {
                 panic!("not implemented: tuple assignment");
             }
@@ -145,14 +156,15 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
                     ops.push(Op::DeclareAndStore(s));
                 }
                 StmtItem::Bare(ref expr) => {
-                    let key = eval_expr_as_ident_str(expr);
+                    let key = try!(eval_expr_as_ident_str(expr));
                     ops.push(Op::Store(key));
                 }
             }
+            Ok(())
         }
         &StmtType::Def{ref items, ref expr, ..} => {
             let mut new_ops = Vec::new();
-            gen_expr(expr, &mut new_ops);
+            try!(gen_expr(expr, &mut new_ops));
             println!("new_ops: {:?}", &new_ops);
             ops.append(&mut new_ops);
             if items.len() > 1 {
@@ -160,7 +172,7 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
             }
             match items[0] {
                 StmtItem::Bare(ref expr) => {
-                    let mut keys = eval_expr_as_ident_values(expr);
+                    let mut keys = try!(eval_expr_as_ident_values(expr));
                     let assign_key = keys.pop().unwrap();
                     if keys.len() > 0 {
                         let base_ident = keys.remove(0);
@@ -172,6 +184,7 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
                     } else {
                         ops.push(Op::DefSelf(Box::new(Value::String(assign_key.to_string()))));
                     }
+                    Ok(())
                 }
                 _ => panic!("cannot def without bare item")
             }
@@ -179,10 +192,11 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
         &StmtType::Bare{ref items, ..} => {
             for item in items.iter() {
                 match item {
-                    &StmtItem::Bare(ref expr) => gen_expr(expr, ops),
+                    &StmtItem::Bare(ref expr) => try!(gen_expr(expr, ops)),
                     _ => panic!("cannot have a non-bare statement item in a bare statement")
                 }
             }
+            Ok(())
         }
         &StmtType::If{ref clauses, ..} => {
             let mut if_conditions = Vec::new();
@@ -194,15 +208,15 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
                         let mut new_condition = Vec::new();
                         let mut new_statements = Vec::new();
                         new_statements.push(Op::PushScope);
-                        gen_expr(condition, &mut new_condition);
-                        gen_stmt_list(statements, &mut new_statements);
+                        try!(gen_expr(condition, &mut new_condition));
+                        try!(gen_stmt_list(statements, &mut new_statements));
                         new_statements.push(Op::PopScope);
                         if_conditions.push(new_condition);
                         if_statements.push(new_statements);
                     }
                     &IfClause::Else(ref statements) => {
                         else_ops.push(Op::PushScope);
-                        gen_stmt_list(statements, &mut else_ops);
+                        try!(gen_stmt_list(statements, &mut else_ops));
                         else_ops.push(Op::PopScope);
                         break;
                     }
@@ -230,15 +244,15 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
                 ops.push(Op::JumpTarget);
             }
             ops.append(&mut else_ops);
-
+            Ok(())
         }
         &StmtType::While{ref condition, ref statements, ..} => {
             //Index to jump to when continuing = first jump target
             let continue_jump_idx = ops.len();
             ops.push(Op::JumpTarget);
-            gen_expr(condition, ops);
+            try!(gen_expr(condition, ops));
             let mut body_ops = Vec::new();
-            gen_stmt_list(statements, &mut body_ops);
+            try!(gen_stmt_list(statements, &mut body_ops));
             //JumpIfFalse to the jump target after the statement list and the continue jump
             let break_jump_idx = ops.len() + body_ops.len() + 2;
             ops.push(Op::JumpIfFalse(break_jump_idx));
@@ -246,12 +260,13 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
             //Jump back to the beginning to continue
             ops.push(Op::Jump(continue_jump_idx));
             ops.push(Op::JumpTarget);
+            Ok(())
         }
         &StmtType::For{ref idents, ref iterator, ref statements, ..} => {
             if idents.len() > 1 {
                 panic!("can't do tuple assignment in for loops yet");
             }
-            gen_expr(iterator, ops);
+            try!(gen_expr(iterator, ops));
             ops.push(Op::PushScope);
             ops.push(Op::PushIterator);
             //Index to jump to when continuing = first jump target
@@ -266,7 +281,7 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
             ops.push(Op::Push(Box::new(Value::Nil)));
             ops.push(Op::Neq);
             let mut body_ops = Vec::new();
-            gen_stmt_list(statements, &mut body_ops);
+            try!(gen_stmt_list(statements, &mut body_ops));
             //JumpIfFalse to the jump target after the statement list and the continue jump
             let break_jump_idx = ops.len() + body_ops.len() + 2;
             ops.push(Op::JumpIfFalse(break_jump_idx));
@@ -276,13 +291,15 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) {
             ops.push(Op::JumpTarget);
             ops.push(Op::PopIterator);
             ops.push(Op::PopScope);
+            Ok(())
         }
-        &StmtType::Return => {ops.push(Op::Return)}
+        &StmtType::Return => {ops.push(Op::Return); Ok(())}
     }
 }
 
-pub fn gen_stmt_list<'a>(statements: &'a Vec<Stmt<'a>>, ops: &mut Vec<Op<'a>>) {
+pub fn gen_stmt_list<'a>(statements: &'a Vec<Stmt<'a>>, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
     for statement in statements.iter() {
-        gen_stmt(statement, ops);
+        try!(gen_stmt(statement, ops));
     }
+    Ok(())
 }

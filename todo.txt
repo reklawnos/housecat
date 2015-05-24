@@ -1,4 +1,5 @@
 - Make codegen and VM use result and try for failures
+- Use `debug` macro for debugging output
 - Fix up evaluator API
 - Clean up parser formatting and error messages
     - Should show line/col for EOF

@@ -42,7 +42,10 @@ pub fn test_stack(ast: &Vec<Stmt>) {
     }
     let mut vars = vec![var_map];
     
-    gen_stmt_list(&ast, &mut ops);
+    match gen_stmt_list(&ast, &mut ops) {
+        Ok(_) => (),
+        Err(s) => panic!(s)
+    };
     print_ops(&ops);
     let mut stack = Vec::with_capacity(2048);
     execute(&mut ops, &mut stack, &mut vars, &mut defs);
