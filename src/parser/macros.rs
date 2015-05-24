@@ -9,10 +9,12 @@ macro_rules! parse_expr_binary_op(
                 [Tok{token: $tok, ..}, rest..] => {
                     let (parsed_rhs, tokens_after_term) = try!($parse_rhs(rest));
                     Ok((
-                        Expr::BinOp{
-                            op: $op,
-                            lhs: Box::new(parsed_lhs),
-                            rhs: Box::new(parsed_rhs),
+                        Expr{
+                            expr: ExprType::BinOp{
+                                op: $op,
+                                lhs: Box::new(parsed_lhs),
+                                rhs: Box::new(parsed_rhs),
+                            },
                             data: AstData{line: $tokens[0].line}
                         },
                         tokens_after_term

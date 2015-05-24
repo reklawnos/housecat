@@ -22,34 +22,34 @@ pub enum Literal<'a> {
 
 //Expressions
 #[derive(Debug)]
-pub enum Expr<'a> {
+pub struct Expr<'a> {
+    pub expr: ExprType<'a>,
+    pub data: AstData
+}
+
+#[derive(Debug)]
+pub enum ExprType<'a> {
     UnOp {
         op: UnOp,
         expr: Box<Expr<'a>>,
-        data: AstData
     },
     BinOp {
         op: BinOp,
         lhs: Box<Expr<'a>>,
         rhs: Box<Expr<'a>>,
-        data: AstData
     },
     Literal {
         value: Literal<'a>,
-        data: AstData
     },
     Ident {
         name: &'a str,
-        data: AstData
     },
     Postfix {
         expr: Box<Expr<'a>>,
         postfixes: Vec<Postfix<'a>>,
-        data: AstData
     },
     Tuple {
         values: Vec<Expr<'a>>,
-        data: AstData
     }
 }
 
@@ -92,39 +92,37 @@ pub enum BinOp {
 
 //Statement
 #[derive(Debug)]
-pub enum Stmt<'a> {
+pub struct Stmt<'a> {
+    pub stmt: StmtType<'a>,
+    pub data: AstData
+}
+
+#[derive(Debug)]
+pub enum StmtType<'a> {
     Def {
         items: Vec<StmtItem<'a>>,
         expr: Box<Expr<'a>>,
-        data: AstData
     },
     Assign {
         items: Vec<StmtItem<'a>>,
         expr: Box<Expr<'a>>,
-        data: AstData
     },
     Bare {
         items: Vec<StmtItem<'a>>,
-        data: AstData
     },
     If {
         clauses: Vec<IfClause<'a>>,
-        data: AstData
     },
     While {
         condition: Box<Expr<'a>>,
         statements: Vec<Stmt<'a>>,
-        data: AstData
     },
     For {
         idents: Vec<&'a str>,
         iterator: Box<Expr<'a>>,
         statements: Vec<Stmt<'a>>,
-        data: AstData
     },
-    Return {
-        data: AstData
-    }
+    Return
 }
 
 //If statement clauses

@@ -10,7 +10,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
     match tokens {
         // <ident>
         [Tok{token: Token::Ident(id), line, ..}, rest..] => {
-            Ok((Expr::Ident{name: id, data: AstData{line: line}}, rest))
+            Ok((Expr{expr: ExprType::Ident{name: id}, data: AstData{line: line}}, rest))
         }
         // "(" <expr> ...
         [Tok{token: Token::OpenParen, line, ..}, rest..] => {
@@ -18,7 +18,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
             // if parsed_list.len() == 1 {
             //     Ok((parsed_list.remove(0), rest))
             // } else {
-                Ok((Expr::Tuple{values: parsed_list, data: AstData{line: line}},
+                Ok((Expr{expr: ExprType::Tuple{values: parsed_list}, data: AstData{line: line}},
                     tokens_after_list))
             //}
         },
@@ -26,11 +26,13 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         [Tok{token: Token::OpenCurly, line, ..}, rest..] => {
             let (parsed_list, tokens_after_list) = try!(parse_clip_statements(rest));
             Ok((
-                Expr::Literal{
-                    value: Literal::Clip{
-                        params:vec![],
-                        returns:vec![],
-                        statements:parsed_list
+                Expr{
+                    expr: ExprType::Literal{
+                        value: Literal::Clip{
+                            params:vec![],
+                            returns:vec![],
+                            statements:parsed_list
+                        }
                     },
                     data:AstData{line: line}
                 }, tokens_after_list))
@@ -41,34 +43,41 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
                 try!(parse_clip_def(rest))
             };
             Ok((
-                Expr::Literal{
-                    value: Literal::Clip{
-                        params: parsed_params,
-                        returns: parsed_returns,
-                        statements: parsed_statements
+                Expr{
+                    expr: ExprType::Literal{
+                        value: Literal::Clip{
+                            params: parsed_params,
+                            returns: parsed_returns,
+                            statements: parsed_statements
+                        },
                     },
                     data: AstData{line: line}
                 }, tokens_after_list))
         }
         // <bool>
         [Tok{token: Token::Bool(b), line, ..}, rest..] => {
-            Ok((Expr::Literal{value: Literal::Bool(b), data: AstData{line: line}}, rest))
+            Ok((Expr{expr: ExprType::Literal{value: Literal::Bool(b)},
+                     data: AstData{line: line}}, rest))
         }
         // <int>
         [Tok{token: Token::Int(i), line, ..}, rest..] => {
-            Ok((Expr::Literal{value: Literal::Int(i), data: AstData{line: line}}, rest))
+            Ok((Expr{expr: ExprType::Literal{value: Literal::Int(i)},
+                     data: AstData{line: line}}, rest))
         }
         // <float>
         [Tok{token: Token::Float(f), line, ..}, rest..] => {
-            Ok((Expr::Literal{value: Literal::Float(f), data: AstData{line: line}}, rest))
+            Ok((Expr{expr: ExprType::Literal{value: Literal::Float(f)},
+                     data: AstData{line: line}}, rest))
         }
         // <string>
         [Tok{token: Token::String(ref s), line, ..}, rest..] => {
-            Ok((Expr::Literal{value: Literal::String(&s[..]), data: AstData{line: line}}, rest))
+            Ok((Expr{expr: ExprType::Literal{value: Literal::String(&s[..])},
+                     data: AstData{line: line}}, rest))
         }
         // "nil"
         [Tok{token: Token::Nil, line, ..}, rest..] => {
-            Ok((Expr::Literal{value: Literal::Nil, data: AstData{line: line}}, rest))
+            Ok((Expr{expr: ExprType::Literal{value: Literal::Nil},
+                     data: AstData{line: line}}, rest))
         }
         [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
             "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
@@ -94,8 +103,9 @@ fn parse_postfix_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
                     let (parsed_postfixes, tokens_after_postfix) = {
                         try!(parse_postfix_continuation(tokens_after_expr))
                     };
-                    Ok((Expr::Postfix{expr: Box::new(parsed_expr), postfixes: parsed_postfixes,
-                                      data: AstData{line: first_tok.line}}, tokens_after_postfix))
+                    Ok((Expr{expr: ExprType::Postfix{expr: Box::new(parsed_expr),
+                                               postfixes: parsed_postfixes},
+                             data: AstData{line: first_tok.line}}, tokens_after_postfix))
                 },
                 _ => Ok((parsed_expr, tokens_after_expr))
             }
@@ -250,19 +260,22 @@ fn parse_unary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         // "-" ...
         [Tok{token: Token::Sub, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_unary_expr(rest));
-            Ok((Expr::UnOp{op: UnOp::Neg, expr: Box::new(parsed_expr), data: AstData{line: line}},
+            Ok((Expr{expr: ExprType::UnOp{op: UnOp::Neg, expr: Box::new(parsed_expr)},
+                     data: AstData{line: line}},
                 tokens_after_expr))
         }
         // "!" ...
         [Tok{token: Token::Not, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_unary_expr(rest));
-            Ok((Expr::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr), data: AstData{line: line}},
+            Ok((Expr{expr: ExprType::UnOp{op: UnOp::Not, expr: Box::new(parsed_expr)},
+                     data: AstData{line: line}},
                 tokens_after_expr))
         }
         // "$" ...
         [Tok{token: Token::Get, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_unary_expr(rest));
-            Ok((Expr::UnOp{op: UnOp::Get, expr: Box::new(parsed_expr), data: AstData{line: line}},
+            Ok((Expr{expr: ExprType::UnOp{op: UnOp::Get, expr: Box::new(parsed_expr)},
+                     data: AstData{line: line}},
                 tokens_after_expr))
         }
         // <postfix-expr>

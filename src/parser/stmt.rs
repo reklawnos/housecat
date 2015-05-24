@@ -23,21 +23,6 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
                 [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
             }
         }
-        // "def" <ident>
-        // [Tok{token: Token::Def, ..}, rest..] => {
-        //     match rest {
-        //         [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Def(id), rest)),
-        //         [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-        //             "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
-        //             line + 1,
-        //             col + 1,
-        //             token,
-        //             line_string,
-        //             get_caret_string(col)
-        //         )),
-        //         [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
-        //     }
-        // }
         // <expr>
         [Tok{token: _, ..}, ..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(tokens));
@@ -69,21 +54,23 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
         // ... ":" <expr>
         [Tok{token: Token::Def, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            Ok((Stmt::Def{items: parsed_items, expr: Box::new(parsed_expr),
-                                 data: AstData{line: line}}, tokens_after_expr))
+            Ok((Stmt{stmt: StmtType::Def{items: parsed_items, expr: Box::new(parsed_expr)},
+                     data: AstData{line: line}}, tokens_after_expr))
         }
         // ... "=" <expr>
         [Tok{token: Token::Assign, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            Ok((Stmt::Assign{items: parsed_items, expr: Box::new(parsed_expr),
-                             data: AstData{line: line}}, tokens_after_expr))
+            Ok((Stmt{stmt: StmtType::Assign{items: parsed_items, expr: Box::new(parsed_expr)},
+                     data: AstData{line: line}}, tokens_after_expr))
         }
         // EPS
         [Tok{line, ..}, ..] => {
-            Ok((Stmt::Bare{items: parsed_items, data: AstData{line: line}}, tokens_after_items))
+            Ok((Stmt{stmt: StmtType::Bare{items: parsed_items},
+                     data: AstData{line: line}}, tokens_after_items))
         }
         //TODO: fix line number for last bare statement
-        [] => Ok((Stmt::Bare{items: parsed_items, data: AstData{line: 0}}, tokens_after_items))
+        [] => Ok((Stmt{stmt: StmtType::Bare{items: parsed_items},
+                       data: AstData{line: 0}}, tokens_after_items))
     }
 }
 
@@ -96,14 +83,16 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
             let (clauses, tokens_after_if) = {
                 try!(parse_if_statements(tokens_after_expr, parsed_expr))
             };
-            Ok((Stmt::If{clauses: clauses, data: AstData{line: line}}, tokens_after_if))
+            Ok((Stmt{stmt: StmtType::If{clauses: clauses},
+                     data: AstData{line: line}}, tokens_after_if))
         }
         // "while" <expr> <block-statements>
         [Tok{token: Token::While, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
             let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
-            Ok((Stmt::While{condition: Box::new(parsed_expr), statements: stmt_list,
-                            data: AstData{line: line}}, tokens_after_list))
+            Ok((Stmt{stmt: StmtType::While{condition: Box::new(parsed_expr),
+                                           statements: stmt_list},
+                     data: AstData{line: line}}, tokens_after_list))
         }
         // "for" <rets> "in" <expr> <block-statements>
         [Tok{token: Token::For, line, ..}, rest..] => {
@@ -112,8 +101,10 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
                 [Tok{token: Token::In, ..}, rest..] => {
                     let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
                     let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
-                    Ok((Stmt::For{idents: parsed_rets, iterator: Box::new(parsed_expr), statements: stmt_list,
-                                    data: AstData{line: line}}, tokens_after_list))
+                    Ok((Stmt{stmt: StmtType::For{idents: parsed_rets,
+                                                 iterator: Box::new(parsed_expr),
+                                                 statements: stmt_list},
+                             data: AstData{line: line}}, tokens_after_list))
                 }
                 [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
                     "PARSING FAILURE at {},{}: Expected 'in' but found {:?}\n{}\n{}",
@@ -128,7 +119,7 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
         }
         // "return"
         [Tok{token: Token::Return, line, ..}, rest..] => {
-            Ok((Stmt::Return{data: AstData{line: line}}, rest))
+            Ok((Stmt{stmt: StmtType::Return, data: AstData{line: line}}, rest))
         }
         // <stmt-items>
         [_, ..] => parse_stmt_items(tokens),
