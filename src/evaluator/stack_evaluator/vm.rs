@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::cell::{RefCell};
 use std::rc::Rc;
+use std::fmt::Display;
 
 use super::ops::{Op, ClipParts};
 use super::values::{Value, FloatWrap, ClipStruct, ClipHolder};
 
 macro_rules! check_bin_op(
-    ($a:expr, $b:expr, $op_name:expr, $stack:expr, [ $($lhs_type:path, $rhs_type:path => $f:expr => $result_type:path),+ ]) => ({
+    ($a:expr, $b:expr, $op_name:expr, $stack:expr, $pc:expr, [ $($lhs_type:path, $rhs_type:path => $f:expr => $result_type:path),+ ]) => ({
         match $a {
             $(
                 $lhs_type(lhs) => {
@@ -14,7 +15,7 @@ macro_rules! check_bin_op(
                         $rhs_type(rhs) => {
                             $stack.push($result_type($f(lhs, rhs)));
                         }
-                        v => panic!("can't perform operation {} with LHS of {:?} and RHS of {:?}", $op_name, lhs, v)
+                        v => {return exec_failure($pc, format!("can't perform operation {} with LHS of {:?} and RHS of {:?}", $op_name, lhs, v));}
                     }
                 }
             )+
@@ -29,23 +30,27 @@ macro_rules! check_bin_op(
                                         result_vec.push($result_type($f(lhs, rhs)));
                                     }
                                 )+
-                                (a, b) => panic!("can't perform operation {} with LHS of {:?} and RHS of {:?}", $op_name, a, b)
+                                (a, b) => {return exec_failure($pc, format!("can't perform operation {} with LHS of {:?} and RHS of {:?}", $op_name, a, b));}
                             }
                         }
                         $stack.push(Value::Tuple(result_vec));           
                     }
-                    _ => panic!("can't perform operation {} with a tuple and a non-tuple")
+                    _ => {return exec_failure($pc, format!("can't perform operation {} with a tuple and a non-tuple", $op_name));}
                 }
                 
             }
-            v => panic!("can't perform operation {} with LHS of {:?}", $op_name, v)
+            v => {return exec_failure($pc, format!("can't perform operation {} with LHS of {:?}", $op_name, v));}
         }
     });
 );
 
+fn exec_failure<T, D: Display>(pc: usize, message: D) -> Result<T, String> {
+    Err(format!("EXECUTION FAILURE at PC {}: {}", pc, message))
+}
+
 pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                    vars: &mut Vec<HashMap<&'a str, Value<'a>>>,
-                   defs: *mut HashMap<Value<'a>, Value<'a>>) {
+                   defs: *mut HashMap<Value<'a>, Value<'a>>) -> Result<(), String> {
     let mut pc: usize = 0;
     let len = unsafe {(*ops).len()};
     let mut iterators = Vec::new();
@@ -81,11 +86,11 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                             pc = i;
                         }
                     }
-                    _ => panic!("{}: need boolean for if", pc)
+                    _ => {return exec_failure(pc, "need boolean for if");}
                 }
             }
             Op::JumpTarget => (),
-            Op::Return => {return;},
+            Op::Return => {return Ok(());},
             Op::PushIterator => {
                 let a = stack.pop().unwrap();
                 iterators.push(a);
@@ -112,7 +117,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     }
                 }
                 if !found_var {
-                    panic!("{}: could not find {} in any scope", pc, s);
+                    return exec_failure(pc, format!("could not find {} in any scope", s));
                 }
             }
             Op::DeclareAndStore(ref s) => {
@@ -131,7 +136,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     }
                 }
                 if !found_var {
-                    panic!("{}: could not find {} in any scope", pc, s);
+                    return exec_failure(pc, format!("could not find {} in any scope", s));
                 }
             }
             Op::Def(ref key) => {
@@ -141,7 +146,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let value = stack.pop().unwrap();
                         clip.defs.insert((**key).clone(), value);
                     }
-                    _ => panic!("{}: can't def on a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't def on a non-clip");}
                 };
                 
             }
@@ -156,11 +161,11 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let clip = c.0.borrow_mut();
                         let new_val = match clip.defs.get(&b) {
                             Some(v) => v,
-                            None => panic!("{}: no key {} in clip", pc, b)
+                            None => {return exec_failure(pc, format!("no key {} in clip", b));}
                         };
                         stack.push(new_val.clone());
                     }
-                    _ => panic!("{}: can't access a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't access a non-clip");}
                 };
             }
             Op::Access(ref b) => {
@@ -170,10 +175,10 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let clip = c.0.borrow_mut();
                         match clip.defs.get(b) {
                             Some(v) => v.clone(),
-                            None => panic!("{}: no key {} in clip", pc, b)
+                            None => {return exec_failure(pc, format!("no key {} in clip", b));}
                         }
                     }
-                    _ => panic!("{}: can't access a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't access a non-clip");}
                 };
                 stack.push(new_val);
             }
@@ -183,11 +188,11 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let clip = c.0.borrow_mut();
                         let new_val = match clip.defs.get(b) {
                             Some(v) => v,
-                            None => panic!("{}: no key {} in clip", pc, b)
+                            None => {return exec_failure(pc, format!("no key {} in clip", b));}
                         };
                         stack.push(new_val.clone());
                     }
-                    _ => panic!("{}: can't access a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't access a non-clip");}
                 };
             }
             Op::Play(n) => {
@@ -208,7 +213,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         {
                             vars.push(new_scope);
                             let mut temp_stack = Vec::new();
-                            execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
+                            try!(execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs));
                             if clip.returns.len() == 0 {
                                 stack.push(Value::Nil);
                             } else if clip.returns.len() == 1 {
@@ -243,7 +248,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     Value::RustClip(ref rc) => {
                         rc.clip.borrow_mut().call(params);
                     }
-                    _ => panic!("{}: can't run a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't run a non-clip");}
                 }
             }
             Op::PlaySelf(n) => {
@@ -265,7 +270,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         {
                             vars.push(new_scope);
                             let mut temp_stack = Vec::new();
-                            execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
+                            try!(execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs));
                             let idx = vars.len() - 1;
                             if clip.returns.len() == 0 {
                                 stack.push(Value::Nil);
@@ -282,7 +287,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                             vars.pop();
                         }
                     }
-                    _ => panic!("{}: can't run a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't run a non-clip");}
                 }
             }
             //Unary ops
@@ -294,12 +299,12 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         {
                             vars.push(new_scope);
                             let mut temp_stack = Vec::new();
-                            execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs);
+                            try!(execute(&mut clip.statements, &mut temp_stack, vars, &mut clip.defs));
                             vars.pop();
                         }
                         stack.push(Value::Clip(c.clone()));
                     }
-                    _ => panic!("{}: can't get a non-clip", pc)
+                    _ => {return exec_failure(pc, "can't use the get operator on a non-clip");}
                 }
             }
             Op::Neg => {
@@ -307,21 +312,21 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 match a {
                     Value::Int(i) => stack.push(Value::Int(-i)),
                     Value::Float(f) => stack.push(Value::Float(FloatWrap::new(-f.get()))),
-                    _ => panic!("{}: cannot negate a non-bool value", pc)
+                    _ => {return exec_failure(pc, "cannot negate a non-numeric value");}
                 }
             }
             Op::Not => {
                 let a = stack.pop().unwrap();
                 match a {
                     Value::Bool(b) => stack.push(Value::Bool(!b)),
-                    _ => panic!("{}: cannot apply ! to a non-bool value", pc)
+                    _ => {return exec_failure(pc, "cannot apply ! to a non-boolean value");}
                 }
             }
             //Binary ops
             Op::Add => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "+", stack, [
+                check_bin_op!(a, b, "+", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x + y} => Value::Int,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {FloatWrap::new(x.get() + y.get())} => Value::Float,
                     Value::String, Value::String => |x: String, y: String| {x.clone() + &y[..]} => Value::String
@@ -330,7 +335,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Sub => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "-", stack, [
+                check_bin_op!(a, b, "-", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x - y} => Value::Int,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {FloatWrap::new(x.get() - y.get())} => Value::Float
                 ])
@@ -338,7 +343,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Mul => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "*", stack, [
+                check_bin_op!(a, b, "*", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x * y} => Value::Int,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {FloatWrap::new(x.get() * y.get())} => Value::Float
                 ])
@@ -346,7 +351,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Div => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "/", stack, [
+                check_bin_op!(a, b, "/", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x / y} => Value::Int,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {FloatWrap::new(x.get() / y.get())} => Value::Float
                 ])
@@ -354,7 +359,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Mod => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "%", stack, [
+                check_bin_op!(a, b, "%", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x % y} => Value::Int,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {FloatWrap::new(x.get() % y.get())} => Value::Float
                 ])
@@ -370,7 +375,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Lt => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "<", stack, [
+                check_bin_op!(a, b, "<", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x < y} => Value::Bool,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {x.get() < y.get()} => Value::Bool
                 ])
@@ -378,7 +383,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Lte => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "<=", stack, [
+                check_bin_op!(a, b, "<=", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x <= y} => Value::Bool,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {x.get() <= y.get()} => Value::Bool
                 ])
@@ -386,7 +391,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Gt => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, ">", stack, [
+                check_bin_op!(a, b, ">", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x > y} => Value::Bool,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {x.get() > y.get()} => Value::Bool
                 ])
@@ -394,7 +399,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Gte => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, ">=", stack, [
+                check_bin_op!(a, b, ">=", stack, pc, [
                     Value::Int, Value::Int => |x, y| {x >= y} => Value::Bool,
                     Value::Float, Value::Float => |x: FloatWrap, y: FloatWrap| {x.get() >= y.get()} => Value::Bool
                 ])
@@ -412,14 +417,14 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::And => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "&&", stack, [
+                check_bin_op!(a, b, "&&", stack, pc, [
                     Value::Bool, Value::Bool => |x, y| {x && y} => Value::Bool
                 ])
             }
             Op::Or => {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                check_bin_op!(a, b, "||", stack, [
+                check_bin_op!(a, b, "||", stack, pc, [
                     Value::Bool, Value::Bool => |x, y| {x || y} => Value::Bool
                 ])
             }
@@ -427,5 +432,6 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
         //println!("{}: {:?}", pc, stack);
         pc += 1;
     }
+    Ok(())
     //println!("{:?}", stack);
 }

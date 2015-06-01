@@ -48,5 +48,8 @@ pub fn test_stack(ast: &Vec<Stmt>) {
     };
     print_ops(&ops);
     let mut stack = Vec::with_capacity(2048);
-    execute(&mut ops, &mut stack, &mut vars, &mut defs);
+    match execute(&mut ops, &mut stack, &mut vars, &mut defs) {
+        Ok(()) => (),
+        Err(s) => println!("{}", s)
+    }
 }
