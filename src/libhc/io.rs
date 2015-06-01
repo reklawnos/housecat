@@ -1,9 +1,7 @@
 use evaluator::stack_evaluator::values::{Value, RustClip};
-use std::collections::HashMap;
-
 
 #[derive(Debug)]
-struct Print;
+pub struct Print;
 
 #[allow(unused_variables, dead_code)]
 impl<'a> RustClip<'a> for Print {
@@ -21,11 +19,4 @@ impl<'a> RustClip<'a> for Print {
             Err("Wrong number of args for `print`")
         }
     }
-}
-
-#[allow(dead_code)]
-pub fn open_io<'a>() -> HashMap<&'a str, Box<RustClip<'a>>> {
-    let mut func_map = HashMap::new();
-    func_map.insert("print", Box::new(Print) as Box<RustClip>);
-    func_map
 }

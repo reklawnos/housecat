@@ -1,17 +1,23 @@
-use evaluator::stack_evaluator::Value;
-use std::collections::HashMap;
+use evaluator::stack_evaluator::values::{Value, RustClip};
+
+#[derive(Debug)]
+pub struct Import;
 
 #[allow(unused_variables, dead_code)]
-fn import<'a>(args: &Vec<Value<'a>>, eval: &mut Evaluator<'a>) -> Result<Value<'a>, String> {
-    if args.len() == 1 {
-        println!("importing file: {:?}", args[0]);
-        Result::Ok(Value::Nil)
-    } else {
-        Result::Err("Wrong number of args for `import`".to_string())
+impl<'a> RustClip<'a> for Import {
+    fn get(&self, key: &str) -> Option<Value<'a>> {
+        None
     }
-}
+    fn set(&mut self, key: &str, value: Value<'a>) -> Result<(), &str> {
+        Err("Cannot set a def on import")
+    }
+    fn call(&mut self, args: Vec<Value<'a>>) -> Result<Value<'a>, &str> {
+        if args.len() == 1 {
+            println!("importing file: {:?}", args[0]);
 
-#[allow(dead_code)]
-pub fn open_core<'a>(eval: &mut Evaluator<'a>) {
-    eval.add_rust_clip("import", Box::new(import), HashMap::new());
+            Result::Ok(Value::Nil)
+        } else {
+            Result::Err("Wrong number of args for `import`")
+        }
+    }
 }

@@ -1,3 +1,6 @@
+var i = import("import_test.hc")
+
+
 var person = ${
     name: "Jensen"
     speak: fn(self){
@@ -38,3 +41,5 @@ person.name: "Alfred"
 print(person.name)
 person|speak()
 print("bagel")
+
+

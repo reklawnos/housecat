@@ -246,7 +246,8 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         }
                     }
                     Value::RustClip(ref rc) => {
-                        rc.clip.borrow_mut().call(params);
+                        let result = try!(rc.clip.borrow_mut().call(params));
+                        stack.push(result);
                     }
                     _ => {return exec_failure(pc, "can't run a non-clip");}
                 }
