@@ -117,7 +117,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     }
                 }
                 if !found_var {
-                    return exec_failure(pc, format!("could not find {} in any scope", s));
+                    return exec_failure(pc, format!("could not find `{}` in any scope", s));
                 }
             }
             Op::DeclareAndStore(ref s) => {
@@ -136,7 +136,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                     }
                 }
                 if !found_var {
-                    return exec_failure(pc, format!("could not find {} in any scope", s));
+                    return exec_failure(pc, format!("could not find `{}` in any scope", s));
                 }
             }
             Op::Def(ref key) => {

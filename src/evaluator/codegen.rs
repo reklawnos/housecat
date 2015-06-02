@@ -87,7 +87,7 @@ pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), Str
                     &Postfix::Index(ref expr) => {
                         try!(gen_expr(expr, ops));
                         ops.push(Op::GetAndAccess);
-                    }//panic!("not implemented: index postfix"),
+                    }
                     &Postfix::Access(ref s) => ops.push(Op::AccessPop(Box::new(Value::String(s.to_string()))))
                 }
             }
@@ -144,7 +144,7 @@ fn eval_expr_as_ident_str<'a>(expr: &'a Expr) -> Result<&'a str, String> {
 }
 
 pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
-    let &Stmt{ref stmt, ..} = stmt;
+    let &Stmt{ref stmt, ref data} = stmt;
     match stmt {
         &StmtType::Assign{ref items, ref expr, ..} => {
             try!(gen_expr(expr, ops));
@@ -186,14 +186,14 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String>
                     }
                     Ok(())
                 }
-                _ => panic!("cannot def without bare item")
+                _ => {return codegen_failure(data.line, "cannot def without bare item");}
             }
         }
         &StmtType::Bare{ref items, ..} => {
             for item in items.iter() {
                 match item {
                     &StmtItem::Bare(ref expr) => try!(gen_expr(expr, ops)),
-                    _ => panic!("cannot have a non-bare statement item in a bare statement")
+                    _ => {return codegen_failure(data.line, "cannot have a non-bare statement item in a bare statement");}
                 }
             }
             Ok(())
@@ -264,7 +264,7 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String>
         }
         &StmtType::For{ref idents, ref iterator, ref statements, ..} => {
             if idents.len() > 1 {
-                panic!("can't do tuple assignment in for loops yet");
+                panic!("not implemented: tuple assignment in for loops");
             }
             try!(gen_expr(iterator, ops));
             ops.push(Op::PushScope);

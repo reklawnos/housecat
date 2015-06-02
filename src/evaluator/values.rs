@@ -9,8 +9,6 @@ use core::hash::{Hash, Hasher};
 use core::cmp::Eq;
 
 use super::ops::Op;
-//use super::RustClipFuncStack;
-//use evaluator::Evaluator;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Value<'a> {

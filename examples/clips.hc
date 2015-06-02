@@ -1,16 +1,16 @@
-def test: fn() -> (iden) {
+var test = fn() {
     print("abc")
 }
 
-def foo : {
+var foo = {
     print("this is a clip!")
-    def bar: fn() -> bagels {
-        def bagels: "test"
+    bar: fn() -> bagels {
+        bagels = "test"
         print("woo!")
     }
     bar: fn(param1, param2) -> (bagel, butter) {
-        def bagel: "woo" + param1
-        def butter: "hoo!" + param2
+        bagel = "woo" + param1
+        butter = "hoo!" + param2
     }
 }
 

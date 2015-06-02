@@ -11,4 +11,4 @@ var andonify = fn(s, i, b) -> res {
     end
 }
 y = andonify(y, 10, false)
-y
+print(y)

@@ -1,6 +1,10 @@
 X Make codegen and VM use result and try for failures
 - Use `debug` macro for debugging output
 - Fix up evaluator API
+- Expressions for def keys, e.g. `[3]: "value"`
+    - except this ^ won't work, because there is ambiguity:
+        `while a < b [3]: "value"` or `while a < b[3] : "value"` (second one gives a syntax error)
+        this[i]: "thing"
 - Clean up parser formatting and error messages
     - Should show line/col for EOF
 - Create `include` rustclip (requires nicer evaluator setup)

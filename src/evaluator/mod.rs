@@ -43,7 +43,10 @@ pub fn test_stack(ast: &Vec<Stmt>) {
     
     match gen_stmt_list(&ast, &mut ops) {
         Ok(_) => (),
-        Err(s) => panic!(s)
+        Err(s) => {
+            println!("{}", s);
+            return;
+        }
     };
     print_ops(&ops);
     let mut stack = Vec::with_capacity(2048);

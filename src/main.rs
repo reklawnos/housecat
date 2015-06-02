@@ -24,8 +24,6 @@ mod utils;
 mod evaluator;
 mod libhc;
 
-static DEBUG: bool = false;
-
 // pub struct FileRunner<'a> {
 //     statements: Vec<ast::Stmt<'a>>,
 //     lexer: Lexer<'a>,
