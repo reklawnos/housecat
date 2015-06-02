@@ -12,6 +12,7 @@ pub enum Token<'a>{
     While,
     For,
     End,
+    Do,
 
     // Symbols
     Eof,

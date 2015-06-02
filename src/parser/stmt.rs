@@ -80,19 +80,45 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
         // "if" <expr> <if-statements>
         [Tok{token: Token::If, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            let (clauses, tokens_after_if) = {
-                try!(parse_if_statements(tokens_after_expr, parsed_expr))
-            };
-            Ok((Stmt{stmt: StmtType::If{clauses: clauses},
-                     data: AstData{line: line}}, tokens_after_if))
+            match tokens_after_expr {
+                [Tok{token: Token::Do, ..}, rest..] => {
+                    let (clauses, tokens_after_if) = {
+                        try!(parse_if_statements(rest, parsed_expr))
+                    };
+                    Ok((Stmt{stmt: StmtType::If{clauses: clauses},
+                             data: AstData{line: line}}, tokens_after_if))
+                }
+                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+                    "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"))
+            }
         }
         // "while" <expr> <block-statements>
         [Tok{token: Token::While, line, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
-            Ok((Stmt{stmt: StmtType::While{condition: Box::new(parsed_expr),
-                                           statements: stmt_list},
-                     data: AstData{line: line}}, tokens_after_list))
+            match tokens_after_expr {
+                [Tok{token: Token::Do, ..}, rest..] => {
+                    let (stmt_list, tokens_after_list) = try!(parse_block_statements(rest));
+                    Ok((Stmt{stmt: StmtType::While{condition: Box::new(parsed_expr),
+                                                   statements: stmt_list},
+                             data: AstData{line: line}}, tokens_after_list))
+                }
+                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+                    "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"))
+            }
         }
         // "for" <rets> "in" <expr> <block-statements>
         [Tok{token: Token::For, line, ..}, rest..] => {
@@ -100,11 +126,24 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
             match tokens_after_rets {
                 [Tok{token: Token::In, ..}, rest..] => {
                     let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-                    let (stmt_list, tokens_after_list) = try!(parse_block_statements(tokens_after_expr));
-                    Ok((Stmt{stmt: StmtType::For{idents: parsed_rets,
-                                                 iterator: Box::new(parsed_expr),
-                                                 statements: stmt_list},
-                             data: AstData{line: line}}, tokens_after_list))
+                    match tokens_after_expr {
+                        [Tok{token: Token::Do, ..}, rest..] => {
+                            let (stmt_list, tokens_after_list) = try!(parse_block_statements(rest));
+                            Ok((Stmt{stmt: StmtType::For{idents: parsed_rets,
+                                                         iterator: Box::new(parsed_expr),
+                                                         statements: stmt_list},
+                                     data: AstData{line: line}}, tokens_after_list))
+                        }
+                        [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+                            "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
+                            line + 1,
+                            col + 1,
+                            token,
+                            line_string,
+                            get_caret_string(col)
+                        )),
+                        [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"))
+                    }
                 }
                 [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
                     "PARSING FAILURE at {},{}: Expected 'in' but found {:?}\n{}\n{}",
@@ -149,8 +188,21 @@ fn parse_if_statements<'a>(tokens: &'a[Tok],
                 clauses.push(IfClause::If{condition: Box::new(my_expr), statements: statements});
                 statements = Vec::new();
                 let (parsed_expr, tokens_after_expr) = try!(parse_expr(&my_toks[1..]));
-                my_toks = tokens_after_expr;
-                my_expr = parsed_expr;
+                match tokens_after_expr {
+                    [Tok{token: Token::Do, ..}, rest..] => {
+                        my_toks = rest;
+                        my_expr = parsed_expr;
+                    }
+                    [Tok{ref token, line, col, line_string, ..}, ..] => {return Err(format!(
+                        "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
+                        line + 1,
+                        col + 1,
+                        token,
+                        line_string,
+                        get_caret_string(col)
+                    ));},
+                    [] => {return Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"));}
+                };
             }
             // "end"
             Token::End => {

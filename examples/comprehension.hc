@@ -3,7 +3,7 @@ var iter = fn(count) -> ret {
         cur_value: 0
         count: count
         next: fn(self) -> ret {
-            if self.cur_value < self.count
+            if self.cur_value < self.count do
                 ret = self.cur_value
             else
                 ret = nil
@@ -13,18 +13,28 @@ var iter = fn(count) -> ret {
     }
 }
 
+if false do
+    print("yay")
+elif false do
+    print("boo")
+elif false do
+    print("huh?")
+else
+    print("confusion")
+end
 
-for i in iter(10)
+
+for i in iter(10) do
     print(i)
     print("this happened!")
 end
 
-for i in iter(5)
+for i in iter(5) do
     print(i)
     print("this happened!")
 end
 
-for i in iter(3)
+for i in iter(3) do
     print(i)
     print("this happened!")
 end

@@ -70,6 +70,7 @@ impl<'a> Lexer<'a> {
                         "end" => Token::End,
                         "true" => Token::Bool(true),
                         "false" => Token::Bool(false),
+                        "do" => Token::Do,
                         s => Token::Ident(s)
                     }
                 })),

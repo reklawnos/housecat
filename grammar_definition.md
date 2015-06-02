@@ -110,15 +110,15 @@ Statements
 
     <stmt> ::=
         | <stmt-items>
-        | "if" <expr> <if-statements>
-        | "while" <expr> <block-statements>
-        | "for" <rets> "in" <expr> <block-statemnts>
+        | "if" <expr> "do" <if-statements>
+        | "while" <expr> "do" <block-statements>
+        | "for" <rets> "in" <expr> "do" <block-statemnts>
         | "return"
 
     <if-statements> ::=
         | <stmt> <if-statements>
         | "end"
-        | "elif" <expr> <if-statements>
+        | "elif" <expr> "do" <if-statements>
         | "else" <block-statements>
 
     <block-statements> ::=
