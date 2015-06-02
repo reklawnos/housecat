@@ -3,7 +3,7 @@ mod core;
 
 use libhc::io::{Print};
 use libhc::core::{Import};
-use evaluator::stack_evaluator::values::RustClip;
+use evaluator::values::RustClip;
 use std::collections::HashMap;
 
 #[allow(dead_code)]

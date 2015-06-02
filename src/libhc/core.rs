@@ -1,4 +1,4 @@
-use evaluator::stack_evaluator::values::{Value, RustClip};
+use evaluator::values::{Value, RustClip};
 
 #[derive(Debug)]
 pub struct Import;

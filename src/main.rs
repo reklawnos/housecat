@@ -128,6 +128,6 @@ fn main() {
                 }
             }
         };
-        evaluator::stack_evaluator::test_stack(&ast);
+        evaluator::test_stack(&ast);
     }
 }
