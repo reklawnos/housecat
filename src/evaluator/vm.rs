@@ -150,9 +150,14 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                 };
                 
             }
+            Op::DefPop => {
+                let key = stack.pop().unwrap();
+                let value = stack.pop().unwrap();
+                unsafe {(*defs).insert(key, value);}
+            }
             Op::DefSelf(ref key) => {
                 let value = stack.pop().unwrap();
-                unsafe {(*defs).insert((**key).clone(), value)};
+                unsafe {(*defs).insert((**key).clone(), value);}
             }
             Op::GetAndAccess => {
                 let b = stack.pop().unwrap();

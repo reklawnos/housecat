@@ -20,6 +20,7 @@ pub enum Token<'a>{
     Def,
     Access,
     AccessSelf,
+    ExprDef,
     OpenCurly,
     CloseCurly,
     OpenBrac,

@@ -23,6 +23,11 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
                 [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
             }
         }
+        // "@" <expr>
+        [Tok{token: Token::ExprDef, ..}, rest..] => {
+            let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
+            Ok((StmtItem::Expr(Box::new(parsed_expr)), tokens_after_expr))
+        }
         // <expr>
         [Tok{token: _, ..}, ..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(tokens));

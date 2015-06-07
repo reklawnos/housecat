@@ -19,8 +19,9 @@ pub enum Op<'a> {
     //Variables
     Load(&'a str), // .. -> a, ..
     DeclareAndStore(&'a str), // a, .. -> ..
-    Store(&'a str),
+    Store(&'a str), // a, .. -> ..
     Def(Box<Value<'a>>), // clip, value, .. -> ..
+    DefPop, // value, key, .. -> ..
     DefSelf(Box<Value<'a>>), // value, .. -> ..
     //Postfixes
     GetAndAccess, // b, a, .. -> a.b, ..

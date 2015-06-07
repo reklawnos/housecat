@@ -97,6 +97,7 @@ Statements
 
     <item> ::=
         | "var" <ident>
+        | "@" <expr>
         | <expr>
 
     <item-list> ::=

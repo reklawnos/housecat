@@ -139,5 +139,6 @@ pub enum IfClause<'a> {
 #[derive(Debug)]
 pub enum StmtItem<'a> {
     Bare(Box<Expr<'a>>),
+    Expr(Box<Expr<'a>>),
     Var(&'a str)
 }

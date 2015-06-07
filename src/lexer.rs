@@ -10,6 +10,7 @@ static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     (r":", Token::Def),
     (r".", Token::Access),
     (r"|", Token::AccessSelf),
+    (r"@", Token::ExprDef),
     (r"{", Token::OpenCurly),
     (r"}", Token::CloseCurly),
     (r"[", Token::OpenBrac),

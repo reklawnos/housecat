@@ -8,7 +8,7 @@ fn codegen_failure<T>(line_number: usize, message: &str) -> Result<T, String> {
     Err(format!("CODEGEN FAILURE at line {}: {}", line_number + 1, message))
 }
 
-pub fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
+fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
     let &Expr{ref expr, ref data} = expr;
     match expr {
         &ExprType::UnOp{ref expr, ref op, ..} => {
@@ -143,7 +143,7 @@ fn eval_expr_as_ident_str<'a>(expr: &'a Expr) -> Result<&'a str, String> {
     }
 }
 
-pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
+fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
     let &Stmt{ref stmt, ref data} = stmt;
     match stmt {
         &StmtType::Assign{ref items, ref expr, ..} => {
@@ -159,6 +159,7 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String>
                     let key = try!(eval_expr_as_ident_str(expr));
                     ops.push(Op::Store(key));
                 }
+                StmtItem::Expr(_) => { return codegen_failure(data.line, "cannot assign to expression"); }
             }
             Ok(())
         }
@@ -184,6 +185,11 @@ pub fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String>
                     } else {
                         ops.push(Op::DefSelf(Box::new(Value::String(assign_key.to_string()))));
                     }
+                    Ok(())
+                }
+                StmtItem::Expr(ref expr) => {
+                    try!(gen_expr(expr, ops));
+                    ops.push(Op::DefPop);
                     Ok(())
                 }
                 _ => {return codegen_failure(data.line, "cannot def without bare item");}
