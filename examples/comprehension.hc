@@ -41,8 +41,8 @@ end
 
 print("got to here")
 
-# var list = ${for i in iter(10) [i]: i + 1 end}
+var list = ${for i in iter(10) do @i: i + 1 end}
 
-# for i in iter(10)
-#     print(list[i])
-# end
+for i in iter(10) do
+    print(list[i])
+end
