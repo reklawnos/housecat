@@ -24,15 +24,14 @@ fn print_ops(ops: &Vec<Op>) {
     }
 }
 
-pub fn test_stack(ast: &Vec<Stmt>) {
-    println!("testing stack eval...");
+pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value<'a>, Value<'a>>) -> Result<(), String> {
+    println!("running stack eval...");
     println!("op size: {}", size_of::<Op>());
     println!("value size: {}", size_of::<Value>());
     println!("boxed size: {}", size_of::<Box<Value>>());
     println!("string size: {}", size_of::<String>());
     let libs = open_libs();
     let mut ops = Vec::with_capacity(1024);
-    let mut defs = HashMap::with_capacity(100);
     let mut var_map = HashMap::with_capacity(1024);
     let mut id = 0usize;
     for (key, rc) in libs.into_iter() {
@@ -43,15 +42,12 @@ pub fn test_stack(ast: &Vec<Stmt>) {
     
     match gen_stmt_list(&ast, &mut ops) {
         Ok(_) => (),
-        Err(s) => {
-            println!("{}", s);
-            return;
-        }
+        Err(s) => {return Err(s)}
     };
     print_ops(&ops);
     let mut stack = Vec::with_capacity(2048);
-    match execute(&mut ops, &mut stack, &mut vars, &mut defs) {
-        Ok(()) => (),
-        Err(s) => println!("{}", s)
+    match execute(&mut ops, &mut stack, &mut vars, defs) {
+        Ok(()) => Ok(()),
+        Err(s) => Err(s)
     }
 }
