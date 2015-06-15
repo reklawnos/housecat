@@ -11,18 +11,18 @@ use core::cmp::Eq;
 use super::ops::Op;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum Value<'a> {
+pub enum Value {
     Int(i64),
     Float(FloatWrap),
     Bool(bool),
     String(String),
-    Tuple(Vec<Value<'a>>),
-    Clip(ClipHolder<'a>),
-    RustClip(RustHolder<'a>),
+    Tuple(Vec<Value>),
+    Clip(ClipHolder),
+    RustClip(RustHolder),
     Nil
 }
 
-impl<'a> Display for Value<'a> {
+impl Display for Value {
     fn fmt<'r>(&'r self, formatter: &mut Formatter) -> FmtResult {
         match self {
             &Value::Int(i) => write!(formatter, "{}", i),
@@ -62,77 +62,77 @@ impl<'a> Display for Value<'a> {
 
 
 #[derive(Clone, Debug)]
-pub struct RustHolder<'a> {
-    pub clip: Rc<RefCell<Box<RustClip<'a> + 'a>>>,
+pub struct RustHolder {
+    pub clip: Rc<RefCell<Box<RustClip>>>,
     pub id: usize
 }
 
-impl<'a> Eq for RustHolder<'a> {}
+impl Eq for RustHolder {}
 
-impl<'a> PartialEq for RustHolder<'a> {
-    fn eq(&self, other: &RustHolder<'a>) -> bool {
+impl PartialEq for RustHolder {
+    fn eq(&self, other: &RustHolder) -> bool {
         self.id == other.id
     }
 
-    fn ne(&self, other: &RustHolder<'a>) -> bool {
+    fn ne(&self, other: &RustHolder) -> bool {
         self.id != other.id
     }
 }
 
-impl<'a> Hash for RustHolder<'a> {
+impl Hash for RustHolder {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-pub trait RustClip<'a>: Debug{
-    fn get(&self, &str) -> Option<Value<'a>>;
-    fn set(&mut self, &str, Value<'a>) -> Result<(), &str>;
-    fn call(&mut self, Vec<Value<'a>>) -> Result<Value<'a>, &str>;
+pub trait RustClip: Debug{
+    fn get(&self, &str) -> Option<Value>;
+    fn set(&mut self, &str, Value) -> Result<(), String>;
+    fn call(&mut self, Vec<Value>) -> Result<Value, String>;
 }
 
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct ClipHolder<'a>(pub Rc<RefCell<ClipStruct<'a>>>);
+pub struct ClipHolder(pub Rc<RefCell<ClipStruct>>);
 
-impl<'a> Eq for ClipHolder<'a> {}
+impl Eq for ClipHolder {}
 
-impl<'a> Hash for ClipHolder<'a> {
+impl Hash for ClipHolder {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.borrow().hash(state);
     }
 }
 
 
-pub struct ClipStruct<'a> {
-    pub params: Vec<&'a str>,
-    pub returns: Vec<&'a str>,
-    pub statements: Vec<Op<'a>>,
-    pub defs: HashMap<Value<'a>, Value<'a>>
+pub struct ClipStruct {
+    pub params: Vec<String>,
+    pub returns: Vec<String>,
+    pub statements: Vec<Op>,
+    pub defs: HashMap<Value, Value>
 }
 
-impl<'a> PartialEq for ClipStruct<'a> {
-    fn eq(&self, other: &ClipStruct<'a>) -> bool {
-        let self_ptr: *const ClipStruct<'a> = self;
-        let other_ptr: *const ClipStruct<'a> = other;
+impl PartialEq for ClipStruct {
+    fn eq(&self, other: &ClipStruct) -> bool {
+        let self_ptr: *const ClipStruct = self;
+        let other_ptr: *const ClipStruct = other;
         self_ptr == other_ptr
     }
 
-    fn ne(&self, other: &ClipStruct<'a>) -> bool {
+    fn ne(&self, other: &ClipStruct) -> bool {
         !self.eq(other)
     }
 }
 
-impl<'a> Eq for ClipStruct<'a> {}
+impl Eq for ClipStruct {}
 
-impl<'a> Hash for ClipStruct<'a> {
+impl Hash for ClipStruct {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let self_ptr: *const ClipStruct<'a> = self;
+        let self_ptr: *const ClipStruct = self;
         self_ptr.hash(state);
     }
 }
 
-impl<'a> Debug for ClipStruct<'a> {
+impl Debug for ClipStruct {
     fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
         formatter.write_str("<Clip>")
     }

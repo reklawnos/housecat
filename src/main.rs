@@ -29,6 +29,9 @@ fn main() {
         println!("No .hcat file provided!");
     } else {
         let mut interpreter = Interpreter::new();
-        interpreter.interpret_file(&command_args[1][..]);
+        match interpreter.interpret_file(&command_args[1][..]) {
+            Ok(_) => (),
+            Err(s) => println!("{}", s)
+        }
     }
 }

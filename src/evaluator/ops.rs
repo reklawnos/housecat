@@ -1,10 +1,10 @@
 use super::values::Value;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum Op<'a> {
+pub enum Op {
     //Stack manipulation
-    Push(Box<Value<'a>>), // .. -> a, ..
-    PushClip(Box<ClipParts<'a>>), // .. -> clip, ..
+    Push(Box<Value>), // .. -> a, ..
+    PushClip(Box<ClipParts>), // .. -> clip, ..
     MakeTuple(usize), // 1, ..., N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
     JumpIfFalse(usize), // bool, .. -> ..
@@ -17,16 +17,16 @@ pub enum Op<'a> {
     PushScope,
     PopScope,
     //Variables
-    Load(&'a str), // .. -> a, ..
-    DeclareAndStore(&'a str), // a, .. -> ..
-    Store(&'a str), // a, .. -> ..
-    Def(Box<Value<'a>>), // clip, value, .. -> ..
+    Load(String), // .. -> a, ..
+    DeclareAndStore(String), // a, .. -> ..
+    Store(String), // a, .. -> ..
+    Def(Box<Value>), // clip, value, .. -> ..
     DefPop, // value, key, .. -> ..
-    DefSelf(Box<Value<'a>>), // value, .. -> ..
+    DefSelf(Box<Value>), // value, .. -> ..
     //Postfixes
     GetAndAccess, // b, a, .. -> a.b, ..
-    Access(Box<Value<'a>>), // a, .. -> a.b, a, ..
-    AccessPop(Box<Value<'a>>), // a, .. -> a.b, ..
+    Access(Box<Value>), // a, .. -> a.b, a, ..
+    AccessPop(Box<Value>), // a, .. -> a.b, ..
     Play(usize), // 1, ..., N, a, .. -> a(1, ..., N), ..
     PlaySelf(usize), // 1, ..., N, func, self, .. -> func(self, 1, ..., N), ..
     //Unary ops
@@ -51,8 +51,8 @@ pub enum Op<'a> {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct ClipParts<'a> {
-    pub params: Vec<&'a str>,
-    pub returns: Vec<&'a str>,
-    pub ops: Vec<Op<'a>>
+pub struct ClipParts {
+    pub params: Vec<String>,
+    pub returns: Vec<String>,
+    pub ops: Vec<Op>
 }

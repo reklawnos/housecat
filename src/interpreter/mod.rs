@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 use std::fs::File;
-use std::env;
 use std::path::Path;
 use std::fmt::Display;
 use std::collections::HashMap;
@@ -17,7 +16,7 @@ fn interpreter_failure<T, D: Display>(message: D) -> Result<T, String> {
 pub struct Interpreter<'a> {
     lexer: Lexer<'a>,
     statements: Vec<Stmt<'a>>,
-    defs: HashMap<Value<'a>, Value<'a>>
+    defs: HashMap<Value, Value>
 }
 
 impl<'a> Interpreter<'a> {
@@ -29,7 +28,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn interpret_file(&'a mut self, filename: &str) -> Result<&mut HashMap<Value<'a>, Value<'a>>, String> {
+    pub fn interpret_file(&'a mut self, filename: &str) -> Result<&mut HashMap<Value, Value>, String> {
         let path = &Path::new(filename);
         let mut file = match File::open(path) {
             Err(err) => {

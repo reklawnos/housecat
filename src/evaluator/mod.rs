@@ -24,7 +24,7 @@ fn print_ops(ops: &Vec<Op>) {
     }
 }
 
-pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value<'a>, Value<'a>>) -> Result<(), String> {
+pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value, Value>) -> Result<(), String> {
     println!("running stack eval...");
     println!("op size: {}", size_of::<Op>());
     println!("value size: {}", size_of::<Value>());
@@ -35,7 +35,7 @@ pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value<'a>, Value<
     let mut var_map = HashMap::with_capacity(1024);
     let mut id = 0usize;
     for (key, rc) in libs.into_iter() {
-        var_map.insert(key, Value::RustClip(RustHolder{clip: Rc::new(RefCell::new(rc)), id: id}));
+        var_map.insert(key.to_string(), Value::RustClip(RustHolder{clip: Rc::new(RefCell::new(rc)), id: id}));
         id += 1;
     }
     let mut vars = vec![var_map];

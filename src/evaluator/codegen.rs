@@ -8,7 +8,7 @@ fn codegen_failure<T>(line_number: usize, message: &str) -> Result<T, String> {
     Err(format!("CODEGEN FAILURE at line {}: {}", line_number + 1, message))
 }
 
-fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
+fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op>) -> Result<(), String> {
     let &Expr{ref expr, ref data} = expr;
     match expr {
         &ExprType::UnOp{ref expr, ref op, ..} => {
@@ -55,8 +55,8 @@ fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), String>
                     let mut func_ops = Vec::new();
                     try!(gen_stmt_list(statements, &mut func_ops));
                     ops.push(Op::PushClip(Box::new(ClipParts{
-                        params: params.clone(),
-                        returns: returns.clone(),
+                        params: params.iter().map(|p| p.to_string()).collect(),
+                        returns: returns.iter().map(|r| r.to_string()).collect(),
                         ops: func_ops
                     })));
                 }
@@ -64,7 +64,7 @@ fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op<'a>>) -> Result<(), String>
             Ok(())
         }
         &ExprType::Ident{ref name, ..} => {
-            ops.push(Op::Load(name));
+            ops.push(Op::Load(name.to_string()));
             Ok(())
         }
         &ExprType::Postfix{ref expr, ref postfixes, ..} => {
@@ -143,7 +143,7 @@ fn eval_expr_as_ident_str<'a>(expr: &'a Expr) -> Result<&'a str, String> {
     }
 }
 
-fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
+fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op>) -> Result<(), String> {
     let &Stmt{ref stmt, ref data} = stmt;
     match stmt {
         &StmtType::Assign{ref items, ref expr, ..} => {
@@ -153,11 +153,11 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
             }
             match items[0] {
                 StmtItem::Var(s) => {
-                    ops.push(Op::DeclareAndStore(s));
+                    ops.push(Op::DeclareAndStore(s.to_string()));
                 }
                 StmtItem::Bare(ref expr) => {
                     let key = try!(eval_expr_as_ident_str(expr));
-                    ops.push(Op::Store(key));
+                    ops.push(Op::Store(key.to_string()));
                 }
                 StmtItem::Expr(_) => { return codegen_failure(data.line, "cannot assign to expression"); }
             }
@@ -177,7 +177,7 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
                     let assign_key = keys.pop().unwrap();
                     if keys.len() > 0 {
                         let base_ident = keys.remove(0);
-                        ops.push(Op::Load(base_ident));
+                        ops.push(Op::Load(base_ident.to_string()));
                         for ident in keys.into_iter() {
                             ops.push(Op::Access(Box::new(Value::String(ident.to_string()))));
                         }
@@ -282,8 +282,8 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
             ops.push(Op::RetrieveIterator);
             ops.push(Op::Access(Box::new(Value::String("next".to_string()))));
             ops.push(Op::PlaySelf(0));
-            ops.push(Op::DeclareAndStore(idents[0]));
-            ops.push(Op::Load(idents[0]));
+            ops.push(Op::DeclareAndStore(idents[0].to_string()));
+            ops.push(Op::Load(idents[0].to_string()));
             ops.push(Op::Push(Box::new(Value::Nil)));
             ops.push(Op::Neq);
             let mut body_ops = Vec::new();
@@ -303,7 +303,7 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
     }
 }
 
-pub fn gen_stmt_list<'a>(statements: &'a Vec<Stmt<'a>>, ops: &mut Vec<Op<'a>>) -> Result<(), String> {
+pub fn gen_stmt_list<'a>(statements: &'a Vec<Stmt<'a>>, ops: &mut Vec<Op>) -> Result<(), String> {
     for statement in statements.iter() {
         try!(gen_stmt(statement, ops));
     }

@@ -48,9 +48,9 @@ fn exec_failure<T, D: Display>(pc: usize, message: D) -> Result<T, String> {
     Err(format!("EXECUTION FAILURE at PC {}: {}", pc, message))
 }
 
-pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
-                   vars: &mut Vec<HashMap<&'a str, Value<'a>>>,
-                   defs: *mut HashMap<Value<'a>, Value<'a>>) -> Result<(), String> {
+pub fn execute<'a>(ops: *const Vec<Op>, stack: &mut Vec<Value>,
+                   vars: &mut Vec<HashMap<String, Value>>,
+                   defs: *mut HashMap<Value, Value>) -> Result<(), String> {
     let mut pc: usize = 0;
     let len = unsafe {(*ops).len()};
     let mut iterators = Vec::new();
@@ -107,7 +107,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::Load(ref s) => {
                 let mut found_var = false;
                 for scope in vars.iter().rev() {
-                    match scope.get(s) {
+                    match scope.get(&s[..]) {
                         Some(v) => {
                             stack.push(v.clone());
                             found_var = true;
@@ -123,14 +123,14 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
             Op::DeclareAndStore(ref s) => {
                 let a = stack.pop().unwrap();
                 let top_idx = vars.len() - 1;
-                vars[top_idx].insert(s, a);
+                vars[top_idx].insert(s.clone(), a);
             }
             Op::Store(ref s) => {
                 let mut found_var = false;
                 for scope in vars.iter_mut().rev() {
-                    if scope.contains_key(s) {
+                    if scope.contains_key(&s[..]) {
                         let a = stack.pop().unwrap();
-                        scope.insert(s, a);
+                        scope.insert(s.clone(), a);
                         found_var = true;
                         break;
                     }
@@ -210,10 +210,10 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let mut clip = c.0.borrow_mut();
                         let mut new_scope = HashMap::new();
                         for (ident, value) in clip.params.iter().zip(params.into_iter()) {
-                            new_scope.insert(*ident, value);
+                            new_scope.insert(ident.clone(), value);
                         }
                         for ident in clip.returns.iter() {
-                            new_scope.insert(*ident, Value::Nil);
+                            new_scope.insert(ident.clone(), Value::Nil);
                         }
                         {
                             vars.push(new_scope);
@@ -223,7 +223,7 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                                 stack.push(Value::Nil);
                             } else if clip.returns.len() == 1 {
                                 for scope in vars.iter_mut().rev() {
-                                    match scope.remove(clip.returns[0]) {
+                                    match scope.remove(&clip.returns[0]) {
                                         Some(v) => {
                                             stack.push(v);
                                             break;
@@ -268,10 +268,10 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                         let mut new_scope = HashMap::new();
                         params.insert(0, stack.pop().unwrap());
                         for (ident, value) in clip.params.iter().zip(params.into_iter()) {
-                            new_scope.insert(*ident, value);
+                            new_scope.insert(ident.clone(), value);
                         }
                         for ident in clip.returns.iter() {
-                            new_scope.insert(*ident, Value::Nil);
+                            new_scope.insert(ident.clone(), Value::Nil);
                         }
                         {
                             vars.push(new_scope);
@@ -281,11 +281,11 @@ pub fn execute<'a>(ops: *const Vec<Op<'a>>, stack: &mut Vec<Value<'a>>,
                             if clip.returns.len() == 0 {
                                 stack.push(Value::Nil);
                             } else if clip.returns.len() == 1 {
-                                stack.push(vars[idx].remove(clip.returns[0]).unwrap());
+                                stack.push(vars[idx].remove(&clip.returns[0]).unwrap());
                             } else {
                                 let mut ret_vec = Vec::new();
                                 for ret in clip.returns.iter() {
-                                    ret_vec.push(vars[idx].remove(*ret).unwrap());
+                                    ret_vec.push(vars[idx].remove(ret).unwrap());
                                 }
                                 stack.push(Value::Tuple(ret_vec));
                             }
