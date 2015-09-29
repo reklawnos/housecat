@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 use std::fs::File;
-use std::env;
 use std::path::Path;
 use std::fmt::Display;
 use std::collections::HashMap;

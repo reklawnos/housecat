@@ -20,6 +20,7 @@ static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     (r",", Token::Comma),
     (r"->", Token::Ret),
     //Binary Operators
+    (r"^", Token::Exp),
     (r"*", Token::Mul),
     (r"/", Token::Div),
     (r"%", Token::Mod),
@@ -43,7 +44,65 @@ static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
 pub struct Lexer<'a> {
     input: String,
     toks: Vec<Tok<'a>>,
-    lit_regexes: [(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>); 4]
+}
+
+fn match_float(line_slice: &str) -> Option<(Token, usize)> {
+    let re = regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?");
+    let (start,end) = match re.find(line_slice) {
+        Some(range) => range,
+        None => {return None}
+    };
+    let token_slice = &line_slice[start..end];
+    return Some((Token::Float(token_slice.parse().unwrap()), end));
+}
+
+fn match_int(line_slice: &str) -> Option<(Token, usize)> {
+    let re = regex!(r"^[0-9]+");
+    let (start,end) = match re.find(line_slice) {
+        Some(range) => range,
+        None => {return None}
+    };
+    let token_slice = &line_slice[start..end];
+    return Some((Token::Int(token_slice.parse().unwrap()), end));
+}
+
+fn match_keyword(line_slice: &str) -> Option<(Token, usize)> {
+    let re = regex!(r"^((\p{Alphabetic}|\p{M}|\p{Pc}|\p{Join_Control})\w*)");
+    let (start,end) = match re.find(line_slice) {
+        Some(range) => range,
+        None => {return None}
+    };
+    let token_slice = &line_slice[start..end];
+    let tok = match token_slice {
+        "var" => Token::Var,
+        "nil" => Token::Nil,
+        "fn" => Token::Fn,
+        "return" => Token::Return,
+        "in" => Token::In,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "elif" => Token::Elif,
+        "while" => Token::While,
+        "for" => Token::For,
+        "end" => Token::End,
+        "true" => Token::Bool(true),
+        "false" => Token::Bool(false),
+        "do" => Token::Do,
+        s => Token::Ident(s)
+    };
+    return Some((tok, end));
+}
+
+fn match_string(line_slice: &str) -> Option<(Token, usize)> {
+    let re = regex!(r#"^"(?:[^"\\]|\\.)*""#);
+    let (start,end) = match re.find(line_slice) {
+        Some(range) => range,
+        None => {return None}
+    };
+    let trimmed_slice = &line_slice[start + 1..end - 1];
+    println!("trimmed slice: {:?}", trimmed_slice);
+    let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
+    return Some((Token::String(escaped), end));
 }
 
 impl<'a> Lexer<'a> {
@@ -51,36 +110,6 @@ impl<'a> Lexer<'a> {
         Lexer {
             input: String::new(),
             toks: Vec::new(),
-            //TODO: There's gotta be a better way to do this
-            lit_regexes: [
-                (regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?"), Box::new(|s: &'a str| Token::Float(s.parse().unwrap()))),
-                (regex!(r"^[0-9]+"), Box::new(|s: &'a str| Token::Int(s.parse().unwrap()))),
-                (regex!(r"^((\p{Alphabetic}|\p{M}|\p{Pc}|\p{Join_Control})\w*)"), Box::new(|s: &'a str| {
-                    //Match keywords and idents
-                    match s {
-                        "var" => Token::Var,
-                        "nil" => Token::Nil,
-                        "fn" => Token::Fn,
-                        "return" => Token::Return,
-                        "in" => Token::In,
-                        "if" => Token::If,
-                        "else" => Token::Else,
-                        "elif" => Token::Elif,
-                        "while" => Token::While,
-                        "for" => Token::For,
-                        "end" => Token::End,
-                        "true" => Token::Bool(true),
-                        "false" => Token::Bool(false),
-                        "do" => Token::Do,
-                        s => Token::Ident(s)
-                    }
-                })),
-                (regex!(r#"^"(?:[^"\\]|\\.)*""#), Box::new(|s: &'a str|{
-                    let trimmed_slice = &s[1..s.len() - 1];
-                    let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
-                    Token::String(escaped)
-                }))
-            ]
         }
     }
 
@@ -88,7 +117,7 @@ impl<'a> Lexer<'a> {
         let mut char_index = 0usize;
         self.input = s;
         for (line_index, l) in self.input.lines().enumerate() {
-            let res = Lexer::lex_line(l, line_index, &mut char_index, &mut self.toks, &self.lit_regexes);
+            let res = Lexer::lex_line(l, line_index, &mut char_index, &mut self.toks);
             match res {
                 Ok(()) => {char_index += 1;},
                 Err(col) => {
@@ -108,7 +137,7 @@ impl<'a> Lexer<'a> {
         Ok(&self.toks)
     }
 
-    fn lex_line(line: &'a str, line_no: usize, char_index: &mut usize, toks: &mut Vec<Tok<'a>>, lit_regexes: &[(Regex, Box<Fn(&'a str) -> Token<'a> + 'static>)]) -> Result<(), usize> {
+    fn lex_line(line: &'a str, line_no: usize, char_index: &mut usize, toks: &mut Vec<Tok<'a>>) -> Result<(), usize> {
         let mut line_slice = line;
         let mut col = 0usize;
         let mut match_end = 0usize;
@@ -155,17 +184,22 @@ impl<'a> Lexer<'a> {
             }
             //Lex regexes
             if !found_token {
-                for &(ref re, ref tok_func) in lit_regexes.iter() {
-                    let (start,end) = match re.find(line_slice) {
-                        Some(range) => range,
-                        None => continue
-                    };
-                    match_end = end;
-                    let token_slice = &line_slice[start..end];
-                    let new_token = tok_func(token_slice);
-                    toks.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
-                    found_token = true;
-                    break;
+                let mut funcs: Vec<Box<Fn(&str) -> Option<(Token, usize)>>> = vec![
+                    box match_float,
+                    box match_int,
+                    box match_keyword,
+                    box match_string
+                ];
+                for f in funcs.iter_mut() {
+                    match f(line_slice) {
+                        Some((new_token, end)) => {
+                            match_end = end;
+                            toks.push(Tok{token: new_token, line: line_no, col: col, line_string: line, char_index: *char_index});
+                            found_token = true;
+                            break;
+                        }
+                        None => {}
+                    }
                 }
             }
 
@@ -200,8 +234,8 @@ mod test {
     #[test]
     fn test_keywords() {
         match_tokens(
-            "def var nil return",
-            vec![Token::Def, Token::Var, Token::Nil, Token::Return]
+            "while var nil return",
+            vec![Token::While, Token::Var, Token::Nil, Token::Return]
         );
     }
 
@@ -216,7 +250,7 @@ mod test {
                 Token::Ret,
                 Token::Ret,
                 Token::Gte,
-                Token::Eq,
+                Token::Assign,
                 Token::Lt,
                 Token::Lte,
                 Token::Neq
@@ -247,8 +281,8 @@ mod test {
     #[test]
     fn test_invalid_char() {
         let mut lexer = Lexer::new();
-        match lexer.lex("this is @ invalid".to_string()){
-            Err(s) => assert_eq!("LEXING FAILURE at 1,9: invalid character @\nthis is @ invalid\n        ^".to_string(), s),
+        match lexer.lex("this is & invalid".to_string()){
+            Err(s) => assert_eq!("LEXING FAILURE at 1,9: invalid character &\nthis is & invalid\n        ^".to_string(), s),
             _ => assert!(false)
         }
     }
@@ -324,13 +358,13 @@ mod test {
     #[test]
     fn test_strings() {
         match_tokens(
-            "def a: \"hello there kind sir\"\ndef b: \"how are you \\\"doing\\\" today?\"",
+            "var a = \"hello there kind sir\"\nvar b = \"how are you \\\"doing\\\" today?\"",
             vec![
-                Token::Def,
+                Token::Var,
                 Token::Ident("a"),
                 Token::Assign,
                 Token::String("hello there kind sir".to_string()),
-                Token::Def,
+                Token::Var,
                 Token::Ident("b"),
                 Token::Assign,
                 Token::String("how are you \"doing\" today?".to_string())

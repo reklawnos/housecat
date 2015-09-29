@@ -1,9 +1,10 @@
 #![feature(plugin)]
 #![plugin(regex_macros)]
-#![feature(collections)]
 #![feature(slice_patterns)]
 #![feature(test)]
 #![feature(core)]
+#![feature(box_syntax)]
+
 
 extern crate regex;
 extern crate test;
@@ -22,13 +23,17 @@ mod evaluator;
 mod interpreter;
 mod libhc;
 
-#[allow(dead_code)]
 fn main() {
     let command_args: Vec<String> = env::args().collect();
     if command_args.len() <= 1 {
         println!("No .hcat file provided!");
     } else {
         let mut interpreter = Interpreter::new();
-        interpreter.interpret_file(&command_args[1][..]);
+        match interpreter.interpret_file(&command_args[1][..]) {
+            Ok(_) => {},
+            Err(s) => {
+                println!("{}", s)
+            }
+        }
     }
 }

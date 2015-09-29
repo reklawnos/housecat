@@ -15,7 +15,7 @@ pub enum Token<'a>{
     Do,
 
     // Symbols
-    Eof,
+    // Eof,
     Assign,
     Def,
     Access,
