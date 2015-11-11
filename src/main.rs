@@ -23,10 +23,8 @@ fn main() {
     } else {
         let mut interpreter = Interpreter::new();
         match interpreter.interpret_file(&command_args[1][..]) {
-            Ok(_) => {},
-            Err(s) => {
-                println!("{}", s)
-            }
+            Ok(_) => (),
+            Err(s) => println!("{}", s)
         }
     }
 }
