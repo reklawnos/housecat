@@ -11,5 +11,4 @@ path = "src/main.rs"
 
 [dependencies]
 regex = "0.1.30"
-regex_macros = "=0.1.21"
-num = "=0.1.25"
+num = "0.1.25"

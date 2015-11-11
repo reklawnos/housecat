@@ -5,8 +5,8 @@ use std::fmt::{Debug, Display, Formatter, Error};
 use std::fmt::Result as FmtResult;
 use num::Float;
 use std::mem;
-use core::hash::{Hash, Hasher};
-use core::cmp::Eq;
+use std::hash::{Hash, Hasher};
+use std::cmp::Eq;
 
 use super::ops::Op;
 

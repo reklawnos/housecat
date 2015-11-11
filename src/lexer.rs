@@ -2,8 +2,6 @@ use token::{Token, Tok};
 use regex::Regex;
 use utils::get_caret_string;
 
-static COMMENT_REGEX: Regex = regex!(r"^#.*");
-static WHITESPACE_REGEX: Regex = regex!(r"^\s");
 
 static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     //Symbols
@@ -47,7 +45,7 @@ pub struct Lexer<'a> {
 }
 
 fn match_float(line_slice: &str) -> Option<(Token, usize)> {
-    let re = regex!(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?");
+    let re = Regex::new(r"^[0-9]*\.[0-9]+(?:e[-+]?[0-9]+)?").unwrap();
     let (start,end) = match re.find(line_slice) {
         Some(range) => range,
         None => {return None}
@@ -57,7 +55,7 @@ fn match_float(line_slice: &str) -> Option<(Token, usize)> {
 }
 
 fn match_int(line_slice: &str) -> Option<(Token, usize)> {
-    let re = regex!(r"^[0-9]+");
+    let re = Regex::new(r"^[0-9]+").unwrap();
     let (start,end) = match re.find(line_slice) {
         Some(range) => range,
         None => {return None}
@@ -67,7 +65,7 @@ fn match_int(line_slice: &str) -> Option<(Token, usize)> {
 }
 
 fn match_keyword(line_slice: &str) -> Option<(Token, usize)> {
-    let re = regex!(r"^((\p{Alphabetic}|\p{M}|\p{Pc}|\p{Join_Control})\w*)");
+    let re = Regex::new(r"^((\p{Alphabetic}|\p{M}|\p{Pc}|\p{Join_Control})\w*)").unwrap();
     let (start,end) = match re.find(line_slice) {
         Some(range) => range,
         None => {return None}
@@ -94,7 +92,7 @@ fn match_keyword(line_slice: &str) -> Option<(Token, usize)> {
 }
 
 fn match_string(line_slice: &str) -> Option<(Token, usize)> {
-    let re = regex!(r#"^"(?:[^"\\]|\\.)*""#);
+    let re = Regex::new(r#"^"(?:[^"\\]|\\.)*""#).unwrap();
     let (start,end) = match re.find(line_slice) {
         Some(range) => range,
         None => {return None}
@@ -144,7 +142,9 @@ impl<'a> Lexer<'a> {
         while line_slice.len() > 0 {
             let mut found_token = false;
             //Return for this line once a comment is reached
-            match COMMENT_REGEX.find(line_slice) {
+            let comment_regex = Regex::new(r"^#.*").unwrap();
+            let whitespace_regex = Regex::new(r"^\s").unwrap();
+            match comment_regex.find(line_slice) {
                 Some((_, end)) => {
                     match_end = end;
                     found_token = true;
@@ -152,7 +152,7 @@ impl<'a> Lexer<'a> {
                 None => ()
             }
             //Skip whitespace
-            match WHITESPACE_REGEX.find(line_slice) {
+            match whitespace_regex.find(line_slice) {
                 Some((_, end)) => {
                     match_end = end;
                     found_token = true;
@@ -185,10 +185,10 @@ impl<'a> Lexer<'a> {
             //Lex regexes
             if !found_token {
                 let mut funcs: Vec<Box<Fn(&str) -> Option<(Token, usize)>>> = vec![
-                    box match_float,
-                    box match_int,
-                    box match_keyword,
-                    box match_string
+                    Box::new(match_float),
+                    Box::new(match_int),
+                    Box::new(match_keyword),
+                    Box::new(match_string)
                 ];
                 for f in funcs.iter_mut() {
                     match f(line_slice) {
@@ -221,7 +221,6 @@ impl<'a> Lexer<'a> {
 mod test {
     use super::Lexer;
     use token::Token;
-    use test::Bencher;
 
     fn match_tokens(input: &str, output: Vec<Token>) {
         let mut lexer = Lexer::new();
@@ -372,10 +371,11 @@ mod test {
         )
     }
 
+    /*
     #[bench]
     fn bench_symbols(b: &mut Bencher) {
         let num_copies = 1000;
-        let symbol_string = ":.{}()[],->*/%+-<=<>=>===!==!=&&||!$";
+        let symbol_string = ":.{}()[],->*%/+-<=<>=>===!==!=&&||!$";
         let mut test_string = String::with_capacity(symbol_string.len() * num_copies);
         for _ in 1..num_copies {
             test_string.push_str(symbol_string);
@@ -388,4 +388,5 @@ mod test {
             }
         });
     }
+    */
 }

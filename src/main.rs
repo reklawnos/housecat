@@ -1,14 +1,7 @@
-#![feature(plugin)]
-#![plugin(regex_macros)]
 #![feature(slice_patterns)]
-#![feature(test)]
-#![feature(core)]
-#![feature(box_syntax)]
 
 
 extern crate regex;
-extern crate test;
-extern crate core;
 extern crate num;
 
 use std::env;
