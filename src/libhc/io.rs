@@ -1,17 +1,22 @@
-use evaluator::values::{Value, RustClip};
+use evaluator::values::Value;
+use evaluator::clip::Clip;
+use evaluator::environment::Environment;
 
 #[derive(Debug)]
 pub struct Print;
 
 #[allow(unused_variables, dead_code)]
-impl<'a> RustClip for Print {
-    fn get(&self, key: &str) -> Option<Value> {
-        None
+impl Clip for Print {
+    fn get(&self, key: &Value) -> Value {
+        Value::Nil
     }
-    fn set(&mut self, key: &str, value: Value) -> Result<(), String> {
-        Err("Cannot set a def on print".to_string())
+
+    fn set(&mut self, key: Value, value: Value) -> Result<(), String> {
+        Err("Cannot set a def on print built-in".to_string())
     }
-    fn call(&mut self, args: Vec<Value>) -> Result<Value, String> {
+
+    fn play(&mut self, args: Vec<Value>, environment: &mut Environment)
+         -> Result<Value, String> {
         if args.len() == 1 {
             println!("{}", args[0]);
             Ok(Value::Nil)

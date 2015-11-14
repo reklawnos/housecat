@@ -1,10 +1,14 @@
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use super::values::Value;
+use super::clip::{Clip, ClipHolder};
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Op {
     //Stack manipulation
     Push(Box<Value>), // .. -> a, ..
-    PushClip(Box<ClipParts>), // .. -> clip, ..
+    PushClip(ClipHolder), // .. -> clip, ..
     MakeTuple(usize), // 1, ..., N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
     JumpIfFalse(usize), // bool, .. -> ..

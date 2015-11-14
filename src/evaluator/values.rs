@@ -9,6 +9,7 @@ use std::hash::{Hash, Hasher};
 use std::cmp::Eq;
 
 use super::ops::Op;
+use super::clip::{Clip, ClipHolder};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Value {
@@ -18,7 +19,6 @@ pub enum Value {
     String(String),
     Tuple(Vec<Value>),
     Clip(ClipHolder),
-    RustClip(RustHolder),
     Nil
 }
 
@@ -53,88 +53,8 @@ impl Display for Value {
                 }
             }
             &Value::Clip(_) => write!(formatter, "<Clip>"),
-            &Value::RustClip(_) => write!(formatter, "<RustClip>"),
             &Value::Nil => write!(formatter, "nil"),
         }
-        
-    }
-}
-
-
-#[derive(Clone, Debug)]
-pub struct RustHolder {
-    pub clip: Rc<RefCell<Box<RustClip>>>,
-    pub id: usize
-}
-
-impl Eq for RustHolder {}
-
-impl PartialEq for RustHolder {
-    fn eq(&self, other: &RustHolder) -> bool {
-        self.id == other.id
-    }
-
-    fn ne(&self, other: &RustHolder) -> bool {
-        self.id != other.id
-    }
-}
-
-impl Hash for RustHolder {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-pub trait RustClip: Debug{
-    fn get(&self, &str) -> Option<Value>;
-    fn set(&mut self, &str, Value) -> Result<(), String>;
-    fn call(&mut self, Vec<Value>) -> Result<Value, String>;
-}
-
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct ClipHolder(pub Rc<RefCell<ClipStruct>>);
-
-impl Eq for ClipHolder {}
-
-impl Hash for ClipHolder {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.borrow().hash(state);
-    }
-}
-
-
-pub struct ClipStruct {
-    pub params: Vec<String>,
-    pub returns: Vec<String>,
-    pub statements: Vec<Op>,
-    pub defs: HashMap<Value, Value>
-}
-
-impl PartialEq for ClipStruct {
-    fn eq(&self, other: &ClipStruct) -> bool {
-        let self_ptr: *const ClipStruct = self;
-        let other_ptr: *const ClipStruct = other;
-        self_ptr == other_ptr
-    }
-
-    fn ne(&self, other: &ClipStruct) -> bool {
-        !self.eq(other)
-    }
-}
-
-impl Eq for ClipStruct {}
-
-impl Hash for ClipStruct {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let self_ptr: *const ClipStruct = self;
-        self_ptr.hash(state);
-    }
-}
-
-impl Debug for ClipStruct {
-    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
-        formatter.write_str("<Clip>")
     }
 }
 

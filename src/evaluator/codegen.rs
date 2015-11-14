@@ -54,11 +54,14 @@ fn gen_expr<'a>(expr: &'a Expr<'a>, ops: &mut Vec<Op>) -> Result<(), String> {
                 &Literal::Clip{ref params, ref returns, ref statements} => {
                     let mut func_ops = Vec::new();
                     try!(gen_stmt_list(statements, &mut func_ops));
+                    panic!("Not implemented: generate push clip op");
+                    /*
                     ops.push(Op::PushClip(Box::new(ClipParts{
                         params: params.iter().map(|p| p.to_string()).collect(),
                         returns: returns.iter().map(|r| r.to_string()).collect(),
                         ops: func_ops
                     })));
+                    */
                 }
             }
             Ok(())

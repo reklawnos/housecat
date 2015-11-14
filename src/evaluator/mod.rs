@@ -1,13 +1,18 @@
 mod ops;
 mod codegen;
 mod vm;
+mod standard_clip;
 pub mod values;
+pub mod clip;
+pub mod environment;
 
 use ast::Stmt;
 
 use self::codegen::gen_stmt_list;
 use self::ops::Op;
 use self::vm::execute;
+use self::environment::Environment;
+use self::clip::ClipHolder;
 
 use std::collections::HashMap;
 use std::mem::size_of;
@@ -15,7 +20,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use libhc::open_libs;
-use self::values::{Value, RustHolder};
+use self::values::Value;
 
 
 fn print_ops(ops: &Vec<Op>) {
@@ -32,21 +37,19 @@ pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value, Value>) ->
     println!("string size: {}", size_of::<String>());
     let libs = open_libs();
     let mut ops = Vec::with_capacity(1024);
-    let mut var_map = HashMap::with_capacity(1024);
-    let mut id = 0usize;
+    let mut env = Environment::new();
+    env.push_frame();
     for (key, rc) in libs.into_iter() {
-        var_map.insert(key.to_string(), Value::RustClip(RustHolder{clip: Rc::new(RefCell::new(rc)), id: id}));
-        id += 1;
+        env.set_var(key.to_string(), Value::Clip(ClipHolder::new(rc)));
     }
-    let mut vars = vec![var_map];
-    
+
     match gen_stmt_list(&ast, &mut ops) {
         Ok(_) => (),
         Err(s) => {return Err(s)}
     };
     print_ops(&ops);
-    let mut stack = Vec::with_capacity(2048);
-    match execute(&mut ops, &mut stack, &mut vars, defs) {
+    let mut stack = Vec::with_capacity(256);
+    match execute(&mut ops, &mut stack, &mut env, defs) {
         Ok(()) => Ok(()),
         Err(s) => Err(s)
     }
