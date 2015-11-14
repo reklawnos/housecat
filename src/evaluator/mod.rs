@@ -40,7 +40,7 @@ pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value, Value>) ->
     let mut env = Environment::new();
     env.push_frame();
     for (key, rc) in libs.into_iter() {
-        env.set_var(key.to_string(), Value::Clip(ClipHolder::new(rc)));
+        env.declare_var(key.to_string(), Value::Clip(ClipHolder::new(rc)));
     }
 
     match gen_stmt_list(&ast, &mut ops) {

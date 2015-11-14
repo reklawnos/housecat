@@ -1,10 +1,10 @@
 var y = "it goes on"
 var andonify = fn(s, i, b) -> res {
     res = s
-    if false
+    if false do
         return
     end
-    while i > 0
+    while i > 0 do
         i = i - 1
         res = res + " and on"
         res

@@ -8,7 +8,7 @@ use super::clip::{Clip, ClipHolder};
 pub enum Op {
     //Stack manipulation
     Push(Box<Value>), // .. -> a, ..
-    PushClip(ClipHolder), // .. -> clip, ..
+    PushClip(ClipParts), // .. -> clip, ..
     MakeTuple(usize), // 1, ..., N, .. -> (1, ..., N), ..
     Jump(usize), // .. -> ..
     JumpIfFalse(usize), // bool, .. -> ..
