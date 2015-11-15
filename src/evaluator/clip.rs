@@ -30,8 +30,8 @@ impl Hash for ClipHolder {
 
 impl PartialEq for ClipHolder {
     fn eq(&self, other: &ClipHolder) -> bool {
-        let self_ptr: usize = unsafe {mem::transmute(&self.clip.borrow())};
-        let other_ptr: usize = unsafe {mem::transmute(&other.clip.borrow())};
+        let self_ptr: usize = unsafe {mem::transmute(self.clip.as_unsafe_cell().get())};
+        let other_ptr: usize = unsafe {mem::transmute(other.clip.as_unsafe_cell().get())};
         self_ptr == other_ptr
     }
 

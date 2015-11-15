@@ -1,4 +1,5 @@
 #![feature(slice_patterns)]
+#![feature(as_unsafe_cell)]
 
 
 extern crate regex;
