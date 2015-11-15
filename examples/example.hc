@@ -1,4 +1,4 @@
-var i = import("import_test.hc")
+# var i = import("import_test.hc")
 
 
 var person = ${
