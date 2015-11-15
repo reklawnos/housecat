@@ -1,7 +1,7 @@
 use std::cmp::Eq;
 use std::fmt::Debug;
 use std::rc::Rc;
-use std::cell::{RefCell, Ref, RefMut};
+use std::cell::{RefCell, RefMut};
 use std::hash::{Hash, Hasher};
 use std::mem;
 
@@ -45,10 +45,6 @@ impl ClipHolder {
         ClipHolder {
             clip: Rc::new(RefCell::new(clip))
         }
-    }
-
-    pub fn borrow(&self) -> Ref<Box<Clip>> {
-        self.clip.borrow()
     }
 
     pub fn borrow_mut(&mut self) -> RefMut<Box<Clip>> {

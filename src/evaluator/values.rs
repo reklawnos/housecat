@@ -1,14 +1,9 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Error};
 use std::fmt::Result as FmtResult;
 use num::Float;
 use std::mem;
-use std::hash::{Hash, Hasher};
 use std::cmp::Eq;
 
-use super::ops::Op;
 use super::clip::{Clip, ClipHolder};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

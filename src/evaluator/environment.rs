@@ -18,7 +18,6 @@ impl Environment {
     }
 
     pub fn set_var(&mut self, name: String, value: Value) -> Result<(), String>{
-        let top_idx = self.defs.len() - 1;
         for scope in self.defs.iter_mut().rev() {
             if let Some(_) = scope.get(&name[..]) {
                 scope.insert(name, value);

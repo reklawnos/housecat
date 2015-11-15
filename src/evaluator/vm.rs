@@ -1,9 +1,7 @@
 use std::collections::HashMap;
-use std::cell::{RefCell};
-use std::rc::Rc;
 use std::fmt::Display;
 
-use super::ops::{Op, ClipParts};
+use super::ops::Op;
 use super::values::{Value, FloatWrap};
 use super::environment::Environment;
 use super::standard_clip::StdClip;
@@ -116,14 +114,14 @@ pub fn execute(ops: *const Vec<Op>, stack: &mut Vec<Value>,
             }
             Op::Store(ref s) => {
                 let value = stack.pop().unwrap();
-                vars.set_var(s.clone(), value);
+                try!(vars.set_var(s.clone(), value));
             }
             Op::Def(ref key) => {
                 match stack.pop().unwrap() {
                     Value::Clip(ref mut c) => {
                         let mut clip = c.borrow_mut();
                         let value = stack.pop().unwrap();
-                        clip.set((**key).clone(), value);
+                        try!(clip.set((**key).clone(), value));
                     }
                     _ => {return exec_failure(pc, "can't def on a non-clip");}
                 };

@@ -1,8 +1,4 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
 use super::values::Value;
-use super::clip::{Clip, ClipHolder};
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Op {

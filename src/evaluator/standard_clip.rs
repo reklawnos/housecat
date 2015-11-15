@@ -1,9 +1,3 @@
-use std::cmp::Eq;
-use std::fmt::Debug;
-use std::rc::Rc;
-use std::cell::{RefCell, Ref, RefMut};
-use std::hash::{Hash, Hasher};
-use std::mem;
 use std::collections::HashMap;
 
 use super::values::Value;
@@ -58,7 +52,7 @@ impl Clip for StdClip {
         } else if self.returns.len() == 1 {
             Ok(environment.get_var(&self.returns[0]).unwrap_or(Value::Nil))
         } else {
-            let mut ret_vec = self.returns.iter().map(|ret| environment.get_var(ret).unwrap_or(Value::Nil)).collect();
+            let ret_vec = self.returns.iter().map(|ret| environment.get_var(ret).unwrap_or(Value::Nil)).collect();
             Ok(Value::Tuple(ret_vec))
         }
     }

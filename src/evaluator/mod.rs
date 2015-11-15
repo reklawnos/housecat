@@ -13,14 +13,12 @@ use self::ops::Op;
 use self::vm::execute;
 use self::environment::Environment;
 use self::clip::ClipHolder;
+use self::values::Value;
 
 use std::collections::HashMap;
 use std::mem::size_of;
-use std::rc::Rc;
-use std::cell::RefCell;
 
 use libhc::open_libs;
-use self::values::Value;
 
 
 fn print_ops(ops: &Vec<Op>) {
