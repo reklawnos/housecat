@@ -48,14 +48,14 @@ fn exec_failure<T, D: Display>(pc: usize, message: D) -> Result<T, String> {
     Err(format!("EXECUTION FAILURE at PC {}: {}", pc, message))
 }
 
-pub fn execute(ops: *const Vec<Op>, stack: &mut Vec<Value>,
+pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                    vars: &mut Environment,
-                   defs: *mut HashMap<Value, Value>) -> Result<(), String> {
+                   defs: &mut HashMap<Value, Value>) -> Result<(), String> {
     let mut pc: usize = 0;
-    let len = unsafe {(*ops).len()};
+    let len = ops.len();
     let mut iterators = Vec::new();
     while pc < len {
-        match *unsafe {&(*ops)[pc]} {
+        match ops[pc] {
             Op::Push(ref v) => {stack.push((**v).clone());},
             Op::PushClip(ref clip) => {
                 stack.push(Value::Clip(ClipHolder::new(Box::new(StdClip::new(
@@ -129,11 +129,11 @@ pub fn execute(ops: *const Vec<Op>, stack: &mut Vec<Value>,
             Op::DefPop => {
                 let key = stack.pop().unwrap();
                 let value = stack.pop().unwrap();
-                unsafe {(*defs).insert(key, value);}
+                defs.insert(key, value);
             }
             Op::DefSelf(ref key) => {
                 let value = stack.pop().unwrap();
-                unsafe {(*defs).insert((**key).clone(), value);}
+                defs.insert((**key).clone(), value);
             }
             Op::GetAndAccess => {
                 let b = stack.pop().unwrap();
