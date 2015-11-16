@@ -1,4 +1,4 @@
-use evaluator::values::Value;
+use evaluator::value::Value;
 use evaluator::clip::Clip;
 use evaluator::environment::Environment;
 

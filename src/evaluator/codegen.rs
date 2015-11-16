@@ -1,6 +1,6 @@
 use ast::*;
 use super::ops::{Op, ClipParts};
-use super::values::{Value, FloatWrap};
+use super::value::{Value, FloatWrap};
 
 
 

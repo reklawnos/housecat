@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::values::Value;
+use super::value::Value;
 use super::environment::Environment;
 use super::clip::Clip;
 use super::vm::execute;

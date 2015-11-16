@@ -1,4 +1,4 @@
-use evaluator::values::{Value, RustClip, ClipStruct, ClipHolder};
+use evaluator::value::{Value, RustClip, ClipStruct, ClipHolder};
 use std::rc::Rc;
 use std::cell::RefCell;
 use interpreter::Interpreter;

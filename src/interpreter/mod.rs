@@ -4,7 +4,7 @@ use std::path::Path;
 use std::fmt::Display;
 use std::collections::HashMap;
 use lexer::Lexer;
-use evaluator::values::Value;
+use evaluator::value::Value;
 use evaluator::evaluate;
 use ast::{Stmt};
 use parser;

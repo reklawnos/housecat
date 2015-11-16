@@ -2,7 +2,7 @@ mod ops;
 mod codegen;
 mod vm;
 mod standard_clip;
-pub mod values;
+pub mod value;
 pub mod clip;
 pub mod environment;
 
@@ -13,7 +13,7 @@ use self::ops::Op;
 use self::vm::execute;
 use self::environment::Environment;
 use self::clip::ClipHolder;
-use self::values::Value;
+use self::value::Value;
 
 use std::collections::HashMap;
 use std::mem::size_of;

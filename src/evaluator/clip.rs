@@ -5,7 +5,7 @@ use std::cell::{RefCell, RefMut};
 use std::hash::{Hash, Hasher};
 use std::mem;
 
-use super::values::Value;
+use super::value::Value;
 use super::environment::Environment;
 
 pub trait Clip: Debug {

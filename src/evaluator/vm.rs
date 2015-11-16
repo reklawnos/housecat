@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use super::ops::Op;
-use super::values::{Value, FloatWrap};
+use super::value::{Value, FloatWrap};
 use super::environment::Environment;
 use super::standard_clip::StdClip;
 use super::clip::ClipHolder;
