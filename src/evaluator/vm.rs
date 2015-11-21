@@ -44,6 +44,15 @@ macro_rules! check_bin_op(
     });
 );
 
+macro_rules! format_try {
+    ($pc:expr, $expr:expr) => (match $expr {
+        Result::Ok(val) => val,
+        Result::Err(err) => {
+            return exec_failure($pc, err);
+        }
+    })
+}
+
 fn exec_failure<T, D: Display>(pc: usize, message: D) -> Result<T, String> {
     Err(format!("EXECUTION FAILURE at PC {}: {}", pc, message))
 }
@@ -80,7 +89,7 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                                         Op::LoadRef(rv)
                                     }
                                     RefType::None => {
-                                        return Err(format!("{} was not found in any scope!", s));
+                                        return exec_failure(pc, format!("could not find `{}` in any scope when resolving references for clip", s));
                                     }
                                 }
                             }
@@ -91,13 +100,13 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                             } else {
                                 match vars.get_ref(s.clone()) {
                                     RefType::Copy(_) => {
-                                        return Err(format!("Cannot assign to {} because it is immutable", s));
+                                        return exec_failure(pc, format!("cannot resolve assignment to {} because it is immutable", s));
                                     }
                                     RefType::Ref(rv) => {
                                         Op::StoreRef(rv)
                                     }
                                     RefType::None => {
-                                        return Err(format!("{} was not found in any scope!", s));
+                                        return exec_failure(pc, format!("could not find `{}` in any scope when resolving references for clip", s));
                                     }
                                 }
                             }
@@ -189,7 +198,7 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
             }
             Op::Store(ref s) => {
                 let value = stack.pop().unwrap();
-                try!(vars.set_var(s.clone(), value));
+                format_try!(pc, vars.set_var(s.clone(), value));
             }
             Op::StoreRef(ref var_ref) => {
                 let value = stack.pop().unwrap();
@@ -200,7 +209,7 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                     Value::Clip(ref mut c) => {
                         let mut clip = c.borrow_mut();
                         let value = stack.pop().unwrap();
-                        try!(clip.set((**key).clone(), value));
+                        format_try!(pc, clip.set((**key).clone(), value));
                     }
                     _ => {return exec_failure(pc, "can't def on a non-clip");}
                 };
@@ -255,7 +264,7 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                     Value::Clip(ref mut c) => {
                         let mut clip = c.borrow_mut();
                         vars.push_frame();
-                        let result = try!(clip.play(params, vars));
+                        let result = format_try!(pc, clip.play(params, vars));
                         vars.pop_frame();
                         stack.push(result);
                     }
@@ -272,7 +281,7 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                         let mut clip = c.borrow_mut();
                         params.insert(0, stack.pop().unwrap());
                         vars.push_frame();
-                        let result = try!(clip.play(params, vars));
+                        let result = format_try!(pc, clip.play(params, vars));
                         vars.pop_frame();
                         stack.push(result);
                     }
@@ -286,7 +295,7 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                         {
                             let mut clip = c.borrow_mut();
                             vars.push_frame();
-                            try!(clip.play(Vec::new(), vars));
+                            format_try!(pc, clip.play(Vec::new(), vars));
                             vars.pop_frame();
                         }
                         stack.push(Value::Clip(c.clone()));
