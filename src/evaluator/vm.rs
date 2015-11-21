@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
 use super::ops::Op;
 use super::value::{Value, FloatWrap};
-use super::environment::Environment;
+use super::environment::{Environment, RefType};
 use super::standard_clip::StdClip;
 use super::clip::ClipHolder;
 
@@ -58,10 +58,66 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
         match ops[pc] {
             Op::Push(ref v) => {stack.push((**v).clone());},
             Op::PushClip(ref clip) => {
+                let mut var_set = HashSet::new();
+                let mut new_ops = Vec::new();
+                for param in clip.params.iter() {
+                    var_set.insert(param.clone());
+                }
+                for ret in clip.returns.iter() {
+                    var_set.insert(ret.clone());
+                }
+                for op in clip.ops.clone().into_iter() {
+                    let new_op = match op {
+                        Op::Load(s) => {
+                            if var_set.contains(&s) {
+                                Op::Load(s)
+                            } else {
+                                match vars.get_ref(s.clone()) {
+                                    RefType::Copy(v) => {
+                                        Op::Push(Box::new(v))
+                                    }
+                                    RefType::Ref(rv) => {
+                                        Op::LoadRef(rv)
+                                    }
+                                    RefType::None => {
+                                        return Err(format!("{} was not found in any scope!", s));
+                                    }
+                                }
+                            }
+                        }
+                        Op::Store(s) => {
+                            if var_set.contains(&s) {
+                                Op::Store(s)
+                            } else {
+                                match vars.get_ref(s.clone()) {
+                                    RefType::Copy(_) => {
+                                        return Err(format!("Cannot assign to {} because it is immutable", s));
+                                    }
+                                    RefType::Ref(rv) => {
+                                        Op::StoreRef(rv)
+                                    }
+                                    RefType::None => {
+                                        return Err(format!("{} was not found in any scope!", s));
+                                    }
+                                }
+                            }
+                        }
+                        Op::DeclareAndStore(s) => {
+                            var_set.insert(s.clone());
+                            Op::DeclareAndStore(s)
+                        }
+                        Op::DeclareAndStoreImmutable(s) => {
+                            var_set.insert(s.clone());
+                            Op::DeclareAndStoreImmutable(s)
+                        }
+                        _ => op
+                    };
+                    new_ops.push(new_op);
+                }
                 stack.push(Value::Clip(ClipHolder::new(Box::new(StdClip::new(
                     clip.params.clone(),
                     clip.returns.clone(),
-                    clip.ops.clone()
+                    new_ops
                 )))));
             }
             Op::MakeTuple(arity) => {
@@ -70,6 +126,18 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                     tuple_vec.push(stack.pop().unwrap());
                 }
                 stack.push(Value::Tuple(tuple_vec));
+            }
+            Op::ExpandTuple(arity) => {
+                if let Value::Tuple(tup_vec) = stack.pop().unwrap() {
+                    if arity != tup_vec.len() {
+                        return exec_failure(pc, "tuple has wrong arity");
+                    }
+                    for val in tup_vec.into_iter().rev() {
+                        stack.push(val);
+                    }
+                } else {
+                    return exec_failure(pc, "need tuple value");
+                }
             }
             Op::Jump(i) => {pc = i;},
             Op::JumpIfFalse(i) => {
@@ -108,13 +176,24 @@ pub fn execute(ops: &Vec<Op>, stack: &mut Vec<Value>,
                     }
                 }
             }
+            Op::LoadRef(ref var_ref) => {
+                stack.push(var_ref.borrow().get());
+            }
             Op::DeclareAndStore(ref s) => {
                 let a = stack.pop().unwrap();
                 vars.declare_var(s.clone(), a);
             }
+            Op::DeclareAndStoreImmutable(ref s) => {
+                let a = stack.pop().unwrap();
+                vars.declare_immutable(s.clone(), a);
+            }
             Op::Store(ref s) => {
                 let value = stack.pop().unwrap();
                 try!(vars.set_var(s.clone(), value));
+            }
+            Op::StoreRef(ref var_ref) => {
+                let value = stack.pop().unwrap();
+                var_ref.borrow_mut().set(value);
             }
             Op::Def(ref key) => {
                 match stack.pop().unwrap() {

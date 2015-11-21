@@ -2,6 +2,7 @@
 pub enum Token<'a>{
     // Keywords
     Var,
+    Let,
     Nil,
     Fn,
     Return,

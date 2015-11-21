@@ -1,11 +1,15 @@
 use super::value::Value;
+use super::environment::ValueHolder;
+use std::cell::RefCell;
+use std::rc::Rc;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Clone)]
 pub enum Op {
     //Stack manipulation
     Push(Box<Value>), // .. -> a, ..
     PushClip(ClipParts), // .. -> clip, ..
     MakeTuple(usize), // 1, ..., N, .. -> (1, ..., N), ..
+    ExpandTuple(usize), // (1, ..., N), .. -> 1, ..., N, ..
     Jump(usize), // .. -> ..
     JumpIfFalse(usize), // bool, .. -> ..
     JumpTarget, // .. -> ..
@@ -14,12 +18,15 @@ pub enum Op {
     PopIterator, // .. -> ..
     RetrieveIterator, // .. -> a, ..
     //Scoping
-    PushScope,
-    PopScope,
+    PushScope, // .. -> ..
+    PopScope, // .. -> ..
     //Variables
     Load(String), // .. -> a, ..
+    LoadRef(Rc<RefCell<ValueHolder>>), // .. -> a, ..
     DeclareAndStore(String), // a, .. -> ..
+    DeclareAndStoreImmutable(String), // a, .. -> ..
     Store(String), // a, .. -> ..
+    StoreRef(Rc<RefCell<ValueHolder>>), // a, .. -> ..
     Def(Box<Value>), // clip, value, .. -> ..
     DefPop, // value, key, .. -> ..
     DefSelf(Box<Value>), // value, .. -> ..
@@ -50,7 +57,7 @@ pub enum Op {
     Or, // b, a, .. -> a || b, ..
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Clone)]
 pub struct ClipParts {
     pub params: Vec<String>,
     pub returns: Vec<String>,

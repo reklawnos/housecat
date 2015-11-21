@@ -23,6 +23,21 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
                 [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
             }
         }
+        // "var" <ident>
+        [Tok{token: Token::Let, ..}, rest..] => {
+            match rest {
+                [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Let(id), rest)),
+                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
+                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
+                    line + 1,
+                    col + 1,
+                    token,
+                    line_string,
+                    get_caret_string(col)
+                )),
+                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
+            }
+        }
         // "@" <expr>
         [Tok{token: Token::ExprDef, ..}, rest..] => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));

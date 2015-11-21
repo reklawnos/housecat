@@ -73,6 +73,7 @@ fn match_keyword(line_slice: &str) -> Option<(Token, usize)> {
     let token_slice = &line_slice[start..end];
     let tok = match token_slice {
         "var" => Token::Var,
+        "let" => Token::Let,
         "nil" => Token::Nil,
         "fn" => Token::Fn,
         "return" => Token::Return,
@@ -179,7 +180,6 @@ impl<'a> Lexer<'a> {
                         found_token = true;
                         break;
                     }
-                    
                 }
             }
             //Lex regexes
@@ -233,8 +233,8 @@ mod test {
     #[test]
     fn test_keywords() {
         match_tokens(
-            "while var nil return",
-            vec![Token::While, Token::Var, Token::Nil, Token::Return]
+            "while var nil return let",
+            vec![Token::While, Token::Var, Token::Nil, Token::Return, Token::Let]
         );
     }
 

@@ -3,7 +3,6 @@ use super::ops::{Op, ClipParts};
 use super::value::{Value, FloatWrap};
 
 
-
 fn codegen_failure<T>(line_number: usize, message: &str) -> Result<T, String> {
     Err(format!("CODEGEN FAILURE at line {}: {}", line_number + 1, message))
 }
@@ -149,17 +148,22 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op>) -> Result<(), String> {
         &StmtType::Assign{ref items, ref expr, ..} => {
             try!(gen_expr(expr, ops));
             if items.len() > 1 {
-                panic!("not implemented: tuple assignment");
+                ops.push(Op::ExpandTuple(items.len()));
             }
-            match items[0] {
-                StmtItem::Var(s) => {
-                    ops.push(Op::DeclareAndStore(s.to_string()));
+            for item in items.iter() {
+                match *item {
+                    StmtItem::Var(s) => {
+                        ops.push(Op::DeclareAndStore(s.to_string()));
+                    }
+                    StmtItem::Let(s) => {
+                        ops.push(Op::DeclareAndStoreImmutable(s.to_string()));
+                    }
+                    StmtItem::Bare(ref expr) => {
+                        let key = try!(eval_expr_as_ident_str(expr));
+                        ops.push(Op::Store(key.to_string()));
+                    }
+                    StmtItem::Expr(_) => { return codegen_failure(data.line, "cannot assign to expression"); }
                 }
-                StmtItem::Bare(ref expr) => {
-                    let key = try!(eval_expr_as_ident_str(expr));
-                    ops.push(Op::Store(key.to_string()));
-                }
-                StmtItem::Expr(_) => { return codegen_failure(data.line, "cannot assign to expression"); }
             }
             Ok(())
         }
@@ -169,31 +173,32 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op>) -> Result<(), String> {
             println!("new_ops: {:?}", &new_ops);
             ops.append(&mut new_ops);
             if items.len() > 1 {
-                panic!("not implemented: tuple defs");
+                ops.push(Op::ExpandTuple(items.len()));
             }
-            match items[0] {
-                StmtItem::Bare(ref expr) => {
-                    let mut keys = try!(eval_expr_as_ident_values(expr));
-                    let assign_key = keys.pop().unwrap();
-                    if keys.len() > 0 {
-                        let base_ident = keys.remove(0);
-                        ops.push(Op::Load(base_ident.to_string()));
-                        for ident in keys.into_iter() {
-                            ops.push(Op::Access(Box::new(Value::String(ident.to_string()))));
+            for item in items.iter() {
+                match *item {
+                    StmtItem::Bare(ref expr) => {
+                        let mut keys = try!(eval_expr_as_ident_values(expr));
+                        let assign_key = keys.pop().unwrap();
+                        if keys.len() > 0 {
+                            let base_ident = keys.remove(0);
+                            ops.push(Op::Load(base_ident.to_string()));
+                            for ident in keys.into_iter() {
+                                ops.push(Op::Access(Box::new(Value::String(ident.to_string()))));
+                            }
+                            ops.push(Op::Def(Box::new(Value::String(assign_key.to_string()))));
+                        } else {
+                            ops.push(Op::DefSelf(Box::new(Value::String(assign_key.to_string()))));
                         }
-                        ops.push(Op::Def(Box::new(Value::String(assign_key.to_string()))));
-                    } else {
-                        ops.push(Op::DefSelf(Box::new(Value::String(assign_key.to_string()))));
                     }
-                    Ok(())
+                    StmtItem::Expr(ref expr) => {
+                        try!(gen_expr(expr, ops));
+                        ops.push(Op::DefPop);
+                    }
+                    _ => {return codegen_failure(data.line, "cannot def without bare item");}
                 }
-                StmtItem::Expr(ref expr) => {
-                    try!(gen_expr(expr, ops));
-                    ops.push(Op::DefPop);
-                    Ok(())
-                }
-                _ => {return codegen_failure(data.line, "cannot def without bare item");}
             }
+            Ok(())
         }
         &StmtType::Bare{ref items, ..} => {
             for item in items.iter() {
@@ -269,9 +274,6 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op>) -> Result<(), String> {
             Ok(())
         }
         &StmtType::For{ref idents, ref iterator, ref statements, ..} => {
-            if idents.len() > 1 {
-                panic!("not implemented: tuple assignment in for loops");
-            }
             try!(gen_expr(iterator, ops));
             ops.push(Op::PushScope);
             ops.push(Op::PushIterator);
@@ -282,11 +284,18 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op>) -> Result<(), String> {
             ops.push(Op::RetrieveIterator);
             ops.push(Op::Access(Box::new(Value::String("next".to_string()))));
             ops.push(Op::PlaySelf(0));
-            ops.push(Op::DeclareAndStore(idents[0].to_string()));
-            ops.push(Op::Load(idents[0].to_string()));
-            ops.push(Op::Push(Box::new(Value::Nil)));
-            ops.push(Op::Neq);
+            //(continues, value)
+            ops.push(Op::ExpandTuple(2));
+            //Compares with right half of tuple
+            ops.push(Op::Push(Box::new(Value::Bool(true))));
+            ops.push(Op::Eq);
             let mut body_ops = Vec::new();
+            if idents.len() > 1 {
+                body_ops.push(Op::ExpandTuple(idents.len()));
+            }
+            for ident in idents.iter() {
+                body_ops.push(Op::DeclareAndStore(ident.to_string()));
+            }
             try!(gen_stmt_list(statements, &mut body_ops));
             //JumpIfFalse to the jump target after the statement list and the continue jump
             let break_jump_idx = ops.len() + body_ops.len() + 2;
