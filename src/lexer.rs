@@ -7,7 +7,6 @@ static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     //Symbols
     (r":", Token::Def),
     (r".", Token::Access),
-    (r"|", Token::AccessSelf),
     (r"@", Token::ExprDef),
     (r"{", Token::OpenCurly),
     (r"}", Token::CloseCurly),
@@ -35,6 +34,7 @@ static SYMBOL_SPECS: &'static [(&'static str, Token<'static>)] = &[
     //Unary Operators
     (r"!", Token::Not),
     (r"$", Token::Get),
+    (r"|", Token::AccessSelf),
 
     (r"=", Token::Assign)
 ];
@@ -115,14 +115,15 @@ impl<'a> Lexer<'a> {
     pub fn lex(&'a mut self, s: String) -> Result<&Vec<Tok<'a>>, String> {
         let mut char_index = 0usize;
         self.input = s;
-        for (line_index, l) in self.input.lines().enumerate() {
+        let mut line_index = 0;
+        for l in self.input.lines() {
             let res = Lexer::lex_line(l, line_index, &mut char_index, &mut self.toks);
             match res {
                 Ok(()) => {char_index += 1;},
                 Err(col) => {
                     return Err(
                         format!(
-                            "LEXING FAILURE at {},{}: invalid character {}\n{}\n{}",
+                            "LEXING FAILURE at {}:{} invalid character {}\n{}\n{}",
                             line_index + 1,
                             col + 1,
                             l.chars().nth(col).unwrap(),
@@ -132,7 +133,9 @@ impl<'a> Lexer<'a> {
                     );
                 }
             }
+            line_index += 1;
         }
+        self.toks.push(Tok{token: Token::Eof, line: line_index, col: 0, line_string: "", char_index: char_index});
         Ok(&self.toks)
     }
 
@@ -281,7 +284,7 @@ mod test {
     fn test_invalid_char() {
         let mut lexer = Lexer::new();
         match lexer.lex("this is & invalid".to_string()){
-            Err(s) => assert_eq!("LEXING FAILURE at 1,9: invalid character &\nthis is & invalid\n        ^".to_string(), s),
+            Err(s) => assert_eq!("LEXING FAILURE at 1:9 invalid character &\nthis is & invalid\n        ^".to_string(), s),
             _ => assert!(false)
         }
     }
