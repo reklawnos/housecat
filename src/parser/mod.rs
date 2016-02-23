@@ -8,6 +8,7 @@ use token::{Tok, Token};
 use ast::*;
 use parser::stmt::parse_base_statements;
 use std::fmt;
+use utils::get_caret_string;
 
 enum ParserErrorType<'a> {
     ExpectedTokens {
@@ -15,7 +16,7 @@ enum ParserErrorType<'a> {
     },
     ExpectedMatchingToken {
         expected: Token<'a>,
-        start_token: Tok<'a>
+        start_tok: Tok<'a>
     },
     ExpectedExpression,
     ExpectedStatement
@@ -23,12 +24,13 @@ enum ParserErrorType<'a> {
 
 struct ParserError<'a> {
     actual: Tok<'a>,
-    error_type: ParserErrorType<'a>
+    error_type: ParserErrorType<'a>,
+    hint: Option<&'static str>
 }
 
 impl<'a> fmt::Display for ParserError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PARSING FAILURE at {}:{} ", self.actual.line + 1, self.actual.col + 1);
+        try!(write!(f, "PARSING FAILURE at {}:{} ", self.actual.line + 1, self.actual.col + 1));
         match self.error_type {
             ParserErrorType::ExpectedTokens {ref expected} => {
                 let len = expected.len();
@@ -43,30 +45,37 @@ impl<'a> fmt::Display for ParserError<'a> {
                     }
                     sum_string = sum_string + &format!("`{}`", t);
                 }
-                write!(f, "expected {} but found `{}`", sum_string, self.actual.token)
+                try!(write!(f, "expected {} but found `{}`", sum_string, self.actual.token));
             }
-            ParserErrorType::ExpectedMatchingToken {ref expected, ref start_token} => {
-                write!(
+            ParserErrorType::ExpectedMatchingToken {ref expected, ref start_tok} => {
+                try!(write!(
                     f,
-                    "expected `{}` to match `{}` at {}:{} but found `{}`",
+                    "must match `{}` at {}:{} with `{}` but found `{}`",
+                    start_tok.token,
+                    start_tok.line + 1,
+                    start_tok.col + 1,
                     expected,
-                    start_token.token,
-                    start_token.line,
-                    start_token.col,
                     self.actual.token
-                )
+                ));
             }
             ParserErrorType::ExpectedExpression => {
-                write!(f, "expected expression but found `{}`", self.actual.token)
+                try!(write!(f, "expected expression but found `{}`", self.actual.token));
             }
             ParserErrorType::ExpectedStatement => {
-                write!(f, "expected statement but found `{}`", self.actual.token)
+                try!(write!(f, "expected statement but found `{}`", self.actual.token));
             }
         }
+        let line_as_string = (self.actual.line + 1).to_string();
+        try!(write!(f, "\n{}: {}", line_as_string, self.actual.line_string));
+        let ret = write!(f, "\n{}", get_caret_string(self.actual.col + line_as_string.len() + 2));
+        if let Some(hint) = self.hint {
+            return write!(f, "\n\nHint: {}\n", hint);
+        }
+        return ret;
     }
 }
 
-pub type ParseResult<'a, T> = Result<(T, &'a[Tok<'a>]), String>;
+pub type ParseResult<'a, T> = Result<(T, &'a[Tok<'a>]), ParserError<'a>>;
 
 #[allow(dead_code)]
 fn print_toks<'a>(func: &str, tokens: &'a[Tok]) {
@@ -81,7 +90,7 @@ pub fn parse_tokens<'a>(tokens: &'a[Tok], cur_statements: &'a mut Vec<Stmt<'a>>)
                         -> Result<&'a Vec<Stmt<'a>>, String> {
     match parse_base_statements(tokens, cur_statements) {
         Ok((v, _)) => Ok(v),
-        Err(s) => Err(s)
+        Err(s) => Err(s.to_string())
     }
 }
 
@@ -145,7 +154,7 @@ mod test {
             },
             error_type: ParserErrorType::ExpectedMatchingToken {
                 expected: Token::CloseBrac,
-                start_token: Tok{
+                start_tok: Tok{
                     token: Token::OpenBrac,
                     line: 1,
                     col: 10,

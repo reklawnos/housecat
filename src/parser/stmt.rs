@@ -3,7 +3,7 @@ use ast::*;
 use utils::*;
 use parser::expr::parse_expr;
 use parser::clip::parse_rets;
-use parser::ParseResult;
+use parser::{ParseResult, ParserError, ParserErrorType};
 
 // <item>
 fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
@@ -12,30 +12,30 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
         [Tok{token: Token::Var, ..}, rest..] => {
             match rest {
                 [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Var(id), rest)),
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        //TODO
+                        expected: vec!(Token::Ident("<ident>"))
+                    },
+                    hint: None
+                }),
+                [] => panic!("Missing EOF")
             }
         }
         // "var" <ident>
         [Tok{token: Token::Let, ..}, rest..] => {
             match rest {
                 [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Let(id), rest)),
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an ident"))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        //TODO
+                        expected: vec!(Token::Ident("<ident>"))
+                    },
+                    hint: None
+                }),
+                [] => panic!("Missing EOF")
             }
         }
         // "@" <expr>
@@ -48,7 +48,7 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(tokens));
             Ok((StmtItem::Bare(Box::new(parsed_expr)), tokens_after_expr))
         }
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
+        [] => panic!("Missing EOF")
     }
 }
 
@@ -97,92 +97,100 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
 // <stmt>
 fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
     match tokens {
-        // "if" <expr> <if-statements>
-        [Tok{token: Token::If, line, ..}, rest..] => {
-            let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            match tokens_after_expr {
-                [Tok{token: Token::Do, ..}, rest..] => {
-                    let (clauses, tokens_after_if) = {
-                        try!(parse_if_statements(rest, parsed_expr))
-                    };
-                    Ok((Stmt{stmt: StmtType::If{clauses: clauses},
-                             data: AstData{line: line}}, tokens_after_if))
+        [ref start_tok, rest..] => {
+            match start_tok.token {
+                // "if" <expr> <if-statements>
+                Token::If => {
+                    let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
+                    match tokens_after_expr {
+                        [Tok{token: Token::Do, ..}, rest..] => {
+                            let (clauses, tokens_after_if) = {
+                                try!(parse_if_statements(rest, parsed_expr))
+                            };
+                            Ok((Stmt{stmt: StmtType::If{clauses: clauses},
+                                     data: AstData{line: start_tok.line}}, tokens_after_if))
+                        }
+                        [ref tok, ..] => Err(ParserError{
+                            actual: tok.clone(),
+                            error_type: ParserErrorType::ExpectedMatchingToken{
+                                //TODO
+                                expected: Token::Do,
+                                start_tok: start_tok.clone()
+                            },
+                            hint: Some("`if` statements must include a `do ... end` block")
+                        }),
+                        [] => panic!("Missing EOF")
+                    }
                 }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"))
-            }
-        }
-        // "while" <expr> <block-statements>
-        [Tok{token: Token::While, line, ..}, rest..] => {
-            let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
-            match tokens_after_expr {
-                [Tok{token: Token::Do, ..}, rest..] => {
-                    let (stmt_list, tokens_after_list) = try!(parse_block_statements(rest));
-                    Ok((Stmt{stmt: StmtType::While{condition: Box::new(parsed_expr),
-                                                   statements: stmt_list},
-                             data: AstData{line: line}}, tokens_after_list))
-                }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"))
-            }
-        }
-        // "for" <rets> "in" <expr> <block-statements>
-        [Tok{token: Token::For, line, ..}, rest..] => {
-            let (parsed_rets, tokens_after_rets) = try!(parse_rets(rest));
-            match tokens_after_rets {
-                [Tok{token: Token::In, ..}, rest..] => {
+                // "while" <expr> <block-statements>
+                Token::While => {
                     let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
                     match tokens_after_expr {
                         [Tok{token: Token::Do, ..}, rest..] => {
                             let (stmt_list, tokens_after_list) = try!(parse_block_statements(rest));
-                            Ok((Stmt{stmt: StmtType::For{idents: parsed_rets,
-                                                         iterator: Box::new(parsed_expr),
-                                                         statements: stmt_list},
-                                     data: AstData{line: line}}, tokens_after_list))
+                            Ok((Stmt{stmt: StmtType::While{condition: Box::new(parsed_expr),
+                                                           statements: stmt_list},
+                                     data: AstData{line: start_tok.line}}, tokens_after_list))
                         }
-                        [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                            "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
-                            line + 1,
-                            col + 1,
-                            token,
-                            line_string,
-                            get_caret_string(col)
-                        )),
-                        [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"))
+                        [ref tok, ..] => Err(ParserError{
+                            actual: tok.clone(),
+                            error_type: ParserErrorType::ExpectedMatchingToken{
+                                //TODO
+                                expected: Token::Do,
+                                start_tok: start_tok.clone()
+                            },
+                            hint: Some("`while` statements must include a `do ... end` block")
+                        }),
+                        [] => panic!("Missing EOF")
                     }
                 }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected 'in' but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected 'in'"))
+                // "for" <rets> "in" <expr> <block-statements>
+                Token::For => {
+                    let (parsed_rets, tokens_after_rets) = try!(parse_rets(rest));
+                    match tokens_after_rets {
+                        [ref in_tok, rest..] if in_tok.token == Token::In => {
+                            let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
+                            match tokens_after_expr {
+                                [Tok{token: Token::Do, ..}, rest..] => {
+                                    let (stmt_list, tokens_after_list) = try!(parse_block_statements(rest));
+                                    Ok((Stmt{stmt: StmtType::For{idents: parsed_rets,
+                                                                 iterator: Box::new(parsed_expr),
+                                                                 statements: stmt_list},
+                                             data: AstData{line: start_tok.line}}, tokens_after_list))
+                                }
+                                [ref tok, ..] => Err(ParserError{
+                                    actual: tok.clone(),
+                                    error_type: ParserErrorType::ExpectedMatchingToken{
+                                        //TODO
+                                        expected: Token::Do,
+                                        start_tok: in_tok.clone()
+                                    },
+                                    hint: Some("`for` statements must include a `do ... end` block")
+                                }),
+                                [] => panic!("Missing EOF")
+                            }
+                        }
+                        [ref tok, ..] => Err(ParserError{
+                            actual: tok.clone(),
+                            error_type: ParserErrorType::ExpectedMatchingToken{
+                                //TODO
+                                expected: Token::In,
+                                start_tok: start_tok.clone()
+                            },
+                            hint: Some("`for` statements must include an `in <expression>` block")
+                        }),
+                        [] => panic!("Missing EOF")
+                    }
+                }
+                // "return"
+                Token::Return => {
+                    Ok((Stmt{stmt: StmtType::Return, data: AstData{line: start_tok.line}}, rest))
+                }
+                // <stmt-items>
+                _ => parse_stmt_items(tokens),
             }
         }
-        // "return"
-        [Tok{token: Token::Return, line, ..}, rest..] => {
-            Ok((Stmt{stmt: StmtType::Return, data: AstData{line: line}}, rest))
-        }
-        // <stmt-items>
-        [_, ..] => parse_stmt_items(tokens),
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected a statement"))
+        [] => panic!("Missing EOF")
     }
 }
 
@@ -213,15 +221,15 @@ fn parse_if_statements<'a>(tokens: &'a[Tok],
                         my_toks = rest;
                         my_expr = parsed_expr;
                     }
-                    [Tok{ref token, line, col, line_string, ..}, ..] => {return Err(format!(
-                        "PARSING FAILURE at {},{}: Expected 'do' but found {:?}\n{}\n{}",
-                        line + 1,
-                        col + 1,
-                        token,
-                        line_string,
-                        get_caret_string(col)
-                    ));},
-                    [] => {return Err(format!("PARSING FAILURE: Reached end of file but expected 'do'"));}
+                    [ref actual_tok, ..] => {return Err(ParserError{
+                        actual: actual_tok.clone(),
+                        error_type: ParserErrorType::ExpectedMatchingToken{
+                            expected: Token::Do,
+                            start_tok: actual_tok.clone()
+                        },
+                        hint: Some("`elif` blocks must include a `do ... end` block")
+                    });},
+                    [] => panic!("Missing EOF")
                 };
             }
             // "end"
@@ -229,6 +237,13 @@ fn parse_if_statements<'a>(tokens: &'a[Tok],
                 clauses.push(IfClause::If{condition: Box::new(my_expr), statements: statements});
                 return Ok((clauses, &my_toks[1..]))
             }
+            Token::Eof => {return Err(ParserError{
+                actual: tok.clone(),
+                error_type: ParserErrorType::ExpectedTokens{
+                    expected: vec!(Token::End),
+                },
+                hint: Some("blocks be closed with `end`")
+            });},
             // <stmt> <if-statements>
             _ => {
                 let (parsed_stmt, tokens_after_stmt) = try!(parse_stmt(my_toks));
@@ -237,7 +252,7 @@ fn parse_if_statements<'a>(tokens: &'a[Tok],
             }
         }
     }
-    Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
+    panic!("Missing EOF")
 }
 
 // <block-statements>
@@ -249,6 +264,13 @@ fn parse_block_statements<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Stmt<'a>>
         match tok.token {
             // "end"
             Token::End => {return Ok((statements, &my_toks[1..]))}
+            Token::Eof => {return Err(ParserError{
+                actual: tok.clone(),
+                error_type: ParserErrorType::ExpectedTokens{
+                    expected: vec!(Token::End),
+                },
+                hint: Some("blocks must be closed with `end`")
+            });},
             // <stmt> <block-statements>
             _ => {
                 let (parsed_stmt, tokens_after_stmt) = try!(parse_stmt(my_toks));
@@ -257,7 +279,7 @@ fn parse_block_statements<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Stmt<'a>>
             }
         }
     }
-    Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
+    panic!("Missing EOF")
 }
 
 // <clip-statements>
@@ -269,6 +291,13 @@ pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Stmt<'
         match tok.token {
             // "}"
             Token::CloseCurly => {return Ok((statements, &my_toks[1..]))}
+            Token::Eof => {return Err(ParserError{
+                actual: tok.clone(),
+                error_type: ParserErrorType::ExpectedTokens{
+                    expected: vec!(Token::CloseCurly),
+                },
+                hint: Some("clip blocks must be closed with `}`")
+            });},
             // <stmt> <clip-statements>
             _ => {
                 let (parsed_stmt, tokens_after_stmt) = try!(parse_stmt(my_toks));
@@ -277,7 +306,7 @@ pub fn parse_clip_statements<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Stmt<'
             }
         }
     }
-    Err(format!("PARSING FAILURE: Reached end of file but expected '}}'"))
+    panic!("Missing EOF")
 }
 
 // <base-statements>
@@ -285,7 +314,7 @@ pub fn parse_base_statements<'a>(tokens: &'a[Tok],
                                  cur_statements: &'a mut Vec<Stmt<'a>>)
                                  -> ParseResult<'a, &'a Vec<Stmt<'a>>> {
     let mut my_toks = tokens;
-    while my_toks.len() > 0 {
+    while my_toks.len() > 1 {
         let (parsed_stmt, tokens_after_stmt) = try!(parse_stmt(my_toks));
         cur_statements.push(parsed_stmt);
         my_toks = tokens_after_stmt;

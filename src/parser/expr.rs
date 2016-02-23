@@ -1,9 +1,8 @@
 use token::{Token, Tok};
 use ast::*;
-use utils::*;
 use parser::stmt::{parse_clip_statements};
 use parser::clip::{parse_clip_def};
-use parser::ParseResult;
+use parser::{ParseResult, ParserError, ParserErrorType};
 
 // <primary-expr>
 fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
@@ -79,15 +78,15 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
             Ok((Expr{expr: ExprType::Literal{value: Literal::Nil},
                      data: AstData{line: line}}, rest))
         }
-        [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-            "PARSING FAILURE at {},{}: Found {:?} but expected Ident, Literal or '('\n{}\n{}",
-            line + 1,
-            col + 1,
-            token,
-            line_string,
-            get_caret_string(col)
-        )),
-        [] => Err(format!("PARSING FAILURE: Reached end of file, but expected Ident or (Expression)"))
+        [ref tok, ..] => Err(ParserError{
+            actual: tok.clone(),
+            error_type: ParserErrorType::ExpectedTokens{
+                //TODO
+                expected: vec!(Token::Ident("<ident>"), Token::Ident("<literal>"), Token::OpenParen)
+            },
+            hint: None
+        }),
+        [] => panic!("Missing EOF")
     }
 }
 
@@ -121,10 +120,11 @@ fn parse_params<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Expr<'a>>> {
         [Tok{token: Token::CloseParen, ..}, rest..] => {
             Ok((vec![], rest))
         }
-        [Tok{token: _, ..}, ..] => {
+        [_, ..] => {
             parse_expr_list(tokens, Token::CloseParen)
         }
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected an expression or ')'"))
+        [] => panic!("Missing EOF")
+        // TODO: [] => panic!("PARSING FAILURE: Reached end of file but expected an expression or ')'")
     }
 }
 
@@ -141,7 +141,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
             Ok((postfix_list, tokens_after_postfix))
         }
         // ... "[" ...
-        [Tok{token: Token::OpenBrac, line, col, line_string, ..}, rest..] => {
+        [ref start_tok, rest..] if start_tok.token == Token::OpenBrac => {
             let (parsed_expr, tokens_after_expr) = try!(parse_expr(rest));
             match tokens_after_expr {
                 // ... "]"
@@ -152,24 +152,15 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                     postfix_list.insert(0, Postfix::Index(Box::new(parsed_expr)));
                     Ok((postfix_list, tokens_after_next))
                 },
-                [Tok{token: ref next_token, line: next_line, col: next_col,
-                     line_string: next_line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Found {:?} but expected ']' to match '[' at {},{}\n{}\n{}",
-                    next_line + 1,
-                    next_col + 1,
-                    next_token,
-                    line + 1,
-                    col + 1,
-                    next_line_string,
-                    get_caret_string(next_col)
-                )),
-                [] => Err(format!(
-                    "PARSING FAILURE: Reached end of file, but '[' at {},{} is unmatched\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    line_string,
-                    get_caret_string(col)
-                ))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedMatchingToken{
+                        expected: Token::CloseBrac,
+                        start_tok: start_tok.clone()
+                    },
+                    hint: None
+                }),
+                [] => panic!("Missing EOF")
             }
         }
         // ... "." ...
@@ -183,15 +174,15 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                     postfix_list.insert(0, Postfix::Access(i));
                     Ok((postfix_list, tokens_after_next))
                 },
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Found {:?} but expected an Ident\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        // TODO
+                        expected: vec!(Token::Ident("<ident>"))
+                    },
+                    hint: Some("`.` must be followed by an ident with the name of a property to access")
+                }),
+                [] => panic!("Missing EOF")
             }
         }
         // ... "|" <ident> "(" ...
@@ -206,18 +197,18 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                     postfix_list.insert(0, Postfix::PlaySelf(i, params_list));
                     Ok((postfix_list, tokens_after_next))
                 },
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Found {:?} but expected an Ident followed by '('\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        // TODO
+                        expected: vec!(Token::Ident("<ident>("))
+                    },
+                    hint: Some("`|` must be followed by an ident with the name of a property to access")
+                }),
+                [] => panic!("Missing EOF")
             }
         }
-        // EPS 
+        // EPS
         _ => Ok((vec![], tokens))
     }
 }
@@ -239,18 +230,17 @@ fn parse_expr_list<'a>(tokens: &'a[Tok], delimiter_tok: Token<'a>) -> ParseResul
                     parsed_list.insert(0, parsed_expr);
                     Ok((parsed_list, tokens_after_params))
                 }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected another expression or ')'"))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        expected: vec!(Token::CloseParen, Token::Comma)
+                    },
+                    hint: None
+                }),
+                [] => panic!("Missing EOF")
             }
         }
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected an expression"))
+        [] => panic!("Missing EOF")
     }
 }
 

@@ -38,8 +38,9 @@ Expressions
         | <expr> "," <expr-list>
 
     <expr-list-const> ::=
+        | "]"
         | <expr> "]"
-        | <expr> "," <expr-list>
+        | <expr> "," <expr-list-const>
 
     <unary-expr> ::=
         | <postfix-expr>

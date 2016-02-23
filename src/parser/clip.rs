@@ -1,11 +1,10 @@
 use token::{Token, Tok};
 use ast::*;
-use utils::*;
 use parser::stmt::{parse_clip_statements};
-use parser::ParseResult;
+use parser::{ParseResult, ParserError, ParserErrorType};
 
 // <ident-list>
-fn parse_ident_list<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
+fn parse_ident_list<'a>(tokens: &'a[Tok<'a>]) -> ParseResult<'a, Vec<&'a str>> {
     match tokens {
         [Tok{token: Token::Ident(id), ..}, rest..] => {
             match rest {
@@ -19,28 +18,25 @@ fn parse_ident_list<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
                             parsed_list.insert(0, id);
                             Ok((parsed_list, toks_after_list))
                 }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Expected ')' or ',' but found {:?}\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!("PARSING FAILURE: Reached end of file but expected ')' or ','"))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        expected: vec!(Token::CloseParen, Token::Comma)
+                    },
+                    hint: None
+                }),
+                [] => panic!("Missing EOF")
             }
         }
-        [Tok{ref token, line, col, line_string, ..}, ..] => {
-            Err(format!(
-                "PARSING FAILURE at {},{}: Expected Ident but found {:?}\n{}\n{}",
-                line + 1,
-                col + 1,
-                token,
-                line_string,
-                get_caret_string(col)
-            ))
-        }
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident"))
+        [ref tok, ..] => Err(ParserError{
+            actual: tok.clone(),
+            error_type: ParserErrorType::ExpectedTokens{
+                //TODO
+                expected: vec!(Token::Ident("<ident>"))
+            },
+            hint: None
+        }),
+        [] => panic!("Missing EOF")
     }
 }
 
@@ -51,7 +47,7 @@ fn parse_params<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
         [Tok{token: Token::CloseParen, ..}, rest..] => Ok((vec![], rest)),
         // <ident-list>
         [Tok{token: _, ..}, ..] => parse_ident_list(tokens),
-        _ => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or ')'"))
+        [] => panic!("Missing EOF")
     }
 }
 
@@ -62,26 +58,24 @@ pub fn parse_rets<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
         [Tok{token: Token::OpenParen, ..}, rest..] => parse_ident_list(rest),
         // <ident>
         [Tok{token: Token::Ident(id), ..}, rest..] => Ok((vec![id], rest)),
-        [Tok{ref token, line, col, line_string, ..}, ..] => {
-            Err(format!(
-                "PARSING FAILURE at {},{}: Expected Ident or '(' but found {:?}\n{}\n{}",
-                line + 1,
-                col + 1,
-                token,
-                line_string,
-                get_caret_string(col)
-            ))
-        }
-        [] => Err(format!("PARSING FAILURE: Reached end of file but expected an Ident or '('"))
+        [ref tok, ..] => Err(ParserError{
+            actual: tok.clone(),
+            error_type: ParserErrorType::ExpectedTokens{
+                //TODO
+                expected: vec!(Token::Ident("<ident>"), Token::CloseParen)
+            },
+            hint: Some("`->` must be followed by a single ident or a list of idents in the form `(foo, bar, ...)`")
+        }),
+        [] => panic!("Missing EOF")
     }
 }
 
 // <clip-def>
-pub fn parse_clip_def<'a>(tokens: &'a[Tok])
+pub fn parse_clip_def<'a>(tokens: &'a[Tok<'a>])
                           -> ParseResult<'a, (Vec<&'a str>, Vec<&'a str>, Vec<Stmt<'a>>)> {
     match tokens {
         // "(" <params> ...
-        [Tok{token: Token::OpenParen, line, col, line_string, ..}, rest..] => {
+        [Tok{token: Token::OpenParen, ..}, rest..] => {
             let (parsed_params, tokens_after_params) = try!(parse_params(rest));
             match tokens_after_params {
                 // ... "{" <clip-statements>
@@ -100,42 +94,33 @@ pub fn parse_clip_def<'a>(tokens: &'a[Tok])
                             };
                             Ok(((parsed_params, parsed_rets, parsed_list), tokens_after_list))
                         }
-                        [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                            "PARSING FAILURE at {},{}: Found {:?} but expected '{{'\n{}\n{}",
-                            line + 1,
-                            col + 1,
-                            token,
-                            line_string,
-                            get_caret_string(col)
-                        )),
-                        [] => Err(format!("PARSING FAILURE: Reached end of file, but expected '{{'"))
-                    }  
+                        [ref tok, ..] => Err(ParserError{
+                            actual: tok.clone(),
+                            error_type: ParserErrorType::ExpectedTokens{
+                                expected: vec!(Token::OpenCurly)
+                            },
+                            hint: Some("return idents must be followed by a clip block in the form `{...}`")
+                        }),
+                        [] => panic!("Missing EOF")
+                    }
                 }
-                [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                    "PARSING FAILURE at {},{}: Found {:?} but expected '{{' or '->'\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    token,
-                    line_string,
-                    get_caret_string(col)
-                )),
-                [] => Err(format!(
-                    "PARSING FAILURE: Reached end of file, but the paren at {},{} is unmatched\n{}\n{}",
-                    line + 1,
-                    col + 1,
-                    line_string,
-                    get_caret_string(col)
-                ))
+                [ref tok, ..] => Err(ParserError{
+                    actual: tok.clone(),
+                    error_type: ParserErrorType::ExpectedTokens{
+                        expected: vec!(Token::OpenCurly, Token::Ret)
+                    },
+                    hint: Some("`fn(...)` expressions must include a clip block in the form `{...}`")
+                }),
+                [] => panic!("Missing EOF")
             }
         },
-        [Tok{ref token, line, col, line_string, ..}, ..] => Err(format!(
-                "PARSING FAILURE at {},{}: Found {:?} but expected '('\n{}\n{}",
-                line + 1,
-                col + 1,
-                token,
-                line_string,
-                get_caret_string(col)
-            )),
-        [] => Err(format!("PARSING FAILURE: Reached end of file, but expected '('"))
+        [ref tok, ..] => Err(ParserError{
+            actual: tok.clone(),
+            error_type: ParserErrorType::ExpectedTokens{
+                expected: vec!(Token::OpenParen)
+            },
+            hint: Some("`fn` expressions must include a list of parameters in the form `()` or `(foo, bar, ...)`")
+        }),
+        [] => panic!("Missing EOF")
     }
 }

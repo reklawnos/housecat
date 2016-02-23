@@ -122,7 +122,7 @@ impl<'a> fmt::Display for Token<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tok<'a> {
     pub token: Token<'a>,
     pub line: usize,
