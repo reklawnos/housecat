@@ -80,10 +80,7 @@ fn parse_primary_expr<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Expr<'a>> {
         }
         [ref tok, ..] => Err(ParserError{
             actual: tok.clone(),
-            error_type: ParserErrorType::ExpectedTokens{
-                //TODO
-                expected: vec!(Token::Ident("<ident>"), Token::Ident("<literal>"), Token::OpenParen)
-            },
+            error_type: ParserErrorType::ExpectedBaseExpression,
             hint: None
         }),
         [] => panic!("Missing EOF")
@@ -124,7 +121,6 @@ fn parse_params<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Expr<'a>>> {
             parse_expr_list(tokens, Token::CloseParen)
         }
         [] => panic!("Missing EOF")
-        // TODO: [] => panic!("PARSING FAILURE: Reached end of file but expected an expression or ')'")
     }
 }
 
@@ -176,10 +172,7 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
                 },
                 [ref tok, ..] => Err(ParserError{
                     actual: tok.clone(),
-                    error_type: ParserErrorType::ExpectedTokens{
-                        // TODO
-                        expected: vec!(Token::Ident("<ident>"))
-                    },
+                    error_type: ParserErrorType::ExpectedIdent,
                     hint: Some("`.` must be followed by an ident with the name of a property to access")
                 }),
                 [] => panic!("Missing EOF")
@@ -189,20 +182,29 @@ fn parse_postfix_continuation<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<Postf
         [Tok{token: Token::AccessSelf, ..}, rest..] => {
             match rest {
                 // <ident> "(" <params>
-                [Tok{token: Token::Ident(i), ..}, Tok{token: Token::OpenParen, ..}, rest..] => {
-                    let (params_list, tokens_after_params) = try!(parse_params(rest));
-                    let (mut postfix_list, tokens_after_next) = {
-                        try!(parse_postfix_continuation(tokens_after_params))
-                    };
-                    postfix_list.insert(0, Postfix::PlaySelf(i, params_list));
-                    Ok((postfix_list, tokens_after_next))
+                [Tok{token: Token::Ident(ident), ..}, rest..] => {
+                    match rest {
+                        [Tok{token: Token::OpenParen, ..}, rest..] => {
+                            let (params_list, tokens_after_params) = try!(parse_params(rest));
+                            let (mut postfix_list, tokens_after_next) = {
+                                try!(parse_postfix_continuation(tokens_after_params))
+                            };
+                            postfix_list.insert(0, Postfix::PlaySelf(ident, params_list));
+                            Ok((postfix_list, tokens_after_next))
+                        }
+                        [ref tok, ..] => Err(ParserError{
+                            actual: tok.clone(),
+                            error_type: ParserErrorType::ExpectedTokens{
+                                expected: vec!(Token::OpenParen)
+                            },
+                            hint: None
+                        }),
+                        [] => panic!("Missing EOF")
+                    }
                 },
                 [ref tok, ..] => Err(ParserError{
                     actual: tok.clone(),
-                    error_type: ParserErrorType::ExpectedTokens{
-                        // TODO
-                        expected: vec!(Token::Ident("<ident>("))
-                    },
+                    error_type: ParserErrorType::ExpectedIdent,
                     hint: Some("`|` must be followed by an ident with the name of a property to access")
                 }),
                 [] => panic!("Missing EOF")

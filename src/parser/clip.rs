@@ -30,10 +30,7 @@ fn parse_ident_list<'a>(tokens: &'a[Tok<'a>]) -> ParseResult<'a, Vec<&'a str>> {
         }
         [ref tok, ..] => Err(ParserError{
             actual: tok.clone(),
-            error_type: ParserErrorType::ExpectedTokens{
-                //TODO
-                expected: vec!(Token::Ident("<ident>"))
-            },
+            error_type: ParserErrorType::ExpectedIdent,
             hint: None
         }),
         [] => panic!("Missing EOF")
@@ -60,10 +57,7 @@ pub fn parse_rets<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Vec<&'a str>> {
         [Tok{token: Token::Ident(id), ..}, rest..] => Ok((vec![id], rest)),
         [ref tok, ..] => Err(ParserError{
             actual: tok.clone(),
-            error_type: ParserErrorType::ExpectedTokens{
-                //TODO
-                expected: vec!(Token::Ident("<ident>"), Token::CloseParen)
-            },
+            error_type: ParserErrorType::ExpectedRets,
             hint: Some("`->` must be followed by a single ident or a list of idents in the form `(foo, bar, ...)`")
         }),
         [] => panic!("Missing EOF")

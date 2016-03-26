@@ -1,6 +1,5 @@
 use token::{Token, Tok};
 use ast::*;
-use utils::*;
 use parser::expr::parse_expr;
 use parser::clip::parse_rets;
 use parser::{ParseResult, ParserError, ParserErrorType};
@@ -14,10 +13,7 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
                 [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Var(id), rest)),
                 [ref tok, ..] => Err(ParserError{
                     actual: tok.clone(),
-                    error_type: ParserErrorType::ExpectedTokens{
-                        //TODO
-                        expected: vec!(Token::Ident("<ident>"))
-                    },
+                    error_type: ParserErrorType::ExpectedIdent,
                     hint: None
                 }),
                 [] => panic!("Missing EOF")
@@ -29,10 +25,7 @@ fn parse_item<'a>(tokens: &'a[Tok]) -> ParseResult<'a, StmtItem<'a>> {
                 [Tok{token: Token::Ident(id), ..}, rest..]=> Ok((StmtItem::Let(id), rest)),
                 [ref tok, ..] => Err(ParserError{
                     actual: tok.clone(),
-                    error_type: ParserErrorType::ExpectedTokens{
-                        //TODO
-                        expected: vec!(Token::Ident("<ident>"))
-                    },
+                    error_type: ParserErrorType::ExpectedIdent,
                     hint: None
                 }),
                 [] => panic!("Missing EOF")
@@ -88,9 +81,7 @@ fn parse_stmt_items<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
             Ok((Stmt{stmt: StmtType::Bare{items: parsed_items},
                      data: AstData{line: line}}, tokens_after_items))
         }
-        //TODO: fix line number for last bare statement
-        [] => Ok((Stmt{stmt: StmtType::Bare{items: parsed_items},
-                       data: AstData{line: 0}}, tokens_after_items))
+        [] => panic!("Missing EOF")
     }
 }
 
@@ -113,7 +104,7 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
                         [ref tok, ..] => Err(ParserError{
                             actual: tok.clone(),
                             error_type: ParserErrorType::ExpectedMatchingToken{
-                                //TODO
+                                //TODO: should keep track of do-end errors
                                 expected: Token::Do,
                                 start_tok: start_tok.clone()
                             },
@@ -135,7 +126,7 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
                         [ref tok, ..] => Err(ParserError{
                             actual: tok.clone(),
                             error_type: ParserErrorType::ExpectedMatchingToken{
-                                //TODO
+                                //TODO: should keep track of do-end errors
                                 expected: Token::Do,
                                 start_tok: start_tok.clone()
                             },
@@ -161,7 +152,7 @@ fn parse_stmt<'a>(tokens: &'a[Tok]) -> ParseResult<'a, Stmt<'a>> {
                                 [ref tok, ..] => Err(ParserError{
                                     actual: tok.clone(),
                                     error_type: ParserErrorType::ExpectedMatchingToken{
-                                        //TODO
+                                        //TODO: should keep track of do-end errors
                                         expected: Token::Do,
                                         start_tok: in_tok.clone()
                                     },
