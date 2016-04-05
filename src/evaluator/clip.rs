@@ -51,36 +51,3 @@ impl ClipHolder {
         self.clip.borrow_mut()
     }
 }
-
-/*
-#[derive(Clone, Debug)]
-pub struct RustHolder<'a> {
-    pub clip: Rc<RefCell<Box<RustClip<'a> + 'a>>>,
-    pub id: usize
-}
-
-impl<'a> Eq for RustHolder<'a> {}
-
-impl<'a> PartialEq for RustHolder<'a> {
-    fn eq(&self, other: &RustHolder<'a>) -> bool {
-        self.id == other.id
-    }
-
-    fn ne(&self, other: &RustHolder<'a>) -> bool {
-        self.id != other.id
-    }
-}
-
-impl<'a> Hash for RustHolder<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-pub trait RustClip<'a>: Debug{
-    fn get(&self, &str) -> Option<Value<'a>>;
-    fn set(&mut self, &str, Value<'a>) -> Result<(), &str>;
-    fn call(&mut self, Vec<Value<'a>>) -> Result<Value<'a>, &str>;
-}
-
-*/

@@ -170,7 +170,6 @@ fn gen_stmt<'a>(stmt: &'a Stmt, ops: &mut Vec<Op>) -> Result<(), String> {
         &StmtType::Def{ref items, ref expr, ..} => {
             let mut new_ops = Vec::new();
             try!(gen_expr(expr, &mut new_ops));
-            println!("new_ops: {:?}", &new_ops);
             ops.append(&mut new_ops);
             if items.len() > 1 {
                 ops.push(Op::ExpandTuple(items.len()));

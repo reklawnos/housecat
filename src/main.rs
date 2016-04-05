@@ -1,21 +1,7 @@
-#![feature(slice_patterns)]
-#![feature(as_unsafe_cell)]
-
-
-extern crate regex;
-extern crate num;
-
+extern crate housecat;
 use std::env;
-use interpreter::Interpreter;
 
-mod token;
-mod ast;
-mod parser;
-mod lexer;
-mod utils;
-mod evaluator;
-mod interpreter;
-mod libhc;
+use housecat::Interpreter;
 
 fn main() {
     let command_args: Vec<String> = env::args().collect();

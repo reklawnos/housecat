@@ -16,11 +16,15 @@ pub struct StdClip {
 
 impl StdClip {
     pub fn new(params: Vec<String>, returns: Vec<String>, ops: Vec<Op>) -> StdClip {
+        Self::new_with_defs(params, returns, ops, HashMap::new())
+    }
+
+    pub fn new_with_defs(params: Vec<String>, returns: Vec<String>, ops: Vec<Op>, defs: HashMap<Value, Value>) -> StdClip {
         StdClip {
             params: params,
             returns: returns,
             ops: ops,
-            defs: HashMap::new()
+            defs: defs
         }
     }
 }

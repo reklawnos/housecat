@@ -4,9 +4,12 @@ name = "housecat"
 version = "0.0.0"
 authors = [ "whenderson" ]
 
-[[bin]]
-
+[lib]
 name = "housecat"
+path = "src/lib.rs"
+
+[[bin]]
+name = "housecat-cli"
 path = "src/main.rs"
 
 [dependencies]

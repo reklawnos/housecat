@@ -1,7 +1,7 @@
 mod ops;
 mod codegen;
 mod vm;
-mod standard_clip;
+pub mod standard_clip;
 pub mod value;
 pub mod clip;
 pub mod environment;
@@ -20,19 +20,18 @@ use std::mem::size_of;
 
 use libhc::open_libs;
 
-
-fn print_ops(ops: &Vec<Op>) {
+fn print_debug_info(ops: &Vec<Op>) {
+    println!("running stack eval...");
+    println!("op size: {}", size_of::<Op>());
+    println!("value size: {}", size_of::<Value>());
+    println!("boxed size: {}", size_of::<Box<Value>>());
+    println!("string size: {}", size_of::<String>());
     for (idx, op) in ops.iter().enumerate() {
         println!("{}: {:?}", idx, op);
     }
 }
 
 pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value, Value>) -> Result<(), String> {
-    println!("running stack eval...");
-    println!("op size: {}", size_of::<Op>());
-    println!("value size: {}", size_of::<Value>());
-    println!("boxed size: {}", size_of::<Box<Value>>());
-    println!("string size: {}", size_of::<String>());
     let libs = open_libs();
     let mut ops = Vec::with_capacity(1024);
     let mut env = Environment::new();
@@ -45,7 +44,9 @@ pub fn evaluate<'a>(ast: &'a Vec<Stmt<'a>>, defs: &mut HashMap<Value, Value>) ->
         Ok(_) => (),
         Err(s) => {return Err(s)}
     };
-    print_ops(&ops);
+    if cfg!(debug) {
+        print_debug_info(&ops);
+    }
     let mut stack = Vec::with_capacity(256);
     match execute(&mut ops, &mut stack, &mut env, defs) {
         Ok(()) => Ok(()),

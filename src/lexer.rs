@@ -99,7 +99,6 @@ fn match_string(line_slice: &str) -> Option<(Token, usize)> {
         None => {return None}
     };
     let trimmed_slice = &line_slice[start + 1..end - 1];
-    println!("trimmed slice: {:?}", trimmed_slice);
     let escaped = trimmed_slice.replace(r#"\""#, "\"").replace(r"\\", r"\");
     return Some((Token::String(escaped), end));
 }
