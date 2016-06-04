@@ -372,23 +372,4 @@ mod test {
             ]
         )
     }
-
-    /*
-    #[bench]
-    fn bench_symbols(b: &mut Bencher) {
-        let num_copies = 1000;
-        let symbol_string = ":.{}()[],->*%/+-<=<>=>===!==!=&&||!$";
-        let mut test_string = String::with_capacity(symbol_string.len() * num_copies);
-        for _ in 1..num_copies {
-            test_string.push_str(symbol_string);
-        }
-        b.iter(|| {
-            let mut lexer = Lexer::new();
-            match lexer.lex(test_string.clone()) {
-                Err(_) => assert!(false),
-                Ok(_) => ()
-            }
-        });
-    }
-    */
 }

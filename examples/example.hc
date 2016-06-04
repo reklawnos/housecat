@@ -17,10 +17,11 @@ var foo = ${
         bagels = "test"
         print("woo!")
     }
+
     # bar2: fn(param1, param2) -> (bagel, butter) {
     #    bagel = "woo" + param1
     #    butter = "hoo!" + param2
-    #}
+    # }
 }
 
 #var get_somethings = fn() -> (retval1, retval2, retval3) {
