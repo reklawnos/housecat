@@ -2,9 +2,8 @@ use std::fmt::{Debug, Display, Formatter, Error};
 use std::fmt::Result as FmtResult;
 use num::Float;
 use std::mem;
-use std::cmp::Eq;
 
-use super::clip::{Clip, ClipHolder};
+use super::clip::{ClipHolder};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Value {
